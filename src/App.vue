@@ -12,6 +12,16 @@
     <button @click="exportScene">导出场景</button>
     <button @click="triggerImportInput">导入场景</button>
     <input type="file" ref="importInput" @change="handleImportScene" accept=".json" />
+    
+    <!-- 编辑模式工具栏 -->
+    <div v-if="transformControlsRef?.object" class="edit-toolbar">
+      <h4>编辑模式</h4>
+      <div class="transform-buttons">
+        <button @click="setTransformMode('translate')" :class="{ active: transformMode === 'translate' }">移动</button>
+        <button @click="setTransformMode('rotate')" :class="{ active: transformMode === 'rotate' }">旋转</button>
+        <button @click="setTransformMode('scale')" :class="{ active: transformMode === 'scale' }">缩放</button>
+      </div>
+    </div>
   </div>
   
   <div v-if="selectedObject" class="properties-panel">
@@ -56,6 +66,7 @@ const importInput = ref<HTMLInputElement | null>(null)
 const selectedObject = ref<THREE.Object3D | null>(null)
 const contextMenuVisible = ref(false)
 const contextMenuPosition = ref({ x: 0, y: 0 })
+const transformMode = ref('translate') // 变换模式：translate, rotate, scale
 
 // Three.js 变量
 let scene: THREE.Scene
@@ -63,6 +74,7 @@ let camera: THREE.PerspectiveCamera
 let renderer: THREE.WebGLRenderer
 let controls: OrbitControls
 let transformControls: TransformControls
+const transformControlsRef = ref<TransformControls | null>(null)
 let raycaster: THREE.Raycaster
 let mouse: THREE.Vector2
 let ground: THREE.Mesh
@@ -99,6 +111,7 @@ const initThreeJS = () => {
 
   // 创建变换控制器
   transformControls = new TransformControls(camera, renderer.domElement)
+  transformControlsRef.value = transformControls
   transformControls.addEventListener('dragging-changed', (event) => {
     // 当开始拖拽时禁用轨道控制器，结束时启用
     controls.enabled = !event.value
@@ -572,9 +585,17 @@ const toggleTransformControls = () => {
   
   // 进入编辑模式
   transformControls.attach(selectedObject.value)
-  transformControls.setMode('translate')
+  transformControls.setMode(transformMode.value as any)
   // 禁用轨道控制器，避免冲突
   controls.enabled = false
+}
+
+// 设置变换模式
+const setTransformMode = (mode: string) => {
+  transformMode.value = mode
+  if (transformControlsRef.value?.object) {
+    transformControlsRef.value.setMode(mode as any)
+  }
 }
 
 // 格式化向量显示
@@ -660,6 +681,39 @@ body {
 
 .toolbar button:hover {
   background-color: #45a049;
+}
+
+.edit-toolbar {
+  margin-top: 15px;
+  padding-top: 10px;
+  border-top: 1px solid #ddd;
+}
+
+.edit-toolbar h4 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  color: #333;
+}
+
+.transform-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.transform-buttons button {
+  padding: 6px 10px;
+  font-size: 13px;
+  background-color: #2196F3;
+}
+
+.transform-buttons button:hover {
+  background-color: #0b7dda;
+}
+
+.transform-buttons button.active {
+  background-color: #0b7dda;
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
 }
 
 .toolbar input[type="file"] {
