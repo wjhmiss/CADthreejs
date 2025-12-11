@@ -30,22 +30,134 @@
       <span class="property-label">名称:</span>
       <span class="property-value">{{ selectedObject.name || '未命名' }}</span>
     </div>
-    <div class="property-item">
-      <span class="property-label">位置:</span>
-      <span class="property-value">{{ formatVector(selectedObject.position) }}</span>
+    
+    <!-- 位置属性 -->
+    <div class="property-group">
+      <h4>位置</h4>
+      <div class="property-row">
+        <span class="axis-label">X:</span>
+        <input 
+          v-if="transformControlsRef?.object === selectedObject" 
+          type="number" 
+          step="0.1" 
+          v-model.number="position.x" 
+          @input="updateObjectPosition"
+          class="property-input"
+        />
+        <span v-else class="property-value">{{ selectedObject.position.x.toFixed(2) }}</span>
+      </div>
+      <div class="property-row">
+        <span class="axis-label">Y:</span>
+        <input 
+          v-if="transformControlsRef?.object === selectedObject" 
+          type="number" 
+          step="0.1" 
+          v-model.number="position.y" 
+          @input="updateObjectPosition"
+          class="property-input"
+        />
+        <span v-else class="property-value">{{ selectedObject.position.y.toFixed(2) }}</span>
+      </div>
+      <div class="property-row">
+        <span class="axis-label">Z:</span>
+        <input 
+          v-if="transformControlsRef?.object === selectedObject" 
+          type="number" 
+          step="0.1" 
+          v-model.number="position.z" 
+          @input="updateObjectPosition"
+          class="property-input"
+        />
+        <span v-else class="property-value">{{ selectedObject.position.z.toFixed(2) }}</span>
+      </div>
     </div>
-    <div class="property-item">
-      <span class="property-label">旋转:</span>
-      <span class="property-value">{{ formatVector(selectedObject.rotation) }}</span>
+    
+    <!-- 旋转属性 -->
+    <div class="property-group">
+      <h4>旋转 (弧度)</h4>
+      <div class="property-row">
+        <span class="axis-label">X:</span>
+        <input 
+          v-if="transformControlsRef?.object === selectedObject" 
+          type="number" 
+          step="0.1" 
+          v-model.number="rotation.x" 
+          @input="updateObjectRotation"
+          class="property-input"
+        />
+        <span v-else class="property-value">{{ selectedObject.rotation.x.toFixed(2) }}</span>
+      </div>
+      <div class="property-row">
+        <span class="axis-label">Y:</span>
+        <input 
+          v-if="transformControlsRef?.object === selectedObject" 
+          type="number" 
+          step="0.1" 
+          v-model.number="rotation.y" 
+          @input="updateObjectRotation"
+          class="property-input"
+        />
+        <span v-else class="property-value">{{ selectedObject.rotation.y.toFixed(2) }}</span>
+      </div>
+      <div class="property-row">
+        <span class="axis-label">Z:</span>
+        <input 
+          v-if="transformControlsRef?.object === selectedObject" 
+          type="number" 
+          step="0.1" 
+          v-model.number="rotation.z" 
+          @input="updateObjectRotation"
+          class="property-input"
+        />
+        <span v-else class="property-value">{{ selectedObject.rotation.z.toFixed(2) }}</span>
+      </div>
     </div>
-    <div class="property-item">
-      <span class="property-label">缩放:</span>
-      <span class="property-value">{{ formatVector(selectedObject.scale) }}</span>
+    
+    <!-- 缩放属性 -->
+    <div class="property-group">
+      <h4>缩放</h4>
+      <div class="property-row">
+        <span class="axis-label">X:</span>
+        <input 
+          v-if="transformControlsRef?.object === selectedObject" 
+          type="number" 
+          step="0.1" 
+          v-model.number="scale.x" 
+          @input="updateObjectScale"
+          class="property-input"
+        />
+        <span v-else class="property-value">{{ selectedObject.scale.x.toFixed(2) }}</span>
+      </div>
+      <div class="property-row">
+        <span class="axis-label">Y:</span>
+        <input 
+          v-if="transformControlsRef?.object === selectedObject" 
+          type="number" 
+          step="0.1" 
+          v-model.number="scale.y" 
+          @input="updateObjectScale"
+          class="property-input"
+        />
+        <span v-else class="property-value">{{ selectedObject.scale.y.toFixed(2) }}</span>
+      </div>
+      <div class="property-row">
+        <span class="axis-label">Z:</span>
+        <input 
+          v-if="transformControlsRef?.object === selectedObject" 
+          type="number" 
+          step="0.1" 
+          v-model.number="scale.z" 
+          @input="updateObjectScale"
+          class="property-input"
+        />
+        <span v-else class="property-value">{{ selectedObject.scale.z.toFixed(2) }}</span>
+      </div>
     </div>
   </div>
   
   <div v-if="contextMenuVisible" class="context-menu" :style="{ left: contextMenuPosition.x + 'px', top: contextMenuPosition.y + 'px' }">
     <div class="context-menu-item" @click="handleDeleteObject">删除</div>
+    <div v-if="selectedObject && selectedObject.userData.needsGLBLoad" class="context-menu-item" @click="handleLoadGLB">加载GLB文件</div>
     <div v-if="transformControls.object === selectedObject" class="context-menu-item" @click="handleExitEditMode">取消编辑模式</div>
     <div v-else class="context-menu-item" @click="handleEnterEditMode">启动编辑模式</div>
   </div>
@@ -67,6 +179,11 @@ const selectedObject = ref<THREE.Object3D | null>(null)
 const contextMenuVisible = ref(false)
 const contextMenuPosition = ref({ x: 0, y: 0 })
 const transformMode = ref('translate') // 变换模式：translate, rotate, scale
+
+// 对象属性的响应式变量
+const position = ref({ x: 0, y: 0, z: 0 })
+const rotation = ref({ x: 0, y: 0, z: 0 })
+const scale = ref({ x: 1, y: 1, z: 1 })
 
 // Three.js 变量
 let scene: THREE.Scene
@@ -119,6 +236,22 @@ const initThreeJS = () => {
   transformControls.addEventListener('objectChange', () => {
     // 当对象发生变化时，更新属性面板
     if (selectedObject.value) {
+      // 更新响应式变量
+      position.value = {
+        x: selectedObject.value.position.x,
+        y: selectedObject.value.position.y,
+        z: selectedObject.value.position.z
+      }
+      rotation.value = {
+        x: selectedObject.value.rotation.x,
+        y: selectedObject.value.rotation.y,
+        z: selectedObject.value.rotation.z
+      }
+      scale.value = {
+        x: selectedObject.value.scale.x,
+        y: selectedObject.value.scale.y,
+        z: selectedObject.value.scale.z
+      }
       // 触发Vue的响应式更新
       selectedObject.value = { ...selectedObject.value }
     }
@@ -229,57 +362,64 @@ const onMouseClick = (event: MouseEvent) => {
 const onRightClick = (event: MouseEvent) => {
   event.preventDefault()
   
+  // 计算鼠标位置
+  const mouse = new THREE.Vector2()
   mouse.x = (event.clientX / window.innerWidth) * 2 - 1
   mouse.y = -(event.clientY / window.innerHeight) * 2 + 1
-
+  
+  // 创建射线
+  const raycaster = new THREE.Raycaster()
   raycaster.setFromCamera(mouse, camera)
-  const intersects = raycaster.intersectObjects(scene.children, true)
-
-  if (intersects.length > 0) {
-    // 找到第一个可变换的相交对象
-    let targetObject: THREE.Object3D | null = null
-    for (const intersect of intersects) {
-      let obj = intersect.object
-      while (obj.parent && obj.parent.type !== 'Scene') {
-        obj = obj.parent
-      }
-      
-      // 检查对象是否可变换
-      if (obj.userData.isTransformable === true) {
-        targetObject = obj
-        break
-      }
+  
+  // 获取所有可变换的对象
+  const transformableObjects: THREE.Object3D[] = []
+  scene.traverse((child) => {
+    if (child.userData.isTransformable === true) {
+      transformableObjects.push(child)
     }
-
+  })
+  
+  // 检测射线与对象的交点
+  const intersects = raycaster.intersectObjects(transformableObjects, true)
+  
+  if (intersects.length > 0) {
+    // 获取第一个相交的对象
+    const intersectedObject = intersects[0].object
+    
+    // 找到最顶层的可变换对象（对于GLB模型，需要找到其父级Group）
+    let targetObject: THREE.Object3D | null = intersectedObject
+    
+    // 如果相交的对象不是可变换的，或者它是GLB模型的子对象，向上查找
+    while (targetObject && targetObject.userData.isTransformable !== true) {
+      targetObject = targetObject.parent
+    }
+    
     if (targetObject) {
-      // 如果当前有对象处于编辑模式，不执行选择操作，直接显示右键菜单
-      if (transformControls.object) {
-        // 如果右键点击的是当前正在编辑的对象，确保selectedObject正确设置并显示右键菜单
-        if (transformControls.object === targetObject) {
-          selectedObject.value = targetObject
-          showContextMenu(event.clientX, event.clientY)
-        }
-        // 如果右键点击的是其他对象，选择新对象并显示右键菜单
-        else {
-          selectedObject.value = targetObject
-          showContextMenu(event.clientX, event.clientY)
-        }
-        return
+      // 选中对象
+      selectedObject.value = targetObject
+      
+      // 更新响应式变量
+      position.value = {
+        x: targetObject.position.x,
+        y: targetObject.position.y,
+        z: targetObject.position.z
+      }
+      rotation.value = {
+        x: targetObject.rotation.x,
+        y: targetObject.rotation.y,
+        z: targetObject.rotation.z
+      }
+      scale.value = {
+        x: targetObject.scale.x,
+        y: targetObject.scale.y,
+        z: targetObject.scale.z
       }
       
-      // 确保selectedObject被正确设置
-      selectedObject.value = targetObject
+      // 显示右键菜单
       showContextMenu(event.clientX, event.clientY)
-    } else {
-      // 点击了不可变换的对象（如地面），确保取消选择并恢复视角控制
-      deselectObject()
-      // 确保OrbitControls可用
-      controls.enabled = true
-      // 强制更新OrbitControls
-      controls.update()
     }
   } else {
-    // 点击了空白区域，确保取消选择并恢复视角控制
+    // 点击了空白区域，取消选择
     deselectObject()
     // 确保OrbitControls可用
     controls.enabled = true
@@ -313,6 +453,23 @@ const selectObject = (object: THREE.Object3D) => {
   }
   
   selectedObject.value = object
+  
+  // 更新响应式变量
+  position.value = {
+    x: object.position.x,
+    y: object.position.y,
+    z: object.position.z
+  }
+  rotation.value = {
+    x: object.rotation.x,
+    y: object.rotation.y,
+    z: object.rotation.z
+  }
+  scale.value = {
+    x: object.scale.x,
+    y: object.scale.y,
+    z: object.scale.z
+  }
   
   // 不自动附加变换控制器，只选择对象但不进入编辑模式
   // 确保轨道控制器保持可用
@@ -408,11 +565,17 @@ const handleFileUpload = (event: Event) => {
     URL.createObjectURL(file),
     (gltf) => {
       const model = gltf.scene
+      model.name = file.name.replace(/\.[^/.]+$/, "") // 移除文件扩展名作为模型名称
       model.position.y = 0.5
       model.castShadow = true
       model.receiveShadow = true
       // 标记为可变换的对象
       model.userData.isTransformable = true
+      // 标记为GLB模型
+      model.userData.isGLB = true
+      // 保存原始文件名
+      model.userData.originalFileName = file.name
+      
       model.traverse((child) => {
         if (child instanceof THREE.Mesh) {
           child.castShadow = true
@@ -437,15 +600,46 @@ const exportScene = () => {
   }
 
   scene.traverse((child) => {
-    if (child instanceof THREE.Mesh && child.userData.isTransformable !== false) {
-      const objectData = {
-        name: child.name,
-        type: child.geometry.type,
+    // 只导出可变换的对象（不包括地面和网格辅助线）
+    if (child.userData.isTransformable === true) {
+      let objectData: any = {
+        name: child.name || '未命名对象',
         position: child.position.toArray(),
         rotation: child.rotation.toArray(),
         scale: child.scale.toArray(),
-        color: (child.material as THREE.MeshStandardMaterial).color.getHex()
+        visible: child.visible,
+        castShadow: child.castShadow,
+        receiveShadow: child.receiveShadow,
+        userData: { ...child.userData }
       }
+      
+      // 判断对象类型
+      if (child instanceof THREE.Mesh) {
+        // 基础几何体
+        objectData.type = 'basic'
+        objectData.geometryType = child.geometry.type
+        
+        // 保存材质信息
+        if (child.material instanceof THREE.MeshStandardMaterial) {
+          objectData.material = {
+            type: 'MeshStandardMaterial',
+            color: child.material.color.getHex(),
+            roughness: child.material.roughness,
+            metalness: child.material.metalness,
+            transparent: child.material.transparent,
+            opacity: child.material.opacity
+          }
+        }
+      } else if (child.type === 'Group' || child.type === 'Scene') {
+        // GLB模型通常是一个Group或Scene
+        objectData.type = 'gltf'
+        
+        // 保存GLB模型的原始文件名（如果有）
+        if (child.userData.originalFileName) {
+          objectData.originalFileName = child.userData.originalFileName
+        }
+      }
+      
       sceneData.objects.push(objectData)
     }
   })
@@ -478,10 +672,10 @@ const handleImportScene = (event: Event) => {
     try {
       const sceneData = JSON.parse(e.target?.result as string)
       
-      // 清除当前场景中的所有对象（除了地面和网格）
+      // 清除当前场景中的所有可变换对象（除了地面和网格辅助线）
       const objectsToRemove: THREE.Object3D[] = []
       scene.traverse((child) => {
-        if (child instanceof THREE.Mesh && child !== ground) {
+        if (child.userData.isTransformable === true) {
           objectsToRemove.push(child)
         }
       })
@@ -492,48 +686,221 @@ const handleImportScene = (event: Event) => {
 
       // 重新创建对象
       sceneData.objects.forEach((objData: any) => {
-        let geometry: THREE.BufferGeometry
-        const material = new THREE.MeshStandardMaterial({ 
-          color: objData.color,
-          roughness: 0.5,
-          metalness: 0.3
-        })
-        let mesh: THREE.Mesh
+        if (objData.type === 'basic') {
+          // 创建基础几何体
+          let geometry: THREE.BufferGeometry
+          let material: THREE.MeshStandardMaterial
+          
+          // 创建材质
+          if (objData.material && objData.material.type === 'MeshStandardMaterial') {
+            material = new THREE.MeshStandardMaterial({
+              color: objData.material.color,
+              roughness: objData.material.roughness,
+              metalness: objData.material.metalness,
+              transparent: objData.material.transparent,
+              opacity: objData.material.opacity
+            })
+          } else {
+            // 默认材质
+            material = new THREE.MeshStandardMaterial({ 
+              roughness: 0.5,
+              metalness: 0.3
+            })
+          }
+          
+          // 根据几何体类型创建几何体
+          switch (objData.geometryType) {
+            case 'BoxGeometry':
+              geometry = new THREE.BoxGeometry(1, 1, 1)
+              break
+            case 'SphereGeometry':
+              geometry = new THREE.SphereGeometry(0.5, 32, 16)
+              break
+            case 'CylinderGeometry':
+              geometry = new THREE.CylinderGeometry(0.5, 0.5, 1, 32)
+              break
+            case 'TorusGeometry':
+              geometry = new THREE.TorusGeometry(0.5, 0.2, 16, 100)
+              break
+            default:
+              console.warn(`未知的几何体类型: ${objData.geometryType}`)
+              return
+          }
 
-        switch (objData.type) {
-          case 'BoxGeometry':
-            geometry = new THREE.BoxGeometry(1, 1, 1)
-            break
-          case 'SphereGeometry':
-            geometry = new THREE.SphereGeometry(0.5, 32, 16)
-            break
-          case 'CylinderGeometry':
-            geometry = new THREE.CylinderGeometry(0.5, 0.5, 1, 32)
-            break
-          case 'TorusGeometry':
-            geometry = new THREE.TorusGeometry(0.5, 0.2, 16, 100)
-            break
-          default:
-            return
+          const mesh = new THREE.Mesh(geometry, material)
+          mesh.name = objData.name
+          mesh.position.fromArray(objData.position)
+          mesh.rotation.fromArray(objData.rotation)
+          mesh.scale.fromArray(objData.scale)
+          mesh.visible = objData.visible !== undefined ? objData.visible : true
+          mesh.castShadow = objData.castShadow !== undefined ? objData.castShadow : true
+          mesh.receiveShadow = objData.receiveShadow !== undefined ? objData.receiveShadow : true
+          
+          // 恢复userData
+          mesh.userData = { ...objData.userData }
+          mesh.userData.isTransformable = true
+          
+          scene.add(mesh)
+        } else if (objData.type === 'gltf') {
+          // 对于GLB模型，创建一个占位符组
+          const group = new THREE.Group()
+          group.name = objData.name
+          group.position.fromArray(objData.position)
+          group.rotation.fromArray(objData.rotation)
+          group.scale.fromArray(objData.scale)
+          group.visible = objData.visible !== undefined ? objData.visible : true
+          group.castShadow = objData.castShadow !== undefined ? objData.castShadow : true
+          group.receiveShadow = objData.receiveShadow !== undefined ? objData.receiveShadow : true
+          
+          // 恢复userData
+          group.userData = { ...objData.userData }
+          group.userData.isTransformable = true
+          group.userData.isGLB = true
+          
+          // 保存原始文件名
+          if (objData.originalFileName) {
+            group.userData.originalFileName = objData.originalFileName
+          }
+          
+          scene.add(group)
+          
+          // 显示一个占位符，表示这是GLB模型
+          const placeholderGeometry = new THREE.BoxGeometry(1, 1, 1)
+          const placeholderMaterial = new THREE.MeshStandardMaterial({ 
+            color: 0x00ff00,
+            wireframe: true
+          })
+          const placeholderMesh = new THREE.Mesh(placeholderGeometry, placeholderMaterial)
+          placeholderMesh.name = 'GLB占位符'
+          group.add(placeholderMesh)
+          
+          // 尝试加载原始GLB文件（如果文件名可用）
+          if (objData.originalFileName) {
+            // 保存需要加载的GLB文件信息，以便后续处理
+            group.userData.needsGLBLoad = true
+            console.log(`需要手动加载GLB文件: ${objData.originalFileName}`)
+          }
         }
-
-        mesh = new THREE.Mesh(geometry, material)
-        mesh.name = objData.name
-        mesh.position.fromArray(objData.position)
-        mesh.rotation.fromArray(objData.rotation)
-        mesh.scale.fromArray(objData.scale)
-        mesh.castShadow = true
-        mesh.receiveShadow = true
-        // 标记为可变换的对象
-        mesh.userData.isTransformable = true
-        scene.add(mesh)
       })
+      
+      // 检查是否有需要加载GLB文件的对象
+      const needsGLBLoad = sceneData.objects.some((obj: any) => 
+        obj.type === 'gltf' && obj.originalFileName
+      )
+      
+      if (needsGLBLoad) {
+        // 显示提示，告知用户需要手动加载GLB文件
+        alert('场景中包含GLB模型。请右键点击绿色线框占位符，然后选择"加载GLB文件"来恢复原始模型。')
+      }
     } catch (error) {
       console.error('导入场景时出错:', error)
     }
   }
   
   reader.readAsText(file)
+}
+
+// 加载GLB文件到指定的组
+const loadGLBToGroup = (group: THREE.Group, file: File) => {
+  const loader = new GLTFLoader()
+  
+  // 初始化DRACOLoader
+  const dracoLoader = new DRACOLoader()
+  // 设置DRACOLoader的解码器路径
+  dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/')
+  // 将DRACOLoader与GLTFLoader关联
+  loader.setDRACOLoader(dracoLoader)
+  
+  loader.load(
+    URL.createObjectURL(file),
+    (gltf) => {
+      // 保存组的变换属性
+      const position = group.position.clone()
+      const rotation = group.rotation.clone()
+      const scale = group.scale.clone()
+      
+      // 清除占位符
+      while(group.children.length > 0) {
+        const child = group.children[0]
+        group.remove(child)
+      }
+      
+      // 添加加载的模型
+      const model = gltf.scene
+      model.name = file.name.replace(/\.[^/.]+$/, "")
+      model.castShadow = true
+      model.receiveShadow = true
+      
+      // 标记子网格为可变换的对象
+      model.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          child.castShadow = true
+          child.receiveShadow = true
+          child.userData.isTransformable = true
+        }
+      })
+      
+      // 添加到组
+      group.add(model)
+      
+      // 恢复组的变换属性
+      group.position.copy(position)
+      group.rotation.copy(rotation)
+      group.scale.copy(scale)
+      
+      // 更新userData
+      group.userData.needsGLBLoad = false
+      group.userData.originalFileName = file.name
+      
+      console.log('GLB文件加载成功:', file.name)
+    },
+    undefined,
+    (error) => {
+      console.error('加载GLB模型时出错:', error)
+      alert('加载GLB文件失败，请检查文件是否有效。')
+    }
+  )
+}
+
+// 处理加载GLB文件
+const handleLoadGLB = () => {
+  if (!selectedObject.value || !selectedObject.value.userData.needsGLBLoad) {
+    return
+  }
+  
+  // 创建一个隐藏的文件输入元素
+  const fileInput = document.createElement('input')
+  fileInput.type = 'file'
+  fileInput.accept = '.glb,.gltf'
+  fileInput.style.display = 'none'
+  
+  // 添加到DOM
+  document.body.appendChild(fileInput)
+  
+  // 监听文件选择
+  fileInput.addEventListener('change', (event) => {
+    const target = event.target as HTMLInputElement
+    if (!target.files || target.files.length === 0) return
+    
+    const file = target.files[0]
+    
+    // 确保选中的对象是一个Group
+    if (selectedObject.value instanceof THREE.Group) {
+      loadGLBToGroup(selectedObject.value as THREE.Group, file)
+    } else {
+      console.error('选中的对象不是一个Group，无法加载GLB文件')
+      alert('无法加载GLB文件：选中的对象不是一个有效的容器。')
+    }
+    
+    // 清理
+    document.body.removeChild(fileInput)
+  })
+  
+  // 触发文件选择对话框
+  fileInput.click()
+  
+  // 隐藏右键菜单
+  contextMenuVisible.value = false
 }
 
 // 处理删除对象
@@ -562,10 +929,44 @@ const handleExitEditMode = () => {
 
 // 删除选中的对象
 const deleteSelectedObject = () => {
-  if (selectedObject.value && selectedObject.value.userData.isTransformable !== false) {
-    scene.remove(selectedObject.value)
-    deselectObject()
+  if (!selectedObject.value) return
+  
+  // 检查对象是否可以被删除
+  if (selectedObject.value.userData.isTransformable === false) return
+  
+  // 如果是GLB模型（Group对象），需要特殊处理
+  if (selectedObject.value instanceof THREE.Group) {
+    // 递归释放所有子对象的资源
+    selectedObject.value.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        child.geometry.dispose()
+        if (child.material instanceof THREE.Material) {
+          child.material.dispose()
+        } else if (Array.isArray(child.material)) {
+          child.material.forEach(material => material.dispose())
+        }
+      }
+    })
+  } else if (selectedObject.value instanceof THREE.Mesh) {
+    // 如果是普通网格对象，释放其资源
+    selectedObject.value.geometry.dispose()
+    if (selectedObject.value.material instanceof THREE.Material) {
+      selectedObject.value.material.dispose()
+    } else if (Array.isArray(selectedObject.value.material)) {
+      selectedObject.value.material.forEach(material => material.dispose())
+    }
   }
+  
+  // 从场景中移除对象
+  scene.remove(selectedObject.value)
+  
+  // 如果对象有父对象，也从父对象中移除
+  if (selectedObject.value.parent) {
+    selectedObject.value.parent.remove(selectedObject.value)
+  }
+  
+  // 取消选择
+  deselectObject()
 }
 
 // 退出编辑模式
@@ -588,6 +989,23 @@ const toggleTransformControls = () => {
   transformControls.setMode(transformMode.value as any)
   // 禁用轨道控制器，避免冲突
   controls.enabled = false
+  
+  // 更新响应式变量
+  position.value = {
+    x: selectedObject.value.position.x,
+    y: selectedObject.value.position.y,
+    z: selectedObject.value.position.z
+  }
+  rotation.value = {
+    x: selectedObject.value.rotation.x,
+    y: selectedObject.value.rotation.y,
+    z: selectedObject.value.rotation.z
+  }
+  scale.value = {
+    x: selectedObject.value.scale.x,
+    y: selectedObject.value.scale.y,
+    z: selectedObject.value.scale.z
+  }
 }
 
 // 设置变换模式
@@ -595,6 +1013,33 @@ const setTransformMode = (mode: string) => {
   transformMode.value = mode
   if (transformControlsRef.value?.object) {
     transformControlsRef.value.setMode(mode as any)
+  }
+}
+
+// 更新对象位置
+const updateObjectPosition = () => {
+  if (selectedObject.value && transformControlsRef.value?.object === selectedObject.value) {
+    selectedObject.value.position.set(position.value.x, position.value.y, position.value.z)
+    // 触发变换控制器的更新
+    transformControlsRef.value.updateMatrixWorld()
+  }
+}
+
+// 更新对象旋转
+const updateObjectRotation = () => {
+  if (selectedObject.value && transformControlsRef.value?.object === selectedObject.value) {
+    selectedObject.value.rotation.set(rotation.value.x, rotation.value.y, rotation.value.z)
+    // 触发变换控制器的更新
+    transformControlsRef.value.updateMatrixWorld()
+  }
+}
+
+// 更新对象缩放
+const updateObjectScale = () => {
+  if (selectedObject.value && transformControlsRef.value?.object === selectedObject.value) {
+    selectedObject.value.scale.set(scale.value.x, scale.value.y, scale.value.z)
+    // 触发变换控制器的更新
+    transformControlsRef.value.updateMatrixWorld()
   }
 }
 
@@ -741,6 +1186,45 @@ body {
   margin-bottom: 8px;
   display: flex;
   justify-content: space-between;
+}
+
+.property-group {
+  margin-bottom: 15px;
+}
+
+.property-group h4 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  color: #333;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 3px;
+}
+
+.property-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.axis-label {
+  width: 20px;
+  font-weight: bold;
+  margin-right: 10px;
+  color: #555;
+}
+
+.property-input {
+  width: 80px;
+  padding: 3px 6px;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  font-size: 13px;
+}
+
+.property-input:focus {
+  outline: none;
+  border-color: #2196F3;
+  box-shadow: 0 0 3px rgba(33, 150, 243, 0.3);
 }
 
 .property-label {
