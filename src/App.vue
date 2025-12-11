@@ -37,7 +37,7 @@
   <div v-if="contextMenuVisible" class="context-menu" :style="{ left: contextMenuPosition.x + 'px', top: contextMenuPosition.y + 'px' }">
     <div class="context-menu-item" @click="handleDeleteObject">删除</div>
     <div v-if="transformControls.object === selectedObject" class="context-menu-item" @click="handleExitEditMode">取消编辑模式</div>
-    <div v-else class="context-menu-item" @click="handleEnterEditMode">编辑模式</div>
+    <div v-else class="context-menu-item" @click="handleEnterEditMode">启动编辑模式</div>
   </div>
 </template>
 
@@ -246,7 +246,11 @@ const onRightClick = (event: MouseEvent) => {
           selectedObject.value = targetObject
           showContextMenu(event.clientX, event.clientY)
         }
-        // 如果右键点击的是其他对象，不执行任何操作
+        // 如果右键点击的是其他对象，选择新对象并显示右键菜单
+        else {
+          selectedObject.value = targetObject
+          showContextMenu(event.clientX, event.clientY)
+        }
         return
       }
       
