@@ -563,7 +563,7 @@ const handleFileUpload = (event: Event) => {
   
   loader.load(
     URL.createObjectURL(file),
-    (gltf) => {
+    (gltf: any) => {
       const model = gltf.scene
       model.name = file.name.replace(/\.[^/.]+$/, "") // 移除文件扩展名作为模型名称
       model.position.y = 0.5
