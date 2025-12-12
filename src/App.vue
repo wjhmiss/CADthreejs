@@ -609,6 +609,8 @@ const saveGLBToPublic = (file: File): Promise<string> => {
                 mesh.userData.isGLB = true
                 // 保存原始文件名
                 mesh.userData.originalFileName = file.name
+                // 保存public路径信息，假设文件已保存到public文件夹
+                mesh.userData.publicPath = `/${file.name}`
 
                 // 直接将mesh对象添加到场景中
                 scene.add(mesh)
@@ -657,7 +659,22 @@ const exportScene = () => {
       }
 
       // 判断对象类型
-      if (child instanceof THREE.Mesh) {
+      if (child.userData.isGLB === true) {
+        // 对于GLB模型的mesh对象
+        objectData.type = 'gltf'
+
+        // 保存GLB模型的原始文件名（如果有）
+        if (child.userData.originalFileName) {
+          objectData.originalFileName = child.userData.originalFileName
+          // 保存模型路径，确保路径格式正确
+          objectData.modelPath = `/${child.userData.originalFileName}`
+          
+          // 检查是否有其他路径信息
+          if (child.userData.publicPath) {
+            objectData.modelPath = child.userData.publicPath
+          }
+        }
+      } else if (child instanceof THREE.Mesh) {
         // 基础几何体
         objectData.type = 'basic'
         objectData.geometryType = child.geometry.type
@@ -672,16 +689,6 @@ const exportScene = () => {
             transparent: child.material.transparent,
             opacity: child.material.opacity
           }
-        }
-      } else if (child.userData.isGLB === true) {
-        // 对于GLB模型的mesh对象
-        objectData.type = 'gltf'
-
-        // 保存GLB模型的原始文件名（如果有）
-        if (child.userData.originalFileName) {
-          objectData.originalFileName = child.userData.originalFileName
-          // 保存模型路径，假设模型在public文件夹中
-          objectData.modelPath = `/${child.userData.originalFileName}`
         }
       }
 
@@ -785,6 +792,10 @@ const handleImportScene = (event: Event) => {
           const mesh = new THREE.Mesh(geometry, material)
           mesh.name = objData.name
           mesh.position.fromArray(objData.position)
+          // 确保基础几何体位于地面上方
+          if (mesh.position.y <= 0) {
+            mesh.position.y = 0.5
+          }
           mesh.rotation.fromArray(objData.rotation)
           mesh.scale.fromArray(objData.scale)
           mesh.visible = objData.visible !== undefined ? objData.visible : true
@@ -817,6 +828,9 @@ const handleImportScene = (event: Event) => {
                   mesh.userData = { ...mesh.userData, ...objData.userData }
                   mesh.userData.isTransformable = true
                   mesh.userData.isGLB = true
+                  
+                  // 将加载的GLB模型添加到objects数组中
+                  objects.push(mesh)
                 })
 
                 console.log(`成功从public文件夹加载GLB模型: ${objData.originalFileName}，包含 ${meshes.length} 个网格对象`)
@@ -880,6 +894,8 @@ const handleImportScene = (event: Event) => {
             }
 
             scene.add(placeholderMesh)
+            // 将占位符mesh对象添加到objects数组中
+            objects.push(placeholderMesh)
           }
         }
       })
@@ -913,8 +929,16 @@ const loadGLBFromPublic = (modelPath: string, fileName: string): Promise<THREE.O
     // 将DRACOLoader与GLTFLoader关联
     loader.setDRACOLoader(dracoLoader)
 
+    // 确保路径格式正确
+    let path = modelPath
+    if (!path.startsWith('/') && !path.startsWith('./')) {
+      path = './' + path
+    }
+    
+    console.log(`尝试从路径加载GLB模型: ${path}, 文件名: ${fileName}`)
+
     loader.load(
-      modelPath,
+      path,
       (gltf) => {
         const model = gltf.scene
         const meshObjects: THREE.Object3D[] = []
@@ -934,6 +958,8 @@ const loadGLBFromPublic = (modelPath: string, fileName: string): Promise<THREE.O
             mesh.userData.isGLB = true
             // 保存原始文件名
             mesh.userData.originalFileName = fileName
+            // 保存public路径信息，以便导出时使用
+            mesh.userData.publicPath = modelPath
 
             // 直接将mesh对象添加到场景中
             scene.add(mesh)
@@ -948,7 +974,7 @@ const loadGLBFromPublic = (modelPath: string, fileName: string): Promise<THREE.O
       },
       undefined,
       (error) => {
-        console.error(`从public文件夹加载GLB模型时出错 (${modelPath}):`, error)
+        console.error(`从public文件夹加载GLB模型时出错 (${path}):`, error)
         reject(error)
       }
     )
@@ -986,6 +1012,8 @@ const loadGLBToScene = (file: File) => {
           mesh.userData.isGLB = true
           // 保存原始文件名
           mesh.userData.originalFileName = file.name
+          // 保存public路径信息，假设文件已保存到public文件夹
+          mesh.userData.publicPath = `/${file.name}`
 
           // 直接将mesh对象添加到场景中
           scene.add(mesh)
