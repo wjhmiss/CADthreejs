@@ -631,7 +631,8 @@ const saveGLBToPublic = (file: File): Promise<string> => {
       // 直接从文件加载模型
       const loader = new GLTFLoader()
       const dracoLoader = new DRACOLoader()
-      dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/')
+      // 设置DRACOLoader的解码器路径为本地路径
+      dracoLoader.setDecoderPath('./draco/')
       loader.setDRACOLoader(dracoLoader)
       
       loader.load(
@@ -947,8 +948,8 @@ const loadGLBFromPublic = (modelPath: string, fileName: string): Promise<THREE.O
     
     // 初始化DRACOLoader
     const dracoLoader = new DRACOLoader()
-    // 设置DRACOLoader的解码器路径
-    dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/')
+    // 设置DRACOLoader的解码器路径为本地路径
+    dracoLoader.setDecoderPath('./draco/')
     // 将DRACOLoader与GLTFLoader关联
     loader.setDRACOLoader(dracoLoader)
     
@@ -993,8 +994,8 @@ const loadGLBToGroup = (group: THREE.Group, file: File) => {
   
   // 初始化DRACOLoader
   const dracoLoader = new DRACOLoader()
-  // 设置DRACOLoader的解码器路径
-  dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/')
+  // 设置DRACOLoader的解码器路径为本地路径
+  dracoLoader.setDecoderPath('./draco/')
   // 将DRACOLoader与GLTFLoader关联
   loader.setDRACOLoader(dracoLoader)
   
