@@ -16,6 +16,7 @@
     <button @click="exportScene">导出场景</button>
     <button @click="triggerImportInput">导入场景</button>
     <input type="file" ref="importInput" @change="handleImportScene" accept=".json" />
+    <button v-if="transformControlsRef?.object" @click="handleExitEditMode" class="exit-edit-btn">退出编辑模式 (ESC)</button>
 
     <!-- 编辑模式工具栏 -->
     <div v-if="transformControlsRef?.object" class="edit-toolbar">
@@ -258,6 +259,8 @@ const initThreeJS = () => {
   renderer.domElement.addEventListener('click', onMouseClick)
   renderer.domElement.addEventListener('contextmenu', onRightClick)
   document.addEventListener('click', onDocumentClick)
+  // 添加ESC键事件监听器
+  window.addEventListener('keydown', onKeyDown)
 
 }
 
@@ -378,6 +381,16 @@ const onDocumentClick = (event: Event) => {
   }
 
   contextMenuVisible.value = false
+}
+
+// 键盘事件处理
+const onKeyDown = (event: KeyboardEvent) => {
+  // 按下ESC键时退出编辑模式
+  if (event.key === 'Escape' && transformControls.object) {
+    exitEditMode()
+    // 取消选择对象，确保UI完全退出编辑状态
+    deselectObject()
+  }
 }
 
 // 选择对象
@@ -1040,6 +1053,8 @@ const handleEnterEditMode = () => {
 // 处理退出编辑模式
 const handleExitEditMode = () => {
   exitEditMode()
+  // 取消选择对象，确保UI完全退出编辑状态
+  deselectObject()
   contextMenuVisible.value = false
 }
 
@@ -1085,6 +1100,10 @@ const exitEditMode = () => {
     transformControls.detach()
     // 确保轨道控制器可用
     controls.enabled = true
+    // 清空transformControlsRef的object引用，确保UI正确更新
+    transformControlsRef.value = null
+    // 重新创建TransformControls实例以备下次使用
+    transformControlsRef.value = transformControls
   }
 }
 
@@ -1189,6 +1208,7 @@ onBeforeUnmount(() => {
   renderer.domElement.removeEventListener('click', onMouseClick)
   renderer.domElement.removeEventListener('contextmenu', onRightClick)
   document.removeEventListener('click', onDocumentClick)
+  window.removeEventListener('keydown', onKeyDown)
 
   renderer.dispose()
 })
@@ -1323,6 +1343,15 @@ body {
 
 .toolbar button:hover {
   background-color: #45a049;
+}
+
+.exit-edit-btn {
+  background-color: #f44336 !important;
+  margin-top: 10px;
+}
+
+.exit-edit-btn:hover {
+  background-color: #d32f2f !important;
 }
 
 .edit-toolbar {
