@@ -8,9 +8,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "vue": "^3.3.4",
+    "@types/three": "^0.155.0",
     "three": "^0.155.0",
-    "@types/three": "^0.155.0"
+    "three-stdlib": "^2.36.1",
+    "vue": "^3.3.4"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^4.3.4",
