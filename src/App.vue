@@ -453,8 +453,19 @@ const showContextMenu = (x: number, y: number) => {
   contextMenuVisible.value = true
 }
 
+// 通用函数：在执行操作前退出编辑模式
+const ensureExitEditMode = () => {
+  if (transformControls.object) {
+    exitEditMode()
+    deselectObject()
+  }
+}
+
 // 添加基础形状
 const addBasicShape = (shapeType: string) => {
+  // 确保退出编辑模式
+  ensureExitEditMode()
+  
   let geometry: THREE.BufferGeometry
   let material = new THREE.MeshStandardMaterial({
     color: Math.random() * 0xffffff,
@@ -499,8 +510,10 @@ const addBasicShape = (shapeType: string) => {
   objects.push(mesh)
 }
 
-// 触发文件输入
+// 触发文件输入对话框
 const triggerFileInput = () => {
+  // 确保退出编辑模式
+  ensureExitEditMode()
   fileInput.value?.click()
 }
 
@@ -621,6 +634,9 @@ const saveGLBToPublic = (file: File): Promise<string> => {
 
 // 导出场景
 const exportScene = () => {
+  // 确保退出编辑模式
+  ensureExitEditMode()
+  
   const sceneData = {
     objects: []
   }
@@ -684,8 +700,10 @@ const exportScene = () => {
   linkElement.click()
 }
 
-// 触发导入输入
+// 触发导入输入对话框
 const triggerImportInput = () => {
+  // 确保退出编辑模式
+  ensureExitEditMode()
   importInput.value?.click()
 }
 
@@ -719,7 +737,7 @@ const handleImportScene = (event: Event) => {
       })
 
       // 清空objects数组
-      objects = []
+      objects.length = 0
 
       // 重新创建对象
       sceneData.objects.forEach((objData: any) => {
@@ -1220,6 +1238,9 @@ onBeforeUnmount(() => {
 
 // 从public文件夹加载GLB模型列表
 const loadGLBFromPublicList = async () => {
+  // 确保退出编辑模式
+  ensureExitEditMode()
+  
   try {
     // 从API获取public文件夹中的GLB文件列表
     const response = await fetch('/api/list-glbs')
