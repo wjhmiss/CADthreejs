@@ -279,20 +279,16 @@ const onMouseClick = (event: MouseEvent) => {
     mouse.y = -(event.clientY / window.innerHeight) * 2 + 1
 
     raycaster.setFromCamera(mouse, camera)
-    console.log(0);
     // 使用objects数组进行射线检测
     console.log(objects);
     const intersects = raycaster.intersectObjects(objects,false)
-    console.log(1);
     if (intersects.length > 0) {
       // 找到第一个可变换的相交对象
       let targetObject: THREE.Object3D | null = null
       targetObject = intersects[0].object
-      console.log(2);
 
       if (targetObject) {
         selectObject(targetObject)
-        console.log(3);
       } else {
         // 点击了不可变换的对象（如地面），确保取消选择并恢复视角控制
         deselectObject()
@@ -324,10 +320,8 @@ const onRightClick = (event: MouseEvent) => {
 
   // 创建射线
   raycaster.setFromCamera(mouse, camera)
-  console.log(2);
   // 使用objects数组进行射线检测
   const intersects = raycaster.intersectObjects(objects)
-  console.log(3);
 
   if (intersects.length > 0) {
     // 获取第一个相交的对象
@@ -746,6 +740,14 @@ const handleImportScene = (event: Event) => {
       // 清空objects数组
       objects.length = 0
 
+      // 记录需要加载的GLB模型数量
+      const glbModelsToLoad = sceneData.objects.filter((obj: any) =>
+        obj.type === 'gltf' && obj.originalFileName
+      ).length
+
+      // 记录成功加载的GLB模型数量
+      let successfullyLoadedGLBCount = 0
+
       // 重新创建对象
       sceneData.objects.forEach((objData: any) => {
         if (objData.type === 'basic') {
@@ -833,6 +835,7 @@ const handleImportScene = (event: Event) => {
                   objects.push(mesh)
                 })
 
+                successfullyLoadedGLBCount++
                 console.log(`成功从public文件夹加载GLB模型: ${objData.originalFileName}，包含 ${meshes.length} 个网格对象`)
               })
               .catch(error => {
@@ -900,15 +903,13 @@ const handleImportScene = (event: Event) => {
         }
       })
 
-      // 检查是否有需要加载GLB文件的对象
-      const needsGLBLoad = sceneData.objects.some((obj: any) =>
-        obj.type === 'gltf' && obj.originalFileName
-      )
-
-      if (needsGLBLoad) {
-        // 显示提示，告知用户需要手动加载GLB文件
-        alert('场景中包含GLB模型。请右键点击绿色线框占位符，然后选择"加载GLB文件"来恢复原始模型。')
-      }
+      // 延迟检查，等待所有GLB模型加载完成
+      setTimeout(() => {
+        // 只有当有GLB模型需要加载但没有全部成功加载时，才显示提示
+        if (glbModelsToLoad > 0 && successfullyLoadedGLBCount < glbModelsToLoad) {
+          alert('场景中包含GLB模型。请右键点击绿色线框占位符，然后选择"加载GLB文件"来恢复原始模型。')
+        }
+      }, 1000)
     } catch (error) {
       console.error('导入场景时出错:', error)
     }
