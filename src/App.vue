@@ -747,6 +747,9 @@ const handleImportScene = (event: Event) => {
 
       // 记录成功加载的GLB模型数量
       let successfullyLoadedGLBCount = 0
+      
+      // 记录加载失败的GLB模型
+      const failedGLBModels: string[] = []
 
       // 重新创建对象
       sceneData.objects.forEach((objData: any) => {
@@ -840,34 +843,11 @@ const handleImportScene = (event: Event) => {
               })
               .catch(error => {
                 console.warn(`无法从public文件夹加载GLB模型: ${objData.originalFileName}`, error)
-
-                // 如果自动加载失败，创建一个占位符
-                const placeholderGeometry = new THREE.BoxGeometry(1, 1, 1)
-                const placeholderMaterial = new THREE.MeshStandardMaterial({
-                  color: 0x00ff00,
-                  wireframe: true
-                })
-                const placeholderMesh = new THREE.Mesh(placeholderGeometry, placeholderMaterial)
-                placeholderMesh.name = objData.name || 'GLB占位符'
-                placeholderMesh.position.fromArray(objData.position)
-                placeholderMesh.rotation.fromArray(objData.rotation)
-                placeholderMesh.scale.fromArray(objData.scale)
-                placeholderMesh.visible = objData.visible !== undefined ? objData.visible : true
-                placeholderMesh.castShadow = objData.castShadow !== undefined ? objData.castShadow : true
-                placeholderMesh.receiveShadow = objData.receiveShadow !== undefined ? objData.receiveShadow : true
-
-                // 恢复userData
-                placeholderMesh.userData = { ...objData.userData }
-                placeholderMesh.userData.isTransformable = true
-                placeholderMesh.userData.isGLB = true
-                placeholderMesh.userData.originalFileName = objData.originalFileName
-                placeholderMesh.userData.needsGLBLoad = true
-
-                scene.add(placeholderMesh)
-                // 将占位符mesh对象添加到objects数组中
-                objects.push(placeholderMesh)
-
-                console.log(`已为GLB模型创建占位符: ${objData.originalFileName}`)
+                
+                // 记录需要手动加载的模型
+                if (!failedGLBModels.includes(objData.originalFileName)) {
+                  failedGLBModels.push(objData.originalFileName)
+                }
               })
           } else {
             // 如果没有模型路径信息，创建一个占位符
@@ -906,8 +886,9 @@ const handleImportScene = (event: Event) => {
       // 延迟检查，等待所有GLB模型加载完成
       setTimeout(() => {
         // 只有当有GLB模型需要加载但没有全部成功加载时，才显示提示
-        if (glbModelsToLoad > 0 && successfullyLoadedGLBCount < glbModelsToLoad) {
-          alert('场景中包含GLB模型。请右键点击绿色线框占位符，然后选择"加载GLB文件"来恢复原始模型。')
+        if (failedGLBModels.length > 0) {
+          const modelList = failedGLBModels.join(', ')
+          alert(`以下GLB模型未找到，请手动添加到public文件夹中：\n${modelList}`)
         }
       }, 1000)
     } catch (error) {
