@@ -130,7 +130,7 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const importInput = ref<HTMLInputElement | null>(null)
 const publicGLBSelect = ref<HTMLSelectElement | null>(null)
 const selectedObject = ref<THREE.Object3D | null>(null)
-const objects = ref<THREE.Object3D[]>([])
+const objects = [] as THREE.Object3D[]
 const contextMenuVisible = ref(false)
 const contextMenuPosition = ref({ x: 0, y: 0 })
 const transformMode = ref('translate') // 变换模式：translate, rotate, scale
@@ -278,7 +278,8 @@ const onMouseClick = (event: MouseEvent) => {
     raycaster.setFromCamera(mouse, camera)
     console.log(0);
     // 使用objects数组进行射线检测
-    const intersects = raycaster.intersectObjects(objects.value,false)
+    console.log(objects);
+    const intersects = raycaster.intersectObjects(objects,false)
     console.log(1);
     if (intersects.length > 0) {
       // 找到第一个可变换的相交对象
@@ -322,7 +323,7 @@ const onRightClick = (event: MouseEvent) => {
   raycaster.setFromCamera(mouse, camera)
   console.log(2);
   // 使用objects数组进行射线检测
-  const intersects = raycaster.intersectObjects(objects.value)
+  const intersects = raycaster.intersectObjects(objects)
   console.log(3);
 
   if (intersects.length > 0) {
@@ -482,7 +483,7 @@ const addBasicShape = (shapeType: string) => {
   scene.add(mesh)
 
   // 将mesh对象添加到objects数组中
-  objects.value.push(mesh)
+  objects.push(mesh)
 }
 
 // 触发文件输入
@@ -588,7 +589,7 @@ const saveGLBToPublic = (file: File): Promise<string> => {
                 meshObjects.push(mesh)
 
                 // 将mesh对象添加到objects数组中
-                objects.value.push(mesh)
+                objects.push(mesh)
               }
             })
             console.log(`客户端成功加载GLB模型: ${file.name}，包含 ${meshObjects.length} 个网格对象`)
@@ -612,7 +613,7 @@ const exportScene = () => {
   }
 
   // 从objects数组中导出对象，而不是从scene中遍历
-  objects.value.forEach((child) => {
+  objects.forEach((child) => {
     // 只导出可变换的对象（不包括地面和网格辅助线）
     if (child.userData.isTransformable === true) {
       let objectData: any = {
@@ -698,14 +699,14 @@ const handleImportScene = (event: Event) => {
       objectsToRemove.forEach(obj => {
         scene.remove(obj)
         // 从objects数组中移除对象
-        const index = objects.value.indexOf(obj)
+        const index = objects.indexOf(obj)
         if (index !== -1) {
-          objects.value.splice(index, 1)
+          objects.splice(index, 1)
         }
       })
 
       // 清空objects数组
-      objects.value = []
+      objects = []
 
       // 重新创建对象
       sceneData.objects.forEach((objData: any) => {
@@ -765,7 +766,7 @@ const handleImportScene = (event: Event) => {
 
           scene.add(mesh)
           // 将mesh对象添加到objects数组中
-          objects.value.push(mesh)
+          objects.push(mesh)
         } else if (objData.type === 'gltf') {
           // 对于GLB模型，首先尝试从public文件夹自动加载
           if (objData.modelPath && objData.originalFileName) {
@@ -816,7 +817,7 @@ const handleImportScene = (event: Event) => {
 
                 scene.add(placeholderMesh)
                 // 将占位符mesh对象添加到objects数组中
-                objects.value.push(placeholderMesh)
+                objects.push(placeholderMesh)
 
                 console.log(`已为GLB模型创建占位符: ${objData.originalFileName}`)
               })
@@ -908,7 +909,7 @@ const loadGLBFromPublic = (modelPath: string, fileName: string): Promise<THREE.O
             meshObjects.push(mesh)
 
             // 将mesh对象添加到objects数组中
-            objects.value.push(mesh)
+            objects.push(mesh)
           }
         })
         console.log(`成功加载GLB模型: ${fileName}，包含 ${meshObjects.length} 个网格对象`)
@@ -958,7 +959,7 @@ const loadGLBToScene = (file: File) => {
           // 直接将mesh对象添加到场景中
           scene.add(mesh)
           // 将mesh对象添加到objects数组中
-          objects.value.push(mesh)
+          objects.push(mesh)
         }
       })
 
@@ -1001,9 +1002,9 @@ const handleLoadGLB = () => {
     if (selectedObject.value) {
       scene.remove(selectedObject.value)
       // 从objects数组中移除占位符对象
-      const index = objects.value.indexOf(selectedObject.value)
+      const index = objects.indexOf(selectedObject.value)
       if (index !== -1) {
-        objects.value.splice(index, 1)
+        objects.splice(index, 1)
       }
     }
 
@@ -1069,9 +1070,9 @@ const deleteSelectedObject = () => {
   }
 
   // 从objects数组中移除对象
-  const index = objects.value.indexOf(selectedObject.value)
+  const index = objects.indexOf(selectedObject.value)
   if (index !== -1) {
-    objects.value.splice(index, 1)
+    objects.splice(index, 1)
   }
 
   // 取消选择
