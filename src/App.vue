@@ -270,15 +270,15 @@ const onWindowResize = () => {
 
 // 鼠标点击事件
 const onMouseClick = (event: MouseEvent) => {
-  console.log(0);
 
   if (event.button === 0) { // 左键点击
     mouse.x = (event.clientX / window.innerWidth) * 2 - 1
     mouse.y = -(event.clientY / window.innerHeight) * 2 + 1
 
     raycaster.setFromCamera(mouse, camera)
+    console.log(0);
     // 使用objects数组进行射线检测
-    const intersects = raycaster.intersectObjects(objects.value)
+    const intersects = raycaster.intersectObjects(objects.value,false)
     console.log(1);
     if (intersects.length > 0) {
       // 找到第一个可变换的相交对象
