@@ -181,6 +181,7 @@ const fileInput = ref<HTMLInputElement | null>(null)
 const importInput = ref<HTMLInputElement | null>(null)
 const publicGLBSelect = ref<HTMLSelectElement | null>(null)
 const selectedObject = ref<THREE.Object3D | null>(null)
+const objects = ref<THREE.Object3D[]>([])
 const contextMenuVisible = ref(false)
 const contextMenuPosition = ref({ x: 0, y: 0 })
 const transformMode = ref('translate') // 变换模式：translate, rotate, scale
@@ -324,23 +325,13 @@ const onMouseClick = (event: MouseEvent) => {
     mouse.y = -(event.clientY / window.innerHeight) * 2 + 1
 
     raycaster.setFromCamera(mouse, camera)
-    const intersects = raycaster.intersectObjects(scene.children, true)
+    // 使用objects数组进行射线检测
+    const intersects = raycaster.intersectObjects(objects.value, true)
 
     if (intersects.length > 0) {
       // 找到第一个可变换的相交对象
       let targetObject: THREE.Object3D | null = null
-      for (const intersect of intersects) {
-        let obj = intersect.object
-        while (obj.parent && obj.parent.type !== 'Scene') {
-          obj = obj.parent
-        }
-        
-        // 检查对象是否可变换
-        if (obj.userData.isTransformable === true) {
-          targetObject = obj
-          break
-        }
-      }
+      targetObject = intersects[0].object
 
       if (targetObject) {
         selectObject(targetObject)
@@ -376,16 +367,8 @@ const onRightClick = (event: MouseEvent) => {
   const raycaster = new THREE.Raycaster()
   raycaster.setFromCamera(mouse, camera)
   
-  // 获取所有可变换的对象
-  const transformableObjects: THREE.Object3D[] = []
-  scene.traverse((child) => {
-    if (child.userData.isTransformable === true) {
-      transformableObjects.push(child)
-    }
-  })
-  
-  // 检测射线与对象的交点
-  const intersects = raycaster.intersectObjects(transformableObjects, true)
+  // 使用objects数组进行射线检测
+  const intersects = raycaster.intersectObjects(objects.value, true)
   
   if (intersects.length > 0) {
     // 获取第一个相交的对象
@@ -393,11 +376,6 @@ const onRightClick = (event: MouseEvent) => {
     
     // 找到最顶层的可变换对象
     let targetObject: THREE.Object3D | null = intersectedObject
-    
-    // 如果相交的对象不是可变换的，向上查找
-    while (targetObject && targetObject.userData.isTransformable !== true) {
-      targetObject = targetObject.parent
-    }
     
     if (targetObject) {
       // 选中对象
@@ -546,6 +524,9 @@ const addBasicShape = (shapeType: string) => {
   // 标记为可变换的对象
   mesh.userData.isTransformable = true
   scene.add(mesh)
+  
+  // 将mesh对象添加到objects数组中
+  objects.value.push(mesh)
 }
 
 // 触发文件输入
@@ -613,6 +594,56 @@ const saveGLBToPublic = (file: File): Promise<string> => {
       
       // 客户端处理模型加载
       console.log('使用客户端方式加载GLB模型')
+      
+      // 直接在客户端加载GLB文件
+      const loader = new GLTFLoader()
+      
+      // 初始化DRACOLoader
+      const dracoLoader = new DRACOLoader()
+      // 设置DRACOLoader的解码器路径为本地路径
+      dracoLoader.setDecoderPath('./draco/')
+      // 将DRACOLoader与GLTFLoader关联
+      loader.setDRACOLoader(dracoLoader)
+      
+      loader.load(
+        URL.createObjectURL(file),
+        (gltf) => {
+          const model = gltf.scene
+          const meshObjects: THREE.Object3D[] = []
+          
+          // 遍历模型中的所有对象，找到所有的Mesh对象
+          model.traverse((child) => {
+            if (child instanceof THREE.Mesh) {
+              // 克隆mesh对象，以便可以独立添加到场景中
+              const mesh = child.clone()
+              mesh.name = `${file.name.replace(/\.[^/.]+$/, "")}_${mesh.name || 'mesh'}`
+              mesh.castShadow = true
+              mesh.receiveShadow = true
+              
+              // 标记为可变换的对象
+              mesh.userData.isTransformable = true
+              // 标记为GLB模型的一部分
+              mesh.userData.isGLB = true
+              // 保存原始文件名
+              mesh.userData.originalFileName = file.name
+              
+              // 直接将mesh对象添加到场景中
+              scene.add(mesh)
+              meshObjects.push(mesh)
+              
+              // 将mesh对象添加到objects数组中
+              objects.value.push(mesh)
+            }
+          })
+          console.log(`客户端成功加载GLB模型: ${file.name}，包含 ${meshObjects.length} 个网格对象`)
+        },
+        undefined,
+        (error) => {
+          console.error('客户端加载GLB模型时出错:', error)
+          alert('加载GLB文件失败，请检查文件是否有效。')
+        }
+      )
+      
       reject('CLIENT_HANDLED')
     })
   })
@@ -624,7 +655,8 @@ const exportScene = () => {
     objects: []
   }
 
-  scene.traverse((child) => {
+  // 从objects数组中导出对象，而不是从scene中遍历
+  objects.value.forEach((child) => {
     // 只导出可变换的对象（不包括地面和网格辅助线）
     if (child.userData.isTransformable === true) {
       let objectData: any = {
@@ -709,7 +741,15 @@ const handleImportScene = (event: Event) => {
       
       objectsToRemove.forEach(obj => {
         scene.remove(obj)
+        // 从objects数组中移除对象
+        const index = objects.value.indexOf(obj)
+        if (index !== -1) {
+          objects.value.splice(index, 1)
+        }
       })
+      
+      // 清空objects数组
+      objects.value = []
 
       // 重新创建对象
       sceneData.objects.forEach((objData: any) => {
@@ -768,6 +808,8 @@ const handleImportScene = (event: Event) => {
           mesh.userData.isTransformable = true
           
           scene.add(mesh)
+          // 将mesh对象添加到objects数组中
+          objects.value.push(mesh)
         } else if (objData.type === 'gltf') {
           // 对于GLB模型，首先尝试从public文件夹自动加载
           if (objData.modelPath && objData.originalFileName) {
@@ -817,6 +859,8 @@ const handleImportScene = (event: Event) => {
                 placeholderMesh.userData.needsGLBLoad = true
                 
                 scene.add(placeholderMesh)
+                // 将占位符mesh对象添加到objects数组中
+                objects.value.push(placeholderMesh)
                 
                 console.log(`已为GLB模型创建占位符: ${objData.originalFileName}`)
               })
@@ -906,6 +950,9 @@ const loadGLBFromPublic = (modelPath: string, fileName: string): Promise<THREE.O
             // 直接将mesh对象添加到场景中
             scene.add(mesh)
             meshObjects.push(mesh)
+            
+            // 将mesh对象添加到objects数组中
+            objects.value.push(mesh)
           }
         })
         console.log(`成功加载GLB模型: ${fileName}，包含 ${meshObjects.length} 个网格对象`)
@@ -954,6 +1001,8 @@ const loadGLBToScene = (file: File) => {
           
           // 直接将mesh对象添加到场景中
           scene.add(mesh)
+          // 将mesh对象添加到objects数组中
+          objects.value.push(mesh)
         }
       })
       
@@ -995,6 +1044,11 @@ const handleLoadGLB = () => {
     // 删除占位符对象
     if (selectedObject.value) {
       scene.remove(selectedObject.value)
+      // 从objects数组中移除占位符对象
+      const index = objects.value.indexOf(selectedObject.value)
+      if (index !== -1) {
+        objects.value.splice(index, 1)
+      }
     }
     
     // 清理
@@ -1056,6 +1110,12 @@ const deleteSelectedObject = () => {
   // 如果对象有父对象，也从父对象中移除
   if (selectedObject.value.parent) {
     selectedObject.value.parent.remove(selectedObject.value)
+  }
+  
+  // 从objects数组中移除对象
+  const index = objects.value.indexOf(selectedObject.value)
+  if (index !== -1) {
+    objects.value.splice(index, 1)
   }
   
   // 取消选择
