@@ -391,10 +391,10 @@ const onRightClick = (event: MouseEvent) => {
     // 获取第一个相交的对象
     const intersectedObject = intersects[0].object
     
-    // 找到最顶层的可变换对象（对于GLB模型，需要找到其父级Group）
+    // 找到最顶层的可变换对象
     let targetObject: THREE.Object3D | null = intersectedObject
     
-    // 如果相交的对象不是可变换的，或者它是GLB模型的子对象，向上查找
+    // 如果相交的对象不是可变换的，向上查找
     while (targetObject && targetObject.userData.isTransformable !== true) {
       targetObject = targetObject.parent
     }
@@ -561,7 +561,7 @@ const handleFileUpload = async (event: Event) => {
   const file = target.files[0]
   
   try {
-    // 1. 先将文件保存到public文件夹
+    // 1. 先将文件保存到public文件夹（会覆盖同名文件）
     const savedFileName = await saveGLBToPublic(file)
     
     // 2. 检查是否是客户端处理的情况
@@ -572,13 +572,8 @@ const handleFileUpload = async (event: Event) => {
     }
     
     // 3. 从public文件夹加载GLB模型
-    const model = await loadGLBFromPublic(`/${savedFileName}`, savedFileName)
+    await loadGLBFromPublic(`/${savedFileName}`, savedFileName)
     
-    // 4. 设置模型位置并添加到场景
-    model.position.y = 0.5
-    scene.add(model)
-    
-    console.log(`成功加载GLB模型: ${savedFileName}`)
   } catch (error) {
     console.error('处理GLB文件时出错:', error)
     alert('加载GLB文件失败，请检查文件是否有效。')
@@ -616,67 +611,9 @@ const saveGLBToPublic = (file: File): Promise<string> => {
     .catch(error => {
       console.error('保存GLB文件到public文件夹时出错:', error)
       
-      // 如果服务器保存失败，回退到客户端处理
-      // 在实际应用中，这种方法可能不适用于生产环境
-      console.warn('服务器保存失败，使用客户端处理方式')
-      
-      // 生成唯一的文件名
-      const timestamp = new Date().getTime()
-      const originalName = file.name.replace(/\.[^/.]+$/, "")
-      const fileName = `${originalName}_${timestamp}.glb`
-      
-      // 创建一个临时URL用于加载
-      const tempUrl = URL.createObjectURL(file)
-      
-      // 直接从文件加载模型
-      const loader = new GLTFLoader()
-      const dracoLoader = new DRACOLoader()
-      // 设置DRACOLoader的解码器路径为本地路径
-      dracoLoader.setDecoderPath('./draco/')
-      loader.setDRACOLoader(dracoLoader)
-      
-      loader.load(
-        tempUrl,
-        (gltf) => {
-          const model = gltf.scene
-          model.name = file.name.replace(/\.[^/.]+$/, "")
-          model.position.y = 0.5
-          model.castShadow = true
-          model.receiveShadow = true
-          
-          // 标记为可变换的对象
-          model.userData.isTransformable = true
-          // 标记为GLB模型
-          model.userData.isGLB = true
-          // 保存原始文件名和模拟的public路径
-          model.userData.originalFileName = file.name
-          model.userData.modelPath = `/${file.name}`
-          
-          model.traverse((child) => {
-            if (child instanceof THREE.Mesh) {
-              child.castShadow = true
-              child.receiveShadow = true
-              child.userData.isTransformable = true
-            }
-          })
-          
-          scene.add(model)
-          
-          // 释放临时URL
-          URL.revokeObjectURL(tempUrl)
-          
-          // 在客户端处理方式中，我们直接添加了模型到场景
-          // 所以不需要在handleFileUpload中再次添加
-          // 返回一个特殊标记，表示模型已经在客户端处理
-          resolve('CLIENT_HANDLED')
-        },
-        undefined,
-        (error) => {
-          console.error('加载GLB模型时出错:', error)
-          URL.revokeObjectURL(tempUrl)
-          reject(error)
-        }
-      )
+      // 客户端处理模型加载
+      console.log('使用客户端方式加载GLB模型')
+      reject('CLIENT_HANDLED')
     })
   })
 }
@@ -718,17 +655,17 @@ const exportScene = () => {
             opacity: child.material.opacity
           }
         }
-      } else if (child.type === 'Group' || child.type === 'Scene') {
-        // GLB模型通常是一个Group或Scene
-        objectData.type = 'gltf'
-        
-        // 保存GLB模型的原始文件名（如果有）
-        if (child.userData.originalFileName) {
-          objectData.originalFileName = child.userData.originalFileName
-          // 保存模型路径，假设模型在public文件夹中
-          objectData.modelPath = `/${child.userData.originalFileName}`
+      } else if (child.userData.isGLB === true) {
+          // 对于GLB模型的mesh对象
+          objectData.type = 'gltf'
+          
+          // 保存GLB模型的原始文件名（如果有）
+          if (child.userData.originalFileName) {
+            objectData.originalFileName = child.userData.originalFileName
+            // 保存模型路径，假设模型在public文件夹中
+            objectData.modelPath = `/${child.userData.originalFileName}`
+          }
         }
-      }
       
       sceneData.objects.push(objectData)
     }
@@ -836,90 +773,81 @@ const handleImportScene = (event: Event) => {
           if (objData.modelPath && objData.originalFileName) {
             // 尝试从public文件夹加载GLB模型
             loadGLBFromPublic(objData.modelPath, objData.originalFileName)
-              .then(model => {
-                // 设置模型的位置、旋转和缩放
-                model.position.fromArray(objData.position)
-                model.rotation.fromArray(objData.rotation)
-                model.scale.fromArray(objData.scale)
-                model.visible = objData.visible !== undefined ? objData.visible : true
-                model.castShadow = objData.castShadow !== undefined ? objData.castShadow : true
-                model.receiveShadow = objData.receiveShadow !== undefined ? objData.receiveShadow : true
+              .then(meshes => {
+                // 设置每个mesh对象的位置、旋转和缩放
+                meshes.forEach(mesh => {
+                  mesh.position.fromArray(objData.position)
+                  mesh.rotation.fromArray(objData.rotation)
+                  mesh.scale.fromArray(objData.scale)
+                  mesh.visible = objData.visible !== undefined ? objData.visible : true
+                  mesh.castShadow = objData.castShadow !== undefined ? objData.castShadow : true
+                  mesh.receiveShadow = objData.receiveShadow !== undefined ? objData.receiveShadow : true
+                  
+                  // 恢复userData
+                  mesh.userData = { ...mesh.userData, ...objData.userData }
+                  mesh.userData.isTransformable = true
+                  mesh.userData.isGLB = true
+                })
                 
-                // 恢复userData
-                model.userData = { ...model.userData, ...objData.userData }
-                model.userData.isTransformable = true
-                model.userData.isGLB = true
-                
-                scene.add(model)
-                console.log(`成功从public文件夹加载GLB模型: ${objData.originalFileName}`)
+                console.log(`成功从public文件夹加载GLB模型: ${objData.originalFileName}，包含 ${meshes.length} 个网格对象`)
               })
               .catch(error => {
                 console.warn(`无法从public文件夹加载GLB模型: ${objData.originalFileName}`, error)
                 
-                // 如果自动加载失败，创建一个占位符组
-                const group = new THREE.Group()
-                group.name = objData.name
-                group.position.fromArray(objData.position)
-                group.rotation.fromArray(objData.rotation)
-                group.scale.fromArray(objData.scale)
-                group.visible = objData.visible !== undefined ? objData.visible : true
-                group.castShadow = objData.castShadow !== undefined ? objData.castShadow : true
-                group.receiveShadow = objData.receiveShadow !== undefined ? objData.receiveShadow : true
-                
-                // 恢复userData
-                group.userData = { ...objData.userData }
-                group.userData.isTransformable = true
-                group.userData.isGLB = true
-                group.userData.originalFileName = objData.originalFileName
-                group.userData.needsGLBLoad = true
-                
-                scene.add(group)
-                
-                // 显示一个占位符，表示这是GLB模型
+                // 如果自动加载失败，创建一个占位符
                 const placeholderGeometry = new THREE.BoxGeometry(1, 1, 1)
                 const placeholderMaterial = new THREE.MeshStandardMaterial({ 
                   color: 0x00ff00,
                   wireframe: true
                 })
                 const placeholderMesh = new THREE.Mesh(placeholderGeometry, placeholderMaterial)
-                placeholderMesh.name = 'GLB占位符'
-                group.add(placeholderMesh)
+                placeholderMesh.name = objData.name || 'GLB占位符'
+                placeholderMesh.position.fromArray(objData.position)
+                placeholderMesh.rotation.fromArray(objData.rotation)
+                placeholderMesh.scale.fromArray(objData.scale)
+                placeholderMesh.visible = objData.visible !== undefined ? objData.visible : true
+                placeholderMesh.castShadow = objData.castShadow !== undefined ? objData.castShadow : true
+                placeholderMesh.receiveShadow = objData.receiveShadow !== undefined ? objData.receiveShadow : true
+                
+                // 恢复userData
+                placeholderMesh.userData = { ...objData.userData }
+                placeholderMesh.userData.isTransformable = true
+                placeholderMesh.userData.isGLB = true
+                placeholderMesh.userData.originalFileName = objData.originalFileName
+                placeholderMesh.userData.needsGLBLoad = true
+                
+                scene.add(placeholderMesh)
                 
                 console.log(`已为GLB模型创建占位符: ${objData.originalFileName}`)
               })
           } else {
-            // 如果没有模型路径信息，创建一个占位符组
-            const group = new THREE.Group()
-            group.name = objData.name
-            group.position.fromArray(objData.position)
-            group.rotation.fromArray(objData.rotation)
-            group.scale.fromArray(objData.scale)
-            group.visible = objData.visible !== undefined ? objData.visible : true
-            group.castShadow = objData.castShadow !== undefined ? objData.castShadow : true
-            group.receiveShadow = objData.receiveShadow !== undefined ? objData.receiveShadow : true
-            
-            // 恢复userData
-            group.userData = { ...objData.userData }
-            group.userData.isTransformable = true
-            group.userData.isGLB = true
-            
-            // 保存原始文件名
-            if (objData.originalFileName) {
-              group.userData.originalFileName = objData.originalFileName
-              group.userData.needsGLBLoad = true
-            }
-            
-            scene.add(group)
-            
-            // 显示一个占位符，表示这是GLB模型
+            // 如果没有模型路径信息，创建一个占位符
             const placeholderGeometry = new THREE.BoxGeometry(1, 1, 1)
             const placeholderMaterial = new THREE.MeshStandardMaterial({ 
               color: 0x00ff00,
               wireframe: true
             })
             const placeholderMesh = new THREE.Mesh(placeholderGeometry, placeholderMaterial)
-            placeholderMesh.name = 'GLB占位符'
-            group.add(placeholderMesh)
+            placeholderMesh.name = objData.name || 'GLB占位符'
+            placeholderMesh.position.fromArray(objData.position)
+            placeholderMesh.rotation.fromArray(objData.rotation)
+            placeholderMesh.scale.fromArray(objData.scale)
+            placeholderMesh.visible = objData.visible !== undefined ? objData.visible : true
+            placeholderMesh.castShadow = objData.castShadow !== undefined ? objData.castShadow : true
+            placeholderMesh.receiveShadow = objData.receiveShadow !== undefined ? objData.receiveShadow : true
+            
+            // 恢复userData
+            placeholderMesh.userData = { ...objData.userData }
+            placeholderMesh.userData.isTransformable = true
+            placeholderMesh.userData.isGLB = true
+            
+            // 保存原始文件名
+            if (objData.originalFileName) {
+              placeholderMesh.userData.originalFileName = objData.originalFileName
+              placeholderMesh.userData.needsGLBLoad = true
+            }
+            
+            scene.add(placeholderMesh)
           }
         }
       })
@@ -942,7 +870,7 @@ const handleImportScene = (event: Event) => {
 }
 
 // 从public文件夹加载GLB模型
-const loadGLBFromPublic = (modelPath: string, fileName: string): Promise<THREE.Object3D> => {
+const loadGLBFromPublic = (modelPath: string, fileName: string): Promise<THREE.Object3D[]> => {
   return new Promise((resolve, reject) => {
     const loader = new GLTFLoader()
     
@@ -957,27 +885,31 @@ const loadGLBFromPublic = (modelPath: string, fileName: string): Promise<THREE.O
       modelPath,
       (gltf) => {
         const model = gltf.scene
-        model.name = fileName.replace(/\.[^/.]+$/, "") // 移除文件扩展名作为模型名称
-        model.castShadow = true
-        model.receiveShadow = true
+        const meshObjects: THREE.Object3D[] = []
         
-        // 标记为可变换的对象
-        model.userData.isTransformable = true
-        // 标记为GLB模型
-        model.userData.isGLB = true
-        // 保存原始文件名
-        model.userData.originalFileName = fileName
-        
+        // 遍历模型中的所有对象，找到所有的Mesh对象
         model.traverse((child) => {
           if (child instanceof THREE.Mesh) {
-            child.castShadow = true
-            child.receiveShadow = true
-            // 标记子网格为可变换的对象
-            child.userData.isTransformable = true
+            // 克隆mesh对象，以便可以独立添加到场景中
+            const mesh = child.clone()
+            mesh.name = `${fileName.replace(/\.[^/.]+$/, "")}_${mesh.name || 'mesh'}`
+            mesh.castShadow = true
+            mesh.receiveShadow = true
+            
+            // 标记为可变换的对象
+            mesh.userData.isTransformable = true
+            // 标记为GLB模型的一部分
+            mesh.userData.isGLB = true
+            // 保存原始文件名
+            mesh.userData.originalFileName = fileName
+            
+            // 直接将mesh对象添加到场景中
+            scene.add(mesh)
+            meshObjects.push(mesh)
           }
         })
-        
-        resolve(model)
+        console.log(`成功加载GLB模型: ${fileName}，包含 ${meshObjects.length} 个网格对象`)
+        resolve(meshObjects)
       },
       undefined,
       (error) => {
@@ -988,8 +920,8 @@ const loadGLBFromPublic = (modelPath: string, fileName: string): Promise<THREE.O
   })
 }
 
-// 加载GLB文件到指定的组
-const loadGLBToGroup = (group: THREE.Group, file: File) => {
+// 加载GLB文件到场景中
+const loadGLBToScene = (file: File) => {
   const loader = new GLTFLoader()
   
   // 初始化DRACOLoader
@@ -1002,43 +934,28 @@ const loadGLBToGroup = (group: THREE.Group, file: File) => {
   loader.load(
     URL.createObjectURL(file),
     (gltf) => {
-      // 保存组的变换属性
-      const position = group.position.clone()
-      const rotation = group.rotation.clone()
-      const scale = group.scale.clone()
-      
-      // 清除占位符
-      while(group.children.length > 0) {
-        const child = group.children[0]
-        group.remove(child)
-      }
-      
-      // 添加加载的模型
       const model = gltf.scene
-      model.name = file.name.replace(/\.[^/.]+$/, "")
-      model.castShadow = true
-      model.receiveShadow = true
       
-      // 标记子网格为可变换的对象
+      // 遍历模型中的所有对象，找到所有的Mesh对象
       model.traverse((child) => {
         if (child instanceof THREE.Mesh) {
-          child.castShadow = true
-          child.receiveShadow = true
-          child.userData.isTransformable = true
+          // 克隆mesh对象，以便可以独立添加到场景中
+          const mesh = child.clone()
+          mesh.name = `${file.name.replace(/\.[^/.]+$/, "")}_${mesh.name || 'mesh'}`
+          mesh.castShadow = true
+          mesh.receiveShadow = true
+          
+          // 标记为可变换的对象
+          mesh.userData.isTransformable = true
+          // 标记为GLB模型的一部分
+          mesh.userData.isGLB = true
+          // 保存原始文件名
+          mesh.userData.originalFileName = file.name
+          
+          // 直接将mesh对象添加到场景中
+          scene.add(mesh)
         }
       })
-      
-      // 添加到组
-      group.add(model)
-      
-      // 恢复组的变换属性
-      group.position.copy(position)
-      group.rotation.copy(rotation)
-      group.scale.copy(scale)
-      
-      // 更新userData
-      group.userData.needsGLBLoad = false
-      group.userData.originalFileName = file.name
       
       console.log('GLB文件加载成功:', file.name)
     },
@@ -1072,12 +989,12 @@ const handleLoadGLB = () => {
     
     const file = target.files[0]
     
-    // 确保选中的对象是一个Group
-    if (selectedObject.value instanceof THREE.Group) {
-      loadGLBToGroup(selectedObject.value as THREE.Group, file)
-    } else {
-      console.error('选中的对象不是一个Group，无法加载GLB文件')
-      alert('无法加载GLB文件：选中的对象不是一个有效的容器。')
+    // 直接加载GLB文件到场景中
+    loadGLBToScene(file)
+    
+    // 删除占位符对象
+    if (selectedObject.value) {
+      scene.remove(selectedObject.value)
     }
     
     // 清理
@@ -1122,21 +1039,9 @@ const deleteSelectedObject = () => {
   // 检查对象是否可以被删除
   if (selectedObject.value.userData.isTransformable === false) return
   
-  // 如果是GLB模型（Group对象），需要特殊处理
-  if (selectedObject.value instanceof THREE.Group) {
-    // 递归释放所有子对象的资源
-    selectedObject.value.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
-        child.geometry.dispose()
-        if (child.material instanceof THREE.Material) {
-          child.material.dispose()
-        } else if (Array.isArray(child.material)) {
-          child.material.forEach(material => material.dispose())
-        }
-      }
-    })
-  } else if (selectedObject.value instanceof THREE.Mesh) {
-    // 如果是普通网格对象，释放其资源
+  // 释放对象的资源
+  if (selectedObject.value instanceof THREE.Mesh) {
+    // 如果是网格对象，释放其资源
     selectedObject.value.geometry.dispose()
     if (selectedObject.value.material instanceof THREE.Material) {
       selectedObject.value.material.dispose()
@@ -1336,11 +1241,12 @@ const handlePublicGLBSelection = () => {
   
   // 从public文件夹加载GLB模型
   loadGLBFromPublic(`/${selectedFile}`, selectedFile)
-    .then(model => {
-      // 设置模型位置
-      model.position.y = 0.5
-      scene.add(model)
-      console.log(`成功从public文件夹加载GLB模型: ${selectedFile}`)
+    .then(meshes => {
+      // 设置每个mesh对象的位置
+      meshes.forEach(mesh => {
+        mesh.position.y = 0.5
+      })
+      console.log(`成功从public文件夹加载GLB模型: ${selectedFile}，包含 ${meshes.length} 个网格对象`)
     })
     .catch(error => {
       console.error(`无法从public文件夹加载GLB模型: ${selectedFile}`, error)
