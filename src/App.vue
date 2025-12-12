@@ -1065,6 +1065,11 @@ const deleteSelectedObject = () => {
   // 检查对象是否可以被删除
   if (selectedObject.value.userData.isTransformable === false) return
 
+  // 如果当前处于编辑模式，先退出编辑模式
+  if (transformControls.object) {
+    exitEditMode()
+  }
+
   // 释放对象的资源
   if (selectedObject.value instanceof THREE.Mesh) {
     // 如果是网格对象，释放其资源
