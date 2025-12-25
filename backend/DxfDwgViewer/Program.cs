@@ -148,6 +148,48 @@ app.MapPost("/api/parse/upload", async (HttpContext context, ILogger<Program> lo
 })
 .WithName("ParseUploadedCadFile");
 
+app.MapGet("/api/parse/drawing1", (ILogger<Program> logger) =>
+{
+    try
+    {
+        var drawing1Path = Path.Combine(AppContext.BaseDirectory, "Drawing1.dwg");
+        
+        logger.LogInformation($"解析Drawing1.dwg，路径: {drawing1Path}");
+        
+        if (!File.Exists(drawing1Path))
+        {
+            logger.LogWarning($"Drawing1.dwg文件不存在: {drawing1Path}");
+            return Results.NotFound(new { error = "Drawing1.dwg文件不存在", filePath = drawing1Path });
+        }
+
+        var loader = new CadDocumentLoader();
+        var document = loader.LoadDocument(drawing1Path);
+        var entities = loader.ExtractEntities(document);
+
+        var generator = new JsonDataGenerator();
+        var json = generator.GenerateJsonData(entities);
+
+        logger.LogInformation($"Drawing1.dwg解析成功，实体数量: {entities.Count}");
+        return Results.Ok(new 
+        { 
+            success = true,
+            fileName = "Drawing1.dwg",
+            entityCount = entities.Count,
+            data = json
+        });
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "解析Drawing1.dwg时发生错误");
+        return Results.Problem(
+            detail: ex.Message,
+            statusCode: 500,
+            title: "解析Drawing1.dwg时发生错误"
+        );
+    }
+})
+.WithName("ParseDrawing1");
+
 app.Run();
 
 public class ParseRequest
