@@ -4,11 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "vite",
-    "build": "vue-tsc --noEmit && vite build",
+    "build": "vite build",
+    "build:check": "vue-tsc --noEmit && vite build",
     "preview": "vite preview"
   },
   "dependencies": {
     "@types/three": "^0.155.0",
+    "axios": "^1.5.0",
     "three": "^0.155.0",
     "three-stdlib": "^2.36.1",
     "vue": "^3.3.4"

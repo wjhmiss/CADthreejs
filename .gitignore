@@ -1,3 +1,86 @@
+# Binaries for programs and libraries
+*.exe
+*.dll
+*.so
+*.dylib
+*.jar
+*.war
+*.ear
+
+# Object files
+*.o
+*.obj
+*.class
+*.pdb
+
+# Build results
+bin/
+Bin/
+obj/
+Obj/
+Build/
+build/
+
+# Logs and databases
+*.log
+*.sql
+*.sqlite
+
+# OS generated files
+Thumbs.db
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Icon?
+
+# IDE files
+.vs/
+.idea/
+*.user
+*.userprefs
+*.suo
+*.sln.docstates
+
+# Package manager files
+packages/
+*.nuget.props
+*.nuget.targets
+
+# Test results
+TestResults/
+
+# Visual Studio files
+*.VC.db
+*.VC.VC.opendb
+
+# ReSharper
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+# Backup & temp files
+*.bak
+*.tmp
+*.temp
+~*
+*~
+
+# Dotnet core
+.project
+*.csproj.user
+*.vspscc
+*.vssscc
+
+# NuGet
+.nuget/packages/
+*.nuget.*
+
+# MSTest
+TestResults/
+
 # Dependencies
 node_modules/
 npm-debug.log*

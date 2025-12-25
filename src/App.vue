@@ -1,9 +1,12 @@
 <template>
-  <div class="canvas-container" ref="canvasContainer"></div>
+  <DxfUpload v-if="showDxfUpload" @goBack="showDxfUpload = false" />
+  <template v-else>
+    <div class="canvas-container" ref="canvasContainer"></div>
 
-  <div class="toolbar">
-    <h3>工具栏</h3>
-    <button @click="addBasicShape('cube')">添加方块</button>
+    <div class="toolbar">
+      <h3>工具栏</h3>
+      <button @click="showDxfUpload = true" class="dxf-upload-btn">上传DXF文件</button>
+      <button @click="addBasicShape('cube')">添加方块</button>
     <button @click="addBasicShape('sphere')">添加球体</button>
     <button @click="addBasicShape('cylinder')">添加圆柱</button>
     <button @click="addBasicShape('torus')">添加环</button>
@@ -115,6 +118,7 @@
     </div>
     <div v-else class="context-menu-item" @click="handleEnterEditMode">启动编辑模式</div>
   </div>
+  </template>
 </template>
 
 <script setup lang="ts">
@@ -124,6 +128,9 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader'
+import DxfUpload from './DxfUpload.vue'
+
+const showDxfUpload = ref(false)
 
 // 响应式变量
 const canvasContainer = ref<HTMLElement | null>(null)
@@ -1375,6 +1382,10 @@ body {
   border-radius: 4px;
   cursor: pointer;
   font-size: 14px;
+}
+
+.toolbar button.dxf-upload-btn {
+  background-color: #667eea;
 }
 
 .toolbar button:hover {

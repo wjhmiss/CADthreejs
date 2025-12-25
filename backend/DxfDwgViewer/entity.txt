@@ -1,0 +1,1 @@
+Line,Arc ,Circle ,LwPolyline ,TextEntity,Ellipse ,Face3D,Hatch ,ACadSharp.Entities.Point,Polyline2D,Polyline3D ,Solid ,Spline spline,MLine ,Ray ,XLine ,Insert,RasterImage,Mesh,MText 
