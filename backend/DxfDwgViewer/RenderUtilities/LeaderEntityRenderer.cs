@@ -76,7 +76,7 @@ namespace DxfDwgViewer.RenderUtilities
                 Vertices = new List<PointData>(),
                 PathType = leader.PathType.ToString(),
                 ArrowHeadEnabled = leader.ArrowHeadEnabled,
-                HasHookline = leader.HasHookline,
+                HasHookline = leader.Vertices != null && leader.HasHookline,
                 ColorIndex = leader.Color.Index,
                 LineTypeName = leader.GetActiveLineType()?.Name ?? "",
                 LineWeight = leader.GetActiveLineWeightType().GetLineWeightValue(),
@@ -197,6 +197,7 @@ namespace DxfDwgViewer.RenderUtilities
                 if (leader.HasHookline && leader.Vertices.Count >= 2)
                 {
                     var hookLinePoints = DrawHookLine(leader.Vertices);
+                    Console.WriteLine($"HasHookline: {leader.HasHookline}, Vertices.Count: {leader.Vertices.Count}, hookLinePoints.Length: {hookLinePoints?.Length ?? 0}");
                     if (hookLinePoints != null && hookLinePoints.Length == 2)
                     {
                         leaderData.HookLineStart = new PointData(hookLinePoints[0].X, hookLinePoints[0].Y);
@@ -423,16 +424,21 @@ namespace DxfDwgViewer.RenderUtilities
             var hookLinePoints = new List<PointData>();
             try
             {
+                Console.WriteLine($"DrawHookLine: vertices.Count = {vertices.Count}");
                 // 钩线通常是从最后一个点延伸出去的一小段线
                 if (vertices.Count < 2) return hookLinePoints.ToArray();
                 
                 CSMath.XYZ lastPoint = vertices[vertices.Count - 1];
                 CSMath.XYZ prevPoint = vertices[vertices.Count - 2];
                 
+                Console.WriteLine($"DrawHookLine: lastPoint = ({lastPoint.X}, {lastPoint.Y}, {lastPoint.Z}), prevPoint = ({prevPoint.X}, {prevPoint.Y}, {prevPoint.Z})");
+                
                 // 计算钩线方向（与最后一条线段垂直）
                 double dx = lastPoint.X - prevPoint.X;
                 double dy = lastPoint.Y - prevPoint.Y;
                 double length = Math.Sqrt(dx * dx + dy * dy);
+                
+                Console.WriteLine($"DrawHookLine: dx = {dx}, dy = {dy}, length = {length}");
                 
                 if (length == 0) return hookLinePoints.ToArray();
                 
@@ -443,15 +449,21 @@ namespace DxfDwgViewer.RenderUtilities
                 // 钩线长度
                 double hookLength = Math.Max(3.0, length * 0.05);
                 
+                Console.WriteLine($"DrawHookLine: normalized dx = {dx}, dy = {dy}, hookLength = {hookLength}");
+                
                 // 计算钩线终点
                 PointData hookEndPoint = new PointData(
                     lastPoint.X - dy * hookLength, // 垂直方向
                     lastPoint.Y + dx * hookLength
                 );
                 
+                Console.WriteLine($"DrawHookLine: hookEndPoint = ({hookEndPoint.X}, {hookEndPoint.Y})");
+                
                 // 返回钩线点数据
                 hookLinePoints.Add(new PointData(lastPoint.X, lastPoint.Y));
                 hookLinePoints.Add(hookEndPoint);
+                
+                Console.WriteLine($"DrawHookLine: hookLinePoints.Count = {hookLinePoints.Count}");
             }
             catch (Exception ex)
             {

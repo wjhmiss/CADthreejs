@@ -12,19 +12,17 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Remove="*Tests.cs" />
-    <Compile Remove="*Tests*.cs" />
-    <Compile Remove="TestArcRenderer.cs" />
-    <Compile Remove="ArcTestRunner.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\ACadSharp\ACadSharp.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.1" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.3.2" />
+    <PackageReference Include="xunit" Version="2.4.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.4.5">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
   </ItemGroup>
 

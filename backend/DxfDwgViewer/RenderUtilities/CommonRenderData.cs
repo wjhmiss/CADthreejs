@@ -276,6 +276,10 @@ namespace DxfDwgViewer.RenderUtilities
 
         public TransformData(double scaleX, double scaleY, double scaleZ, double rotation, double translateX, double translateY, double translateZ)
         {
+            Position = new Point3DData { X = translateX, Y = translateY, Z = translateZ };
+            Rotation = new Point3DData { X = 0, Y = 0, Z = rotation };
+            Scale = new Point3DData { X = scaleX, Y = scaleY, Z = scaleZ };
+            
             // 创建组合变换矩阵：先缩放，再旋转，最后平移
             double cos = Math.Cos(rotation);
             double sin = Math.Sin(rotation);

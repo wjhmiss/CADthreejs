@@ -485,6 +485,38 @@ namespace DxfDwgViewer.RenderUtilities
 
         public static DimensionData Render(Dimension dimension)
         {
+            if (dimension == null)
+            {
+                return new DimensionData
+                {
+                    Type = "Dimension",
+                    DefinitionPointX = 0,
+                    DefinitionPointY = 0,
+                    DefinitionPointZ = 0,
+                    NormalX = 0,
+                    NormalY = 0,
+                    NormalZ = 1,
+                    ColorIndex = 0,
+                    ColorHex = "#FFFFFF",
+                    ColorR = 255,
+                    ColorG = 255,
+                    ColorB = 255,
+                    LineTypeName = "CONTINUOUS",
+                    LineWeight = 1,
+                    Bounds = new BoundsData
+                    {
+                        Min = new Point3DData { X = 0, Y = 0, Z = 0 },
+                        Max = new Point3DData { X = 0, Y = 0, Z = 0 },
+                        Center = new Point3DData { X = 0, Y = 0, Z = 0 },
+                        Size = new Point3DData { X = 0, Y = 0, Z = 0 }
+                    },
+                    Centroid = new Point3DData { X = 0, Y = 0, Z = 0 },
+                    Points = new Point3DData[0],
+                    CoordinateSystem = "AutoCAD",
+                    RequiresYAxisFlip = true
+                };
+            }
+
             Console.WriteLine($"DimensionEntityRenderer.Render被调用，类型: {dimension.GetType().Name}");
             // 获取3D坐标和法线向量
             XYZ definitionPoint = dimension.DefinitionPoint;

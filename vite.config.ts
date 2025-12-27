@@ -158,6 +158,11 @@ export default defineConfig({
       }
     }
   ],
+  test: {
+    globals: true,
+    environment: 'jsdom',
+    setupFiles: [],
+  },
   server: {
     port: 5173,
     proxy: {

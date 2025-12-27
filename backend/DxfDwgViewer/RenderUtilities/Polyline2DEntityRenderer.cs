@@ -10,10 +10,10 @@ namespace DxfDwgViewer.RenderUtilities
     {
         public class Polyline2DData
         {
-            public List<VertexData> Vertices { get; set; }
+            public List<VertexData> Vertices { get; set; } = new List<VertexData>();
             public bool IsClosed { get; set; }
             public short ColorIndex { get; set; }
-            public string LineTypeName { get; set; }
+            public string LineTypeName { get; set; } = "";
             public double LineWeight { get; set; }
             public double LineTypeScale { get; set; }
             public double Elevation { get; set; }
@@ -31,50 +31,50 @@ namespace DxfDwgViewer.RenderUtilities
             public double TotalLength { get; set; }
             
             // three.js兼容性属性
-            public List<Point3DData> Vertices3D { get; set; }
-            public List<int> Indices { get; set; }
-            public List<double> NormalsArray { get; set; }
-            public List<double> ColorsArray { get; set; }
-            public List<double> UVsArray { get; set; }
-            public ColorData Color { get; set; }
-            public NormalData Normal { get; set; }
-            public TransformData Transform { get; set; }
+            public List<Point3DData> Vertices3D { get; set; } = new List<Point3DData>();
+            public List<int> Indices { get; set; } = new List<int>();
+            public List<double> NormalsArray { get; set; } = new List<double>();
+            public List<double> ColorsArray { get; set; } = new List<double>();
+            public List<double> UVsArray { get; set; } = new List<double>();
+            public ColorData Color { get; set; } = new ColorData(0);
+            public NormalData Normal { get; set; } = new NormalData();
+            public TransformData Transform { get; set; } = new TransformData();
             
             // 实体属性
-            public string EntityType { get; set; }
-            public bool Visible { get; set; }
-            public string LayerName { get; set; }
+            public string EntityType { get; set; } = "";
+            public bool Visible { get; set; } = true;
+            public string LayerName { get; set; } = "";
             public int LayerIndex { get; set; }
-            public string Handle { get; set; }
+            public string Handle { get; set; } = "";
             
             // 材质属性
             public double Transparency { get; set; }
-            public string MaterialName { get; set; }
-            public MaterialData Material { get; set; }
+            public string MaterialName { get; set; } = "";
+            public MaterialData Material { get; set; } = new MaterialData();
             
             // 渲染属性
             public bool CastShadows { get; set; }
             public bool ReceiveShadows { get; set; }
             
             // three.js几何体属性
-            public string GeometryType { get; set; }
+            public string GeometryType { get; set; } = "";
             public bool DoubleSided { get; set; }
             public bool FlatShading { get; set; }
             
             // 圆弧段属性
             public bool HasArcSegments { get; set; }
-            public List<ArcSegmentData> ArcSegments { get; set; }
+            public List<ArcSegmentData> ArcSegments { get; set; } = new List<ArcSegmentData>();
             
             // 线宽属性
             public bool HasVariableWidth { get; set; }
             
             // 几何体验证属性
-            public GeometryData Geometry { get; set; }
+            public GeometryData Geometry { get; set; } = new GeometryData();
             
             // three.js顶点数据属性
-            public List<double> VertexPositions { get; set; }
-            public List<double> VertexNormals { get; set; }
-            public List<double> VertexUVs { get; set; }
+            public List<double> VertexPositions { get; set; } = new List<double>();
+            public List<double> VertexNormals { get; set; } = new List<double>();
+            public List<double> VertexUVs { get; set; } = new List<double>();
         }
 
         public class VertexData
