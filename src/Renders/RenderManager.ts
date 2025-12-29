@@ -338,6 +338,50 @@ export class RenderManager {
     return this.dxfGroup.scale.x;
   }
 
+  public setFlipX(enabled: boolean): void {
+    if (this.entityCount === 0) {
+      console.warn('RenderManager: No entities to flip');
+      return;
+    }
+    this.dxfGroup.rotation.x = enabled ? Math.PI : 0;
+    console.log(`RenderManager: DXF group X flip ${enabled ? 'enabled' : 'disabled'}`);
+  }
+
+  public setFlipY(enabled: boolean): void {
+    if (this.entityCount === 0) {
+      console.warn('RenderManager: No entities to flip');
+      return;
+    }
+    this.dxfGroup.rotation.y = enabled ? Math.PI : 0;
+    console.log(`RenderManager: DXF group Y flip ${enabled ? 'enabled' : 'disabled'}`);
+  }
+
+  public setFlipZ(enabled: boolean): void {
+    if (this.entityCount === 0) {
+      console.warn('RenderManager: No entities to flip');
+      return;
+    }
+    this.dxfGroup.rotation.z = enabled ? Math.PI : 0;
+    console.log(`RenderManager: DXF group Z flip ${enabled ? 'enabled' : 'disabled'}`);
+  }
+
+  public setFlipRotation(x: number, y: number, z: number): void {
+    if (this.entityCount === 0) {
+      console.warn('RenderManager: No entities to rotate');
+      return;
+    }
+    this.dxfGroup.rotation.set(x, y, z);
+    console.log(`RenderManager: DXF group rotation set to (${x}, ${y}, ${z})`);
+  }
+
+  public getFlipRotation(): { x: number; y: number; z: number } {
+    return {
+      x: this.dxfGroup.rotation.x,
+      y: this.dxfGroup.rotation.y,
+      z: this.dxfGroup.rotation.z
+    };
+  }
+
   public dispose(): void {
     this.clearAll();
     if (this.dxfGroup) {

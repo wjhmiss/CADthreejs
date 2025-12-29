@@ -28,6 +28,27 @@
       <button @click="applyDxfScale" class="scale-apply-btn">应用</button>
     </div>
 
+    <!-- DXF翻转控件 -->
+    <div class="dxf-flip-control">
+      <span class="flip-label">DXF翻转(度):</span>
+      <div class="flip-inputs">
+        <div class="flip-input-group">
+          <span class="axis-label">X:</span>
+          <input type="number" v-model.number="dxfFlipX" @input="handleDxfFlipChange" step="1" class="flip-input" />
+        </div>
+        <div class="flip-input-group">
+          <span class="axis-label">Y:</span>
+          <input type="number" v-model.number="dxfFlipY" @input="handleDxfFlipChange" step="1" class="flip-input" />
+        </div>
+        <div class="flip-input-group">
+          <span class="axis-label">Z:</span>
+          <input type="number" v-model.number="dxfFlipZ" @input="handleDxfFlipChange" step="1" class="flip-input" />
+        </div>
+      </div>
+      <button @click="applyDxfFlip" class="flip-apply-btn">应用</button>
+      <button @click="resetDxfFlip" class="flip-reset-btn">重置</button>
+    </div>
+
     <!-- 编辑模式工具栏 -->
     <div v-if="transformControlsRef?.object" class="edit-toolbar">
       <h4>编辑模式</h4>
@@ -152,6 +173,9 @@ const contextMenuVisible = ref(false)
 const contextMenuPosition = ref({ x: 0, y: 0 })
 const transformMode = ref('translate')
 const dxfScale = ref(1.0) // DXF比例缩放
+const dxfFlipX = ref(0) // DXF X轴翻转角度（度）
+const dxfFlipY = ref(0) // DXF Y轴翻转角度（度）
+const dxfFlipZ = ref(0) // DXF Z轴翻转角度（度）
 
 // 对象属性的响应式变量
 const position = ref({ x: 0, y: 0, z: 0 })
@@ -1320,6 +1344,10 @@ const handleDxfDataReturn = (dxfData: string | undefined) => {
       renderManager.renderDxfData(parsedData)
       // 重置DXF比例为1.0
       dxfScale.value = 1.0
+      // 重置DXF翻转角度
+      dxfFlipX.value = 0
+      dxfFlipY.value = 0
+      dxfFlipZ.value = 0
       
       // 隐藏原来的地面和网格辅助线，上传的DXF作为新的地面信息
       if (ground) {
@@ -1354,6 +1382,39 @@ const applyDxfScale = () => {
   if (renderManager && dxfScale.value > 0) {
     renderManager.setScale(dxfScale.value)
     console.log(`Applied DXF scale: ${dxfScale.value}`)
+  }
+}
+
+// 处理DXF翻转变化
+const handleDxfFlipChange = () => {
+  // 实时预览翻转效果
+  if (renderManager) {
+    const xRad = (dxfFlipX.value * Math.PI) / 180
+    const yRad = (dxfFlipY.value * Math.PI) / 180
+    const zRad = (dxfFlipZ.value * Math.PI) / 180
+    renderManager.setFlipRotation(xRad, yRad, zRad)
+  }
+}
+
+// 应用DXF翻转
+const applyDxfFlip = () => {
+  if (renderManager) {
+    const xRad = (dxfFlipX.value * Math.PI) / 180
+    const yRad = (dxfFlipY.value * Math.PI) / 180
+    const zRad = (dxfFlipZ.value * Math.PI) / 180
+    renderManager.setFlipRotation(xRad, yRad, zRad)
+    console.log(`Applied DXF flip: X=${dxfFlipX.value}°, Y=${dxfFlipY.value}°, Z=${dxfFlipZ.value}°`)
+  }
+}
+
+// 重置DXF翻转
+const resetDxfFlip = () => {
+  dxfFlipX.value = 0
+  dxfFlipY.value = 0
+  dxfFlipZ.value = 0
+  if (renderManager) {
+    renderManager.setFlipRotation(0, 0, 0)
+    console.log('Reset DXF flip to (0, 0, 0)')
   }
 }
 
@@ -1471,6 +1532,9 @@ body {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  max-width: 220px;
+  max-height: calc(100vh - 20px);
+  overflow-y: auto;
 }
 
 .toolbar h3 {
@@ -1554,7 +1618,7 @@ body {
 
 .dxf-scale-control {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 8px;
   margin-top: 10px;
   padding: 8px;
@@ -1570,13 +1634,13 @@ body {
 }
 
 .scale-input {
-  flex: 1;
+  width: 100%;
   padding: 6px 10px;
   border: 1px solid #ddd;
   border-radius: 4px;
   background-color: white;
   font-size: 14px;
-  width: 80px;
+  box-sizing: border-box;
 }
 
 .scale-apply-btn {
@@ -1592,6 +1656,81 @@ body {
 
 .scale-apply-btn:hover {
   background-color: #45a049;
+}
+
+.dxf-flip-control {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px;
+  background-color: rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
+}
+
+.flip-label {
+  font-size: 14px;
+  font-weight: bold;
+  color: #333;
+  white-space: nowrap;
+}
+
+.flip-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.flip-input-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.flip-input-group .axis-label {
+  font-size: 12px;
+  font-weight: bold;
+  color: #555;
+}
+
+.flip-input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: white;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.flip-apply-btn {
+  padding: 6px 12px;
+  background-color: #2196F3;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s;
+}
+
+.flip-apply-btn:hover {
+  background-color: #0b7dda;
+}
+
+.flip-reset-btn {
+  padding: 6px 12px;
+  background-color: #f44336;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s;
+}
+
+.flip-reset-btn:hover {
+  background-color: #d32f2f;
 }
 
 .properties-panel {
