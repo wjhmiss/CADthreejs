@@ -159,7 +159,6 @@ export class SolidEntityThreejsRenderer {
     this.renderEdges(solidData, group);
     this.renderBounds(solidData, group);
 
-    scene.add(group);
     this.solidCache.set(solidData.Handle, group);
 
     return group;

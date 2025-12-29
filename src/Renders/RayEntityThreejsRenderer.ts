@@ -87,7 +87,11 @@ export class RayEntityThreejsRenderer {
   private static readonly DEFAULT_RAY_LENGTH = 1000.0;
   private static readonly DEFAULT_LINE_WIDTH = 1.0;
 
-  public static render(rayData: RayData, scene: THREE.Scene): THREE.Group {
+  public static render(rayData: RayData, scene: THREE.Scene): THREE.Group | null {
+    if (!rayData || !rayData.Visible) {
+      return null;
+    }
+
     const group = new THREE.Group();
     group.name = `Ray_${rayData.Handle}`;
     group.visible = rayData.Visible;
@@ -109,10 +113,6 @@ export class RayEntityThreejsRenderer {
     group.add(line);
 
     this.rayCache.set(rayData.Handle, group);
-
-    if (rayData.Visible) {
-      scene.add(group);
-    }
 
     return group;
   }

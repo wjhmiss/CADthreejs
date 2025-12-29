@@ -155,7 +155,6 @@ export class ShapeEntityThreejsRenderer {
     this.renderBoundary(shapeData, group);
     this.renderBounds(shapeData, group);
 
-    scene.add(group);
     this.shapeCache.set(shapeData.Handle, group);
 
     return group;

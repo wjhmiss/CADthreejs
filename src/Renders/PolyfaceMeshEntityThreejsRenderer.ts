@@ -81,7 +81,11 @@ export class PolyfaceMeshEntityThreejsRenderer {
   private static readonly DEFAULT_COLOR = '#FFFFFF';
   private static readonly meshCache = new Map<string, THREE.Mesh>();
 
-  public static render(polyfaceMeshData: PolyfaceMeshData, scene: THREE.Scene): THREE.Group {
+  public static render(polyfaceMeshData: PolyfaceMeshData, scene: THREE.Scene): THREE.Group | null {
+    if (!polyfaceMeshData || !polyfaceMeshData.Visible) {
+      return null;
+    }
+
     const group = new THREE.Group();
     group.name = `PolyfaceMesh_${polyfaceMeshData.Handle}`;
     group.visible = polyfaceMeshData.Visible;
@@ -98,10 +102,6 @@ export class PolyfaceMeshEntityThreejsRenderer {
     group.add(mesh);
 
     this.meshCache.set(polyfaceMeshData.Handle, mesh);
-
-    if (polyfaceMeshData.Visible) {
-      scene.add(group);
-    }
 
     return group;
   }
@@ -176,15 +176,6 @@ export class PolyfaceMeshEntityThreejsRenderer {
 
     const group = existingMesh.parent;
     if (group) {
-      if (visible) {
-        if (!group.parent) {
-          scene.add(group);
-        }
-      } else {
-        if (group.parent) {
-          group.parent.remove(group);
-        }
-      }
       group.visible = visible;
     }
     existingMesh.visible = visible;

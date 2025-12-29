@@ -138,8 +138,6 @@ export class LwPolylineEntityThreejsRenderer {
     this.applyTransform(group, lwPolylineData.Transform);
     this.setUserData(group, lwPolylineData);
 
-    scene.add(group);
-
     return group;
   }
 

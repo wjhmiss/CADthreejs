@@ -186,7 +186,6 @@ export class MLineEntityThreejsRenderer {
     this.renderCaps(mlineData, group);
     this.renderJoints(mlineData, group);
 
-    scene.add(group);
     return group;
   }
 

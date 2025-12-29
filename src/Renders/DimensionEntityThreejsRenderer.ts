@@ -375,10 +375,6 @@ export class DimensionEntityThreejsRenderer {
       this.renderLinear(dimensionData.LinearData, group, color);
     }
 
-    if (scene) {
-      scene.add(group);
-    }
-
     const bounds = new THREE.Box3().setFromObject(group);
 
     return {

@@ -78,10 +78,14 @@ export interface Face3DRenderResult {
 export class Face3DEntityThreejsRenderer {
   private static readonly DEFAULT_COLOR = new THREE.Color(0xffffff);
 
-  public static render(face3DData: Face3DData, scene: THREE.Scene): THREE.Object3D | null {
+  public static render(face3DData: Face3DData, scene: THREE.Scene): THREE.Group | null {
     if (!face3DData.Visible || face3DData.IsInvisible) {
       return null;
     }
+
+    const group = new THREE.Group();
+    group.name = `Face3D_${face3DData.Handle || face3DData.Uuid}`;
+    group.visible = face3DData.Visible;
 
     const material = this.createMaterial(face3DData);
     const geometry = this.createGeometry(face3DData);
@@ -111,10 +115,12 @@ export class Face3DEntityThreejsRenderer {
     mesh.receiveShadow = face3DData.ReceiveShadow;
     mesh.renderOrder = face3DData.RenderOrder;
 
-    return mesh;
+    group.add(mesh);
+
+    return group;
   }
 
-  public static renderFromJson(jsonString: string, scene: THREE.Scene): THREE.Object3D | null {
+  public static renderFromJson(jsonString: string, scene: THREE.Scene): THREE.Group | null {
     try {
       const face3DData: Face3DData = JSON.parse(jsonString);
       return this.render(face3DData, scene);

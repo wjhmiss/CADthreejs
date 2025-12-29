@@ -171,7 +171,6 @@ export class MeshEntityThreejsRenderer {
     this.renderMesh(meshData, group);
     this.renderEdges(meshData, group);
 
-    scene.add(group);
     return group;
   }
 

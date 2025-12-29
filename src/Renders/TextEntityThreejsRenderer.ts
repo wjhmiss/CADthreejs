@@ -141,7 +141,11 @@ export class TextEntityThreejsRenderer {
   private static readonly DEFAULT_COLOR = '#FFFFFF';
   private static readonly textCache = new Map<string, THREE.Mesh>();
 
-  public static render(textData: TextData, scene: THREE.Scene): THREE.Group {
+  public static render(textData: TextData, scene: THREE.Scene): THREE.Group | null {
+    if (!textData || !textData.Visible) {
+      return null;
+    }
+
     const group = new THREE.Group();
     group.name = `Text_${textData.Handle}`;
     group.visible = textData.Visible;
@@ -156,10 +160,6 @@ export class TextEntityThreejsRenderer {
     group.add(mesh);
 
     this.textCache.set(textData.Handle, mesh);
-
-    if (textData.Visible) {
-      scene.add(group);
-    }
 
     return group;
   }
@@ -215,15 +215,6 @@ export class TextEntityThreejsRenderer {
 
     const group = existingMesh.parent;
     if (group) {
-      if (visible) {
-        if (!group.parent) {
-          scene.add(group);
-        }
-      } else {
-        if (group.parent) {
-          group.parent.remove(group);
-        }
-      }
       group.visible = visible;
     }
     existingMesh.visible = visible;
@@ -407,8 +398,6 @@ export class TextEntityThreejsRenderer {
       const textGroup = this.render(textData, scene);
       group.add(textGroup);
     });
-
-    scene.add(group);
 
     return group;
   }

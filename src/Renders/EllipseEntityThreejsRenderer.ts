@@ -89,10 +89,14 @@ export class EllipseEntityThreejsRenderer {
   private static readonly DEFAULT_COLOR = new THREE.Color(0xffffff);
   private static readonly DEFAULT_SEGMENTS = 64;
 
-  public static render(ellipseData: EllipseData, scene: THREE.Scene): THREE.Object3D | null {
+  public static render(ellipseData: EllipseData, scene: THREE.Scene): THREE.Group | null {
     if (!ellipseData.Visible || ellipseData.IsInvisible) {
       return null;
     }
+
+    const group = new THREE.Group();
+    group.name = `Ellipse_${ellipseData.Handle || ellipseData.Uuid}`;
+    group.visible = ellipseData.Visible;
 
     const material = this.createMaterial(ellipseData);
     const geometry = this.createGeometry(ellipseData);
@@ -124,10 +128,12 @@ export class EllipseEntityThreejsRenderer {
     line.receiveShadow = ellipseData.ReceiveShadow;
     line.renderOrder = ellipseData.RenderOrder;
 
-    return line;
+    group.add(line);
+
+    return group;
   }
 
-  public static renderFromJson(jsonString: string, scene: THREE.Scene): THREE.Object3D | null {
+  public static renderFromJson(jsonString: string, scene: THREE.Scene): THREE.Group | null {
     try {
       const ellipseData: EllipseData = JSON.parse(jsonString);
       return this.render(ellipseData, scene);

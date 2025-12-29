@@ -55,19 +55,34 @@ export interface DxfParseData {
   HatchDatas?: any[];
   InsertDatas?: any[];
   DimensionDatas?: any[];
+  DimensionLinearDatas?: any[];
+  DimensionAngular3PtDatas?: any[];
+  DimensionAngular2LineDatas?: any[];
+  DimensionRadiusDatas?: any[];
+  DimensionDiameterDatas?: any[];
+  DimensionOrdinateDatas?: any[];
+  DimensionAlignedDatas?: any[];
 }
 
 export class RenderManager {
   private scene: THREE.Scene;
   private renderedObjects: Map<string, THREE.Group> = new Map();
   private entityCount: number = 0;
+  private dxfGroup: THREE.Group;
+  private boundingBox: THREE.Box3;
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
+    this.dxfGroup = new THREE.Group();
+    this.dxfGroup.name = 'DXF_Group';
+    this.boundingBox = new THREE.Box3();
+    this.scene.add(this.dxfGroup);
   }
 
   public renderDxfData(dxfData: DxfParseData): void {
+    console.log('RenderManager.renderDxfData called with:', dxfData);
     this.clearAll();
+    this.boundingBox.makeEmpty();
 
     if (dxfData.LineDatas && dxfData.LineDatas.length > 0) {
       this.renderEntities(dxfData.LineDatas, 'Line', LineEntityThreejsRenderer);
@@ -177,7 +192,37 @@ export class RenderManager {
       this.renderEntities(dxfData.DimensionDatas, 'Dimension', DimensionEntityThreejsRenderer);
     }
 
+    if (dxfData.DimensionLinearDatas && dxfData.DimensionLinearDatas.length > 0) {
+      this.renderEntities(dxfData.DimensionLinearDatas, 'DimensionLinear', DimensionEntityThreejsRenderer);
+    }
+
+    if (dxfData.DimensionAngular3PtDatas && dxfData.DimensionAngular3PtDatas.length > 0) {
+      this.renderEntities(dxfData.DimensionAngular3PtDatas, 'DimensionAngular3Pt', DimensionEntityThreejsRenderer);
+    }
+
+    if (dxfData.DimensionAngular2LineDatas && dxfData.DimensionAngular2LineDatas.length > 0) {
+      this.renderEntities(dxfData.DimensionAngular2LineDatas, 'DimensionAngular2Line', DimensionEntityThreejsRenderer);
+    }
+
+    if (dxfData.DimensionRadiusDatas && dxfData.DimensionRadiusDatas.length > 0) {
+      this.renderEntities(dxfData.DimensionRadiusDatas, 'DimensionRadius', DimensionEntityThreejsRenderer);
+    }
+
+    if (dxfData.DimensionDiameterDatas && dxfData.DimensionDiameterDatas.length > 0) {
+      this.renderEntities(dxfData.DimensionDiameterDatas, 'DimensionDiameter', DimensionEntityThreejsRenderer);
+    }
+
+    if (dxfData.DimensionOrdinateDatas && dxfData.DimensionOrdinateDatas.length > 0) {
+      this.renderEntities(dxfData.DimensionOrdinateDatas, 'DimensionOrdinate', DimensionEntityThreejsRenderer);
+    }
+
+    if (dxfData.DimensionAlignedDatas && dxfData.DimensionAlignedDatas.length > 0) {
+      this.renderEntities(dxfData.DimensionAlignedDatas, 'DimensionAligned', DimensionEntityThreejsRenderer);
+    }
+
     console.log(`RenderManager: Total entities rendered: ${this.entityCount}`);
+    console.log(`RenderManager: DXF group children count: ${this.dxfGroup.children.length}`);
+    this.centerDxfGroup();
   }
 
   private renderEntities<T>(
@@ -193,6 +238,14 @@ export class RenderManager {
         if (group) {
           const key = `${entityType}_${entityData.Handle}`;
           this.renderedObjects.set(key, group);
+          
+          group.traverse((child) => {
+            if (child instanceof THREE.Mesh || child instanceof THREE.Line) {
+              this.boundingBox.expandByObject(child);
+            }
+          });
+          
+          this.dxfGroup.add(group);
           this.entityCount++;
         }
       } catch (error) {
@@ -203,11 +256,14 @@ export class RenderManager {
 
   public clearAll(): void {
     this.renderedObjects.forEach((group, key) => {
-      this.scene.remove(group);
+      this.dxfGroup.remove(group);
       this.disposeGroup(group);
     });
     this.renderedObjects.clear();
     this.entityCount = 0;
+    this.boundingBox.makeEmpty();
+    this.dxfGroup.position.set(0, 0, 0);
+    this.dxfGroup.scale.set(1, 1, 1);
     console.log('RenderManager: All entities cleared');
   }
 
@@ -247,5 +303,45 @@ export class RenderManager {
       });
     });
     return objects;
+  }
+
+  private centerDxfGroup(): void {
+    if (this.entityCount === 0) {
+      return;
+    }
+
+    const center = new THREE.Vector3();
+    this.boundingBox.getCenter(center);
+
+    this.dxfGroup.position.x = -center.x;
+    this.dxfGroup.position.z = -center.z;
+    this.dxfGroup.position.y = 0;
+
+    console.log(`RenderManager: DXF group centered at (${this.dxfGroup.position.x}, ${this.dxfGroup.position.y}, ${this.dxfGroup.position.z})`);
+  }
+
+  public setScale(scale: number): void {
+    if (this.entityCount === 0) {
+      console.warn('RenderManager: No entities to scale');
+      return;
+    }
+
+    this.dxfGroup.scale.set(scale, scale, scale);
+    console.log(`RenderManager: DXF group scaled to ${scale}`);
+  }
+
+  public getDxfGroup(): THREE.Group {
+    return this.dxfGroup;
+  }
+
+  public getCurrentScale(): number {
+    return this.dxfGroup.scale.x;
+  }
+
+  public dispose(): void {
+    this.clearAll();
+    if (this.dxfGroup) {
+      this.scene.remove(this.dxfGroup);
+    }
   }
 }

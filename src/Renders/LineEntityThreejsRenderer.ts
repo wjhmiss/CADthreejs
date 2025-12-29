@@ -134,7 +134,6 @@ export class LineEntityThreejsRenderer {
 
     this.renderLine(lineData, group);
 
-    scene.add(group);
     return group;
   }
 

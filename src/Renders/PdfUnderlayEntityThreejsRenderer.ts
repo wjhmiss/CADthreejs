@@ -180,7 +180,6 @@ export class PdfUnderlayEntityThreejsRenderer {
     this.renderClippingBoundary(pdfUnderlayData, group);
     this.renderBounds(pdfUnderlayData, group);
 
-    scene.add(group);
     return group;
   }
 

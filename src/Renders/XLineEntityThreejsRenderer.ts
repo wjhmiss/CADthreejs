@@ -83,10 +83,14 @@ export interface XLineData {
 export class XLineEntityThreejsRenderer {
   private static readonly xlineCache = new Map<string, THREE.Line>();
 
-  public static render(xlineData: XLineData, scene: THREE.Scene): THREE.Group {
+  public static render(xlineData: XLineData, scene: THREE.Scene): THREE.Group | null {
+    if (!xlineData || !xlineData.Visible) {
+      return null;
+    }
+
     const group = new THREE.Group();
     group.name = `XLine_${xlineData.Handle}`;
-    group.visible = xlineData.Visible !== false;
+    group.visible = xlineData.Visible;
 
     const geometry = this.createXLineGeometry(xlineData);
     const material = this.createXLineMaterial(xlineData);
@@ -98,10 +102,6 @@ export class XLineEntityThreejsRenderer {
     group.add(line);
 
     this.xlineCache.set(xlineData.Handle, line);
-
-    if (xlineData.Visible !== false) {
-      scene.add(group);
-    }
 
     return group;
   }
@@ -159,15 +159,6 @@ export class XLineEntityThreejsRenderer {
 
     const group = existingLine.parent;
     if (group) {
-      if (visible) {
-        if (!group.parent) {
-          scene.add(group);
-        }
-      } else {
-        if (group.parent) {
-          group.parent.remove(group);
-        }
-      }
       group.visible = visible;
     }
     existingLine.visible = visible;
@@ -304,8 +295,6 @@ export class XLineEntityThreejsRenderer {
       const xlineGroup = this.render(xlineData, scene);
       group.add(xlineGroup);
     });
-
-    scene.add(group);
 
     return group;
   }

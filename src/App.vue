@@ -21,6 +21,13 @@
     <input type="file" ref="importInput" @change="handleImportScene" accept=".json" />
     <button v-if="transformControlsRef?.object" @click="handleExitEditMode" class="exit-edit-btn">退出编辑模式 (ESC)</button>
 
+    <!-- DXF缩放控件 -->
+    <div class="dxf-scale-control">
+      <span class="scale-label">DXF比例:</span>
+      <input type="number" v-model.number="dxfScale" @input="handleDxfScaleChange" step="0.1" min="0.1" class="scale-input" />
+      <button @click="applyDxfScale" class="scale-apply-btn">应用</button>
+    </div>
+
     <!-- 编辑模式工具栏 -->
     <div v-if="transformControlsRef?.object" class="edit-toolbar">
       <h4>编辑模式</h4>
@@ -143,7 +150,8 @@ const selectedObject = ref<THREE.Object3D | null>(null)
 const objects = [] as THREE.Object3D[]
 const contextMenuVisible = ref(false)
 const contextMenuPosition = ref({ x: 0, y: 0 })
-const transformMode = ref('translate') // 变换模式：translate, rotate, scale
+const transformMode = ref('translate')
+const dxfScale = ref(1.0) // DXF比例缩放
 
 // 对象属性的响应式变量
 const position = ref({ x: 0, y: 0, z: 0 })
@@ -160,6 +168,7 @@ const transformControlsRef = ref<TransformControls | null>(null)
 let raycaster: THREE.Raycaster
 let mouse: THREE.Vector2
 let ground: THREE.Mesh
+let gridHelper: THREE.GridHelper
 let animationId: number
 
 // 初始化Three.js场景
@@ -246,7 +255,7 @@ const initThreeJS = () => {
   scene.add(ground)
 
   // 添加网格辅助线
-  const gridHelper = new THREE.GridHelper(20, 20, 0x888888, 0xdddddd)
+  gridHelper = new THREE.GridHelper(20, 20, 0x888888, 0xdddddd)
   // 标记网格辅助线为不可变换的对象
   gridHelper.userData.isTransformable = false
   scene.add(gridHelper)
@@ -1296,14 +1305,55 @@ const handleDxfDataReturn = (dxfData: string | undefined) => {
   try {
     const parsedData = JSON.parse(dxfData)
     console.log('Received DXF data:', parsedData)
+    console.log('DXF data keys:', Object.keys(parsedData))
+    
+    // 检查数据格式
+    Object.keys(parsedData).forEach(key => {
+      if (Array.isArray(parsedData[key]) && parsedData[key].length > 0) {
+        console.log(`  ${key}: ${parsedData[key].length} items`)
+        console.log(`  First item of ${key}:`, parsedData[key][0])
+      }
+    })
 
     // 使用RenderManager渲染DXF数据
     if (renderManager) {
       renderManager.renderDxfData(parsedData)
+      // 重置DXF比例为1.0
+      dxfScale.value = 1.0
+      
+      // 隐藏原来的地面和网格辅助线，上传的DXF作为新的地面信息
+      if (ground) {
+        ground.visible = false
+      }
+      if (gridHelper) {
+        gridHelper.visible = false
+      }
+      
+      // 强制更新场景渲染
+      console.log('Forcing scene update after DXF render')
+      if (renderer && camera) {
+        renderer.render(scene, camera)
+      }
     }
   } catch (error) {
     console.error('Error parsing DXF data:', error)
     alert('解析DXF数据失败')
+  }
+}
+
+// 处理DXF比例变化
+const handleDxfScaleChange = () => {
+  // 实时预览缩放效果
+  if (renderManager && dxfScale.value > 0) {
+    renderManager.setScale(dxfScale.value)
+  }
+}
+
+// 应用DXF比例
+const applyDxfScale = () => {
+  if (renderManager && dxfScale.value > 0) {
+    renderManager.setScale(dxfScale.value)
+    console.log(`Applied DXF scale: ${dxfScale.value}`)
   }
 }
 
@@ -1500,6 +1550,48 @@ body {
   background-color: white;
   font-size: 14px;
   margin-top: 5px;
+}
+
+.dxf-scale-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px;
+  background-color: rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
+}
+
+.scale-label {
+  font-size: 14px;
+  font-weight: bold;
+  color: #333;
+  white-space: nowrap;
+}
+
+.scale-input {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: white;
+  font-size: 14px;
+  width: 80px;
+}
+
+.scale-apply-btn {
+  padding: 6px 12px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s;
+}
+
+.scale-apply-btn:hover {
+  background-color: #45a049;
 }
 
 .properties-panel {

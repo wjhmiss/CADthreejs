@@ -123,7 +123,11 @@ export class Polyline3DEntityThreejsRenderer {
   private static readonly DEFAULT_COLOR = '#FFFFFF';
   private static readonly polylineCache = new Map<string, THREE.Group>();
 
-  public static render(polyline3DData: Polyline3DData, scene: THREE.Scene): THREE.Group {
+  public static render(polyline3DData: Polyline3DData, scene: THREE.Scene): THREE.Group | null {
+    if (!polyline3DData || !polyline3DData.Visible) {
+      return null;
+    }
+
     const group = new THREE.Group();
     group.name = `Polyline3D_${polyline3DData.Handle}`;
     group.visible = polyline3DData.Visible;
@@ -143,10 +147,6 @@ export class Polyline3DEntityThreejsRenderer {
     group.add(line);
 
     this.polylineCache.set(polyline3DData.Handle, group);
-
-    if (polyline3DData.Visible) {
-      scene.add(group);
-    }
 
     return group;
   }

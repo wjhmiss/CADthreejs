@@ -118,10 +118,14 @@ export interface WipeoutData {
 export class WipeoutEntityThreejsRenderer {
   private static readonly wipeoutCache = new Map<string, THREE.Mesh>();
 
-  public static render(wipeoutData: WipeoutData, scene: THREE.Scene): THREE.Group {
+  public static render(wipeoutData: WipeoutData, scene: THREE.Scene): THREE.Group | null {
+    if (!wipeoutData || !wipeoutData.Visible) {
+      return null;
+    }
+
     const group = new THREE.Group();
     group.name = `Wipeout_${wipeoutData.Handle}`;
-    group.visible = wipeoutData.Visible !== false;
+    group.visible = wipeoutData.Visible;
 
     const geometry = this.createWipeoutGeometry(wipeoutData);
     const material = this.createWipeoutMaterial(wipeoutData);
@@ -133,10 +137,6 @@ export class WipeoutEntityThreejsRenderer {
     group.add(mesh);
 
     this.wipeoutCache.set(wipeoutData.Handle, mesh);
-
-    if (wipeoutData.Visible !== false) {
-      scene.add(group);
-    }
 
     return group;
   }
@@ -194,15 +194,6 @@ export class WipeoutEntityThreejsRenderer {
 
     const group = existingMesh.parent;
     if (group) {
-      if (visible) {
-        if (!group.parent) {
-          scene.add(group);
-        }
-      } else {
-        if (group.parent) {
-          group.parent.remove(group);
-        }
-      }
       group.visible = visible;
     }
     existingMesh.visible = visible;
@@ -347,8 +338,6 @@ export class WipeoutEntityThreejsRenderer {
       const wipeoutGroup = this.render(wipeoutData, scene);
       group.add(wipeoutGroup);
     });
-
-    scene.add(group);
 
     return group;
   }

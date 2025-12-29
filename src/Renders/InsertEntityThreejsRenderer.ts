@@ -195,7 +195,6 @@ export class InsertEntityThreejsRenderer {
 
     this.renderAttributes(insertData, group);
 
-    scene.add(group);
     return group;
   }
 

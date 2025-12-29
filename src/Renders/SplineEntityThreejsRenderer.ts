@@ -119,7 +119,11 @@ export class SplineEntityThreejsRenderer {
   private static readonly DEFAULT_COLOR = '#FFFFFF';
   private static readonly splineCache = new Map<string, THREE.Line>();
 
-  public static render(splineData: SplineData, scene: THREE.Scene): THREE.Group {
+  public static render(splineData: SplineData, scene: THREE.Scene): THREE.Group | null {
+    if (!splineData || !splineData.Visible) {
+      return null;
+    }
+
     const group = new THREE.Group();
     group.name = `Spline_${splineData.Handle}`;
     group.visible = splineData.Visible;
@@ -134,10 +138,6 @@ export class SplineEntityThreejsRenderer {
     group.add(line);
 
     this.splineCache.set(splineData.Handle, line);
-
-    if (splineData.Visible) {
-      scene.add(group);
-    }
 
     return group;
   }
@@ -194,15 +194,6 @@ export class SplineEntityThreejsRenderer {
 
     const group = existingLine.parent;
     if (group) {
-      if (visible) {
-        if (!group.parent) {
-          scene.add(group);
-        }
-      } else {
-        if (group.parent) {
-          group.parent.remove(group);
-        }
-      }
       group.visible = visible;
     }
     existingLine.visible = visible;
@@ -349,8 +340,6 @@ export class SplineEntityThreejsRenderer {
       const splineGroup = this.render(splineData, scene);
       group.add(splineGroup);
     });
-
-    scene.add(group);
 
     return group;
   }

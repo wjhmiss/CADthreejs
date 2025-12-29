@@ -141,7 +141,6 @@ export class LeaderEntityThreejsRenderer {
       this.renderHookLine(leaderData, group);
     }
 
-    scene.add(group);
     return group;
   }
 

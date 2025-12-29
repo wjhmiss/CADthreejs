@@ -151,7 +151,11 @@ export class Polyline2DEntityThreejsRenderer {
   private static readonly ARC_SEGMENTS_PER_DEGREE = 0.5;
   private static readonly polylineCache = new Map<string, THREE.Group>();
 
-  public static render(polyline2DData: Polyline2DData, scene: THREE.Scene): THREE.Group {
+  public static render(polyline2DData: Polyline2DData, scene: THREE.Scene): THREE.Group | null {
+    if (!polyline2DData || !polyline2DData.Visible) {
+      return null;
+    }
+
     const group = new THREE.Group();
     group.name = `Polyline2D_${polyline2DData.Handle}`;
     group.visible = polyline2DData.Visible;
@@ -171,10 +175,6 @@ export class Polyline2DEntityThreejsRenderer {
     group.add(line);
 
     this.polylineCache.set(polyline2DData.Handle, group);
-
-    if (polyline2DData.Visible) {
-      scene.add(group);
-    }
 
     return group;
   }

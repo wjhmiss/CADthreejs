@@ -180,7 +180,6 @@ export class MTextEntityThreejsRenderer {
     this.renderBackground(mtextData, group);
     this.renderBounds(mtextData, group);
 
-    scene.add(group);
     return group;
   }
 

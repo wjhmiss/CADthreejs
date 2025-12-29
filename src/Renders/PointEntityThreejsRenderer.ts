@@ -101,7 +101,11 @@ export class PointEntityThreejsRenderer {
   private static readonly DEFAULT_COLOR = '#FFFFFF';
   private static readonly pointCache = new Map<string, THREE.Points>();
 
-  public static render(pointData: PointData, scene: THREE.Scene): THREE.Group {
+  public static render(pointData: PointData, scene: THREE.Scene): THREE.Group | null {
+    if (!pointData || !pointData.Visible) {
+      return null;
+    }
+
     const group = new THREE.Group();
     group.name = `Point_${pointData.Handle}`;
     group.visible = pointData.Visible;
@@ -116,10 +120,6 @@ export class PointEntityThreejsRenderer {
     group.add(points);
 
     this.pointCache.set(pointData.Handle, points);
-
-    if (pointData.Visible) {
-      scene.add(group);
-    }
 
     return group;
   }
@@ -178,15 +178,6 @@ export class PointEntityThreejsRenderer {
 
     const group = existingPoints.parent;
     if (group) {
-      if (visible) {
-        if (!group.parent) {
-          scene.add(group);
-        }
-      } else {
-        if (group.parent) {
-          group.parent.remove(group);
-        }
-      }
       group.visible = visible;
     }
     existingPoints.visible = visible;
@@ -321,8 +312,6 @@ export class PointEntityThreejsRenderer {
     const points = new THREE.Points(geometry, material);
     points.name = 'MultiplePoints';
     group.add(points);
-
-    scene.add(group);
 
     return group;
   }

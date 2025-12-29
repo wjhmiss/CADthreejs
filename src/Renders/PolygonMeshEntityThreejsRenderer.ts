@@ -93,7 +93,11 @@ export class PolygonMeshEntityThreejsRenderer {
   private static readonly meshCache = new Map<string, THREE.Mesh>();
   private static readonly edgeCache = new Map<string, THREE.LineSegments>();
 
-  public static render(polygonMeshData: PolygonMeshData, scene: THREE.Scene): THREE.Group {
+  public static render(polygonMeshData: PolygonMeshData, scene: THREE.Scene): THREE.Group | null {
+    if (!polygonMeshData || !polygonMeshData.Visible) {
+      return null;
+    }
+
     const group = new THREE.Group();
     group.name = `PolygonMesh_${polygonMeshData.Handle}`;
     group.visible = polygonMeshData.Visible;
@@ -119,10 +123,6 @@ export class PolygonMeshEntityThreejsRenderer {
       edges.visible = polygonMeshData.Visible;
       group.add(edges);
       this.edgeCache.set(polygonMeshData.Handle, edges);
-    }
-
-    if (polygonMeshData.Visible) {
-      scene.add(group);
     }
 
     return group;
@@ -225,15 +225,6 @@ export class PolygonMeshEntityThreejsRenderer {
 
     const group = existingMesh.parent;
     if (group) {
-      if (visible) {
-        if (!group.parent) {
-          scene.add(group);
-        }
-      } else {
-        if (group.parent) {
-          group.parent.remove(group);
-        }
-      }
       group.visible = visible;
     }
     existingMesh.visible = visible;

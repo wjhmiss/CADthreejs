@@ -108,7 +108,11 @@ export class RasterImageEntityThreejsRenderer {
   private static readonly textureLoader: THREE.TextureLoader = new THREE.TextureLoader();
   private static readonly textureCache: Map<string, THREE.Texture> = new Map();
 
-  public static render(rasterImageData: RasterImageData, scene: THREE.Scene): THREE.Group {
+  public static render(rasterImageData: RasterImageData, scene: THREE.Scene): THREE.Group | null {
+    if (!rasterImageData || !rasterImageData.Visible) {
+      return null;
+    }
+
     const group = new THREE.Group();
     group.name = `RasterImage_${rasterImageData.Handle}`;
     group.visible = rasterImageData.Visible;
@@ -133,10 +137,6 @@ export class RasterImageEntityThreejsRenderer {
     group.add(mesh);
 
     this.rasterImageCache.set(rasterImageData.Handle, group);
-
-    if (rasterImageData.Visible) {
-      scene.add(group);
-    }
 
     return group;
   }
