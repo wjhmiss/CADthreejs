@@ -9,6 +9,7 @@ namespace DxfDwgViewer.RenderUtilities
     {
         public class RasterImageData
         {
+            public string EntityType { get; set; } = "RasterImage";
             public List<Point3DData> CornerPoints { get; set; }
             public Point3DData InsertPoint { get; set; }
             public Point3DData UVector { get; set; }

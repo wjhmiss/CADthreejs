@@ -10,18 +10,23 @@ namespace DxfDwgViewer.RenderUtilities
     {
         public class SplineData
         {
+            public string Type { get; set; } = "Spline";
+            public bool Visible { get; set; } = true;
             public List<Point3DData> ControlPoints { get; set; }
             public List<Point3DData> FitPoints { get; set; }
             public List<double> Knots { get; set; }
             public List<double> Weights { get; set; }
             public int Degree { get; set; }
             public bool IsClosed { get; set; }
+            public bool Closed { get; set; }
             public bool IsPeriodic { get; set; }
+            public bool Periodic { get; set; }
             public Point3DData StartTangent { get; set; }
             public Point3DData EndTangent { get; set; }
             public Point3DData Normal { get; set; }
             public short ColorIndex { get; set; }
             public string LineTypeName { get; set; }
+            public string LayerName { get; set; }
             public double LineWeight { get; set; }
             public double ControlPointTolerance { get; set; }
             public double FitTolerance { get; set; }
@@ -64,18 +69,22 @@ namespace DxfDwgViewer.RenderUtilities
                 Weights = new List<double>(spline.Weights),
                 Degree = spline.Degree,
                 IsClosed = spline.IsClosed,
+                Closed = spline.IsClosed,
                 IsPeriodic = spline.IsPeriodic,
+                Periodic = spline.IsPeriodic,
                 StartTangent = new Point3DData(spline.StartTangent.X, spline.StartTangent.Y, spline.StartTangent.Z),
                 EndTangent = new Point3DData(spline.EndTangent.X, spline.EndTangent.Y, spline.EndTangent.Z),
                 Normal = new Point3DData(spline.Normal.X, spline.Normal.Y, spline.Normal.Z),
                 ColorIndex = spline.Color.Index,
                 LineTypeName = spline.GetActiveLineType()?.Name ?? "",
+                LayerName = spline.Layer?.Name ?? "",
                 LineWeight = spline.GetActiveLineWeightType().GetLineWeightValue(),
                 ControlPointTolerance = spline.ControlPointTolerance,
                 FitTolerance = spline.FitTolerance,
                 KnotTolerance = spline.KnotTolerance,
                 ApproximationPoints = new List<Point3DData>(),
-                IsRational = spline.Weights.Count > 0
+                IsRational = spline.Weights.Count > 0,
+                Visible = !spline.IsInvisible
             };
 
             foreach (var point in spline.ControlPoints)

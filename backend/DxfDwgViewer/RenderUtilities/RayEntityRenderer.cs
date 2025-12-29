@@ -8,6 +8,7 @@ namespace DxfDwgViewer.RenderUtilities
     {
         public class RayData
         {
+            public string EntityType { get; set; } = "Ray";
             public Point3DData StartPoint { get; set; }
             public Point3DData Direction { get; set; }
             public short ColorIndex { get; set; }

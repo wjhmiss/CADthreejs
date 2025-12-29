@@ -332,7 +332,7 @@ export interface DimensionRenderResult {
   bounds: THREE.Box3;
 }
 
-class DimensionEntityThreejsRenderer {
+export class DimensionEntityThreejsRenderer {
   private static readonly DEFAULT_COLOR = new THREE.Color(0xffffff);
   private static readonly DEFAULT_LINE_WIDTH = 1;
   private static readonly DEFAULT_TEXT_HEIGHT = 1;
@@ -758,5 +758,3 @@ class DimensionEntityThreejsRenderer {
     });
   }
 }
-
-export default DimensionEntityThreejsRenderer;

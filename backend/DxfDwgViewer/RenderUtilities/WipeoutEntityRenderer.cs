@@ -3,6 +3,7 @@ using System.Linq;
 using ACadSharp.Entities;
 using System.Collections.Generic;
 using ACadSharp.Extensions;
+using CSMath;
 
 namespace DxfDwgViewer.RenderUtilities
 {

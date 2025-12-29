@@ -1,6 +1,6 @@
 <template>
-  <DxfUpload v-if="showDxfUpload" @goBack="showDxfUpload = false" />
-  <template v-else>
+  <DxfUpload v-show="showDxfUpload" @goBack="handleDxfDataReturn" />
+  <div v-show="!showDxfUpload">
     <div class="canvas-container" ref="canvasContainer"></div>
 
     <div class="toolbar">
@@ -118,7 +118,7 @@
     </div>
     <div v-else class="context-menu-item" @click="handleEnterEditMode">启动编辑模式</div>
   </div>
-  </template>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -129,8 +129,10 @@ import { TransformControls } from 'three/examples/jsm/controls/TransformControls
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader'
 import DxfUpload from './DxfUpload.vue'
+import { RenderManager } from './Renders/RenderManager'
 
 const showDxfUpload = ref(false)
+let renderManager: RenderManager | null = null
 
 // 响应式变量
 const canvasContainer = ref<HTMLElement | null>(null)
@@ -162,6 +164,13 @@ let animationId: number
 
 // 初始化Three.js场景
 const initThreeJS = () => {
+  console.log('initThreeJS called, canvasContainer:', canvasContainer.value)
+  
+  if (!canvasContainer.value) {
+    console.error('canvasContainer is null or undefined')
+    return
+  }
+  
   // 创建场景
   scene = new THREE.Scene()
   scene.background = new THREE.Color(0xf0f0f0)
@@ -180,7 +189,8 @@ const initThreeJS = () => {
   renderer.setSize(window.innerWidth, window.innerHeight)
   renderer.shadowMap.enabled = true
   renderer.shadowMap.type = THREE.PCFSoftShadowMap
-  canvasContainer.value?.appendChild(renderer.domElement)
+  canvasContainer.value.appendChild(renderer.domElement)
+  console.log('Renderer domElement appended to canvasContainer')
 
   // 创建轨道控制器
   controls = new OrbitControls(camera, renderer.domElement)
@@ -260,6 +270,9 @@ const initThreeJS = () => {
   // 创建射线投射器和鼠标向量
   raycaster = new THREE.Raycaster()
   mouse = new THREE.Vector2()
+
+  // 创建渲染管理器
+  renderManager = new RenderManager(scene)
 
   // 添加事件监听器
   window.addEventListener('resize', onWindowResize)
@@ -1232,7 +1245,9 @@ const animate = () => {
 
 // 组件挂载时初始化
 onMounted(() => {
+  console.log('App mounted, showDxfUpload:', showDxfUpload.value)
   nextTick(() => {
+    console.log('nextTick called, canvasContainer:', canvasContainer.value)
     initThreeJS()
     animate()
   })
@@ -1250,8 +1265,47 @@ onBeforeUnmount(() => {
   document.removeEventListener('click', onDocumentClick)
   window.removeEventListener('keydown', onKeyDown)
 
+  // 清理渲染管理器
+  if (renderManager) {
+    renderManager.dispose()
+    renderManager = null
+  }
+
   renderer.dispose()
 })
+
+// 处理DXF数据返回
+const handleDxfDataReturn = (dxfData: string | undefined) => {
+  showDxfUpload.value = false
+  
+  // 强制更新渲染器大小，确保场景正常显示
+  nextTick(() => {
+    if (renderer && camera) {
+      camera.aspect = window.innerWidth / window.innerHeight
+      camera.updateProjectionMatrix()
+      renderer.setSize(window.innerWidth, window.innerHeight)
+      renderer.render(scene, camera)
+    }
+  })
+  
+  if (!dxfData) {
+    console.warn('No DXF data received')
+    return
+  }
+
+  try {
+    const parsedData = JSON.parse(dxfData)
+    console.log('Received DXF data:', parsedData)
+
+    // 使用RenderManager渲染DXF数据
+    if (renderManager) {
+      renderManager.renderDxfData(parsedData)
+    }
+  } catch (error) {
+    console.error('Error parsing DXF data:', error)
+    alert('解析DXF数据失败')
+  }
+}
 
 // 从public文件夹加载GLB模型列表
 const loadGLBFromPublicList = async () => {

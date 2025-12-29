@@ -255,16 +255,22 @@ const toggleJson = () => {
 }
 
 const goBack = () => {
-  emit('goBack')
+  emit('goBack', parseResult.value?.data)
 }
 </script>
 
 <style scoped>
 .dxf-upload-container {
-  min-height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100vh;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   padding: 20px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  z-index: 1000;
+  overflow-y: auto;
 }
 
 .header {
