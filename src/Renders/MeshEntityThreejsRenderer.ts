@@ -110,7 +110,7 @@ export class MeshEntityThreejsRenderer {
   private static readonly DEFAULT_OPACITY = 1.0;
   private static readonly DEFAULT_MATERIAL = 'MeshStandardMaterial';
 
-  public static render(meshData: MeshData, scene: THREE.Scene): THREE.Group | null {
+  public static render(meshData: MeshData, scene: THREE.Scene): THREE.Object3D[] | null {
     if (!meshData || !meshData.Visible) {
       return null;
     }
@@ -120,11 +120,9 @@ export class MeshEntityThreejsRenderer {
       return null;
     }
 
-    const group = new THREE.Group();
-    group.name = `Mesh_${meshData.Handle}`;
-    group.visible = meshData.Visible;
+    const objects: THREE.Object3D[] = [];
 
-    group.userData = {
+    const baseUserData = {
       type: meshData.Type,
       entityType: meshData.EntityType,
       handle: meshData.Handle,
@@ -159,22 +157,23 @@ export class MeshEntityThreejsRenderer {
       version: meshData.Version,
       blendCrease: meshData.BlendCrease,
       faceIndices: meshData.FaceIndices,
-      edgeIndices: meshData.EdgeIndices
+      edgeIndices: meshData.EdgeIndices,
+      objectType: 'Mesh'
     };
+
+    this.renderMesh(meshData, objects, baseUserData);
+    this.renderEdges(meshData, objects, baseUserData);
 
     if (meshData.Transform && meshData.Transform.Matrix) {
       const matrix = new THREE.Matrix4();
       matrix.fromArray(meshData.Transform.Matrix);
-      group.applyMatrix4(matrix);
+      objects.forEach(obj => obj.applyMatrix4(matrix));
     }
 
-    this.renderMesh(meshData, group);
-    this.renderEdges(meshData, group);
-
-    return group;
+    return objects;
   }
 
-  private static renderMesh(meshData: MeshData, group: THREE.Group): void {
+  private static renderMesh(meshData: MeshData, objects: THREE.Object3D[], baseUserData: any): void {
     if (!meshData.Vertices3D || meshData.Vertices3D.length === 0) {
       return;
     }
@@ -222,8 +221,10 @@ export class MeshEntityThreejsRenderer {
     const material = this.createMaterial(meshData);
 
     const mesh = new THREE.Mesh(geometry, material);
-    mesh.name = 'Mesh';
+    mesh.name = `Mesh_${meshData.Handle}`;
+    mesh.visible = meshData.Visible;
     mesh.userData = {
+      ...baseUserData,
       type: 'Mesh',
       vertexCount: meshData.VertexCount,
       faceCount: meshData.FaceCount,
@@ -234,10 +235,10 @@ export class MeshEntityThreejsRenderer {
       mesh.material.side = THREE.DoubleSide;
     }
 
-    group.add(mesh);
+    objects.push(mesh);
   }
 
-  private static renderEdges(meshData: MeshData, group: THREE.Group): void {
+  private static renderEdges(meshData: MeshData, objects: THREE.Object3D[], baseUserData: any): void {
     if (!meshData.EdgeIndices || meshData.EdgeIndices.length === 0) {
       return;
     }
@@ -274,13 +275,16 @@ export class MeshEntityThreejsRenderer {
     });
 
     const edges = new THREE.LineSegments(geometry, material);
-    edges.name = 'Edges';
+    edges.name = `MeshEdges_${meshData.Handle}`;
+    edges.visible = meshData.Visible;
     edges.userData = {
+      ...baseUserData,
       type: 'Edges',
-      edgeCount: meshData.EdgeCount
+      edgeCount: meshData.EdgeCount,
+      objectType: 'MeshEdges'
     };
 
-    group.add(edges);
+    objects.push(edges);
   }
 
   private static createMaterial(meshData: MeshData): THREE.Material {
@@ -319,36 +323,35 @@ export class MeshEntityThreejsRenderer {
     if (!meshData || !scene) {
       return false;
     }
-    const group = scene.getObjectByName(`Mesh_${meshData.Handle}`);
-    if (group) {
-      scene.remove(group);
-      this.disposeGroup(group);
+    const objects = this.getMeshObjects(meshData, scene);
+    if (objects.length > 0) {
+      objects.forEach(obj => {
+        scene.remove(obj);
+        this.disposeObject(obj);
+      });
       return true;
     }
     return false;
   }
 
-  private static disposeGroup(group: THREE.Group): void {
-    group.traverse((object) => {
-      if (object instanceof THREE.Mesh || object instanceof THREE.LineSegments) {
-        if (object.geometry) {
-          object.geometry.dispose();
-        }
-        if (object.material) {
-          if (Array.isArray(object.material)) {
-            object.material.forEach(material => material.dispose());
-          } else {
-            object.material.dispose();
-          }
+  private static disposeObject(object: THREE.Object3D): void {
+    if (object instanceof THREE.Mesh || object instanceof THREE.LineSegments) {
+      if (object.geometry) {
+        object.geometry.dispose();
+      }
+      if (object.material) {
+        if (Array.isArray(object.material)) {
+          object.material.forEach(material => material.dispose());
+        } else {
+          object.material.dispose();
         }
       }
-    });
-    group.clear();
+    }
   }
 
   public static update(meshData: MeshData, scene: THREE.Scene): boolean {
-    const group = this.getMeshGroup(meshData, scene);
-    if (!group) {
+    const objects = this.getMeshObjects(meshData, scene);
+    if (objects.length === 0) {
       return false;
     }
     this.dispose(meshData, scene);
@@ -356,23 +359,28 @@ export class MeshEntityThreejsRenderer {
     return result !== null;
   }
 
-  public static getMeshGroup(meshData: MeshData, scene: THREE.Scene): THREE.Group | null {
-    return scene.getObjectByName(`Mesh_${meshData.Handle}`) as THREE.Group || null;
+  public static getMeshObjects(meshData: MeshData, scene: THREE.Scene): THREE.Object3D[] {
+    const objects: THREE.Object3D[] = [];
+    const mesh = scene.getObjectByName(`Mesh_${meshData.Handle}`);
+    const edges = scene.getObjectByName(`MeshEdges_${meshData.Handle}`);
+    if (mesh) objects.push(mesh);
+    if (edges) objects.push(edges);
+    return objects;
   }
 
   public static setVisibility(meshData: MeshData, scene: THREE.Scene, visible: boolean): boolean {
-    const group = this.getMeshGroup(meshData, scene);
-    if (group) {
-      group.visible = visible;
+    const objects = this.getMeshObjects(meshData, scene);
+    if (objects.length > 0) {
+      objects.forEach(obj => obj.visible = visible);
       return true;
     }
     return false;
   }
 
   public static setColor(meshData: MeshData, scene: THREE.Scene, color: string): boolean {
-    const group = this.getMeshGroup(meshData, scene);
-    if (group) {
-      group.traverse((object) => {
+    const objects = this.getMeshObjects(meshData, scene);
+    if (objects.length > 0) {
+      objects.forEach(object => {
         if (object instanceof THREE.Mesh) {
           if (object.material instanceof THREE.MeshStandardMaterial || 
               object.material instanceof THREE.MeshBasicMaterial ||
@@ -388,10 +396,10 @@ export class MeshEntityThreejsRenderer {
   }
 
   public static setOpacity(meshData: MeshData, scene: THREE.Scene, opacity: number): boolean {
-    const group = this.getMeshGroup(meshData, scene);
-    if (group) {
+    const objects = this.getMeshObjects(meshData, scene);
+    if (objects.length > 0) {
       const transparent = opacity < 1.0;
-      group.traverse((object) => {
+      objects.forEach(object => {
         if (object instanceof THREE.Mesh || object instanceof THREE.LineSegments) {
           if (object.material instanceof THREE.MeshStandardMaterial || 
               object.material instanceof THREE.MeshBasicMaterial ||
@@ -409,9 +417,9 @@ export class MeshEntityThreejsRenderer {
   }
 
   public static setWireframe(meshData: MeshData, scene: THREE.Scene, wireframe: boolean): boolean {
-    const group = this.getMeshGroup(meshData, scene);
-    if (group) {
-      group.traverse((object) => {
+    const objects = this.getMeshObjects(meshData, scene);
+    if (objects.length > 0) {
+      objects.forEach(object => {
         if (object instanceof THREE.Mesh) {
           if (object.material instanceof THREE.MeshStandardMaterial || 
               object.material instanceof THREE.MeshBasicMaterial ||
@@ -677,8 +685,8 @@ export class MeshEntityThreejsRenderer {
   }
 
   public static setSubdivisionLevel(meshData: MeshData, scene: THREE.Scene, level: number): boolean {
-    const group = this.getMeshGroup(meshData, scene);
-    if (!group) {
+    const objects = this.getMeshObjects(meshData, scene);
+    if (!objects || objects.length === 0) {
       return false;
     }
 
@@ -693,8 +701,8 @@ export class MeshEntityThreejsRenderer {
   }
 
   public static setMaterialType(meshData: MeshData, scene: THREE.Scene, materialType: string): boolean {
-    const group = this.getMeshGroup(meshData, scene);
-    if (!group) {
+    const objects = this.getMeshObjects(meshData, scene);
+    if (!objects || objects.length === 0) {
       return false;
     }
 

@@ -327,7 +327,7 @@ export interface DimensionData {
 }
 
 export interface DimensionRenderResult {
-  group: THREE.Group;
+  objects: THREE.Object3D[];
   dimensionType: string;
   bounds: THREE.Box3;
 }
@@ -338,84 +338,96 @@ export class DimensionEntityThreejsRenderer {
   private static readonly DEFAULT_TEXT_HEIGHT = 1;
 
   public static render(dimensionData: DimensionData, scene?: THREE.Scene): DimensionRenderResult {
-    const group = new THREE.Group();
-    group.name = `Dimension_${dimensionData.Type}`;
+    const objects: THREE.Object3D[] = [];
 
     const color = this.getColor(dimensionData);
 
     if (dimensionData.Entities && dimensionData.Entities.length > 0) {
-      this.renderEntities(dimensionData.Entities, group, color);
+      const entityObjects = this.renderEntities(dimensionData.Entities, color);
+      objects.push(...entityObjects);
     }
 
     if (dimensionData.Angular3PtData) {
-      this.renderAngular3Pt(dimensionData.Angular3PtData, group, color);
+      const angularObjects = this.renderAngular3Pt(dimensionData.Angular3PtData, color);
+      objects.push(...angularObjects);
     }
 
     if (dimensionData.Angular2LineData) {
-      this.renderAngular2Line(dimensionData.Angular2LineData, group, color);
+      const angular2LineObjects = this.renderAngular2Line(dimensionData.Angular2LineData, color);
+      objects.push(...angular2LineObjects);
     }
 
     if (dimensionData.DiameterData) {
-      this.renderDiameter(dimensionData.DiameterData, group, color);
+      const diameterObjects = this.renderDiameter(dimensionData.DiameterData, color);
+      objects.push(...diameterObjects);
     }
 
     if (dimensionData.RadiusData) {
-      this.renderRadius(dimensionData.RadiusData, group, color);
+      const radiusObjects = this.renderRadius(dimensionData.RadiusData, color);
+      objects.push(...radiusObjects);
     }
 
     if (dimensionData.OrdinateData) {
-      this.renderOrdinate(dimensionData.OrdinateData, group, color);
+      const ordinateObjects = this.renderOrdinate(dimensionData.OrdinateData, color);
+      objects.push(...ordinateObjects);
     }
 
     if (dimensionData.AlignedData) {
-      this.renderAligned(dimensionData.AlignedData, group, color);
+      const alignedObjects = this.renderAligned(dimensionData.AlignedData, color);
+      objects.push(...alignedObjects);
     }
 
     if (dimensionData.LinearData) {
-      this.renderLinear(dimensionData.LinearData, group, color);
+      const linearObjects = this.renderLinear(dimensionData.LinearData, color);
+      objects.push(...linearObjects);
     }
 
-    const bounds = new THREE.Box3().setFromObject(group);
+    const bounds = new THREE.Box3();
+    for (const obj of objects) {
+      bounds.expandByObject(obj);
+    }
 
     return {
-      group,
+      objects,
       dimensionType: dimensionData.Type,
       bounds
     };
   }
 
-  private static renderEntities(entities: EntityData[], group: THREE.Group, color: THREE.Color): void {
+  private static renderEntities(entities: EntityData[], color: THREE.Color): THREE.Object3D[] {
+    const objects: THREE.Object3D[] = [];
     entities.forEach((entity, index) => {
       if (entity.LineData) {
         const lineMesh = this.createLine(entity.LineData, color);
         lineMesh.name = `Line_${index}`;
-        group.add(lineMesh);
+        objects.push(lineMesh);
       }
 
       if (entity.TextData) {
         const textMesh = this.createText(entity.TextData, color);
         textMesh.name = `Text_${index}`;
-        group.add(textMesh);
+        objects.push(textMesh);
       }
 
       if (entity.MTextData) {
         const mTextMesh = this.createMText(entity.MTextData, color);
         mTextMesh.name = `MText_${index}`;
-        group.add(mTextMesh);
+        objects.push(mTextMesh);
       }
 
       if (entity.SolidData) {
         const solidMesh = this.createSolid(entity.SolidData, color);
         solidMesh.name = `Solid_${index}`;
-        group.add(solidMesh);
+        objects.push(solidMesh);
       }
 
       if (entity.PointData) {
         const pointMesh = this.createPoint(entity.PointData, color);
         pointMesh.name = `Point_${index}`;
-        group.add(pointMesh);
+        objects.push(pointMesh);
       }
     });
+    return objects;
   }
 
   private static createLine(lineData: LineData, color: THREE.Color): THREE.Line {
@@ -562,7 +574,8 @@ export class DimensionEntityThreejsRenderer {
     return mesh;
   }
 
-  private static renderAngular3Pt(angularData: Angular3PtData, group: THREE.Group, color: THREE.Color): void {
+  private static renderAngular3Pt(angularData: Angular3PtData, color: THREE.Color): THREE.Object3D[] {
+    const objects: THREE.Object3D[] = [];
     const vertexZ = angularData.VertexZ ?? 0;
     const firstPointZ = angularData.FirstPointZ ?? 0;
     const secondPointZ = angularData.SecondPointZ ?? 0;
@@ -577,7 +590,7 @@ export class DimensionEntityThreejsRenderer {
     const material = new THREE.LineBasicMaterial({ color: color });
     const line = new THREE.Line(geometry, material);
     line.name = 'Angular3Pt_Lines';
-    group.add(line);
+    objects.push(line);
 
     if (angularData.ArcPoints && angularData.ArcPoints.length > 0) {
       const arcPoints = angularData.ArcPoints.map(p => new THREE.Vector3(p.X, p.Y, p.Z));
@@ -585,11 +598,13 @@ export class DimensionEntityThreejsRenderer {
       const arcMaterial = new THREE.LineBasicMaterial({ color: color });
       const arcLine = new THREE.Line(arcGeometry, arcMaterial);
       arcLine.name = 'Angular3Pt_Arc';
-      group.add(arcLine);
+      objects.push(arcLine);
     }
+    return objects;
   }
 
-  private static renderAngular2Line(angularData: Angular2LineData, group: THREE.Group, color: THREE.Color): void {
+  private static renderAngular2Line(angularData: Angular2LineData, color: THREE.Color): THREE.Object3D[] {
+    const objects: THREE.Object3D[] = [];
     const vertexZ = angularData.AngleVertexZ ?? 0;
     const firstPointZ = angularData.FirstPointZ ?? 0;
     const secondPointZ = angularData.SecondPointZ ?? 0;
@@ -606,7 +621,7 @@ export class DimensionEntityThreejsRenderer {
     const material = new THREE.LineBasicMaterial({ color: color });
     const line = new THREE.Line(geometry, material);
     line.name = 'Angular2Line_Lines';
-    group.add(line);
+    objects.push(line);
 
     if (angularData.ArcPoints && angularData.ArcPoints.length > 0) {
       const arcPoints = angularData.ArcPoints.map(p => new THREE.Vector3(p.X, p.Y, p.Z));
@@ -614,11 +629,13 @@ export class DimensionEntityThreejsRenderer {
       const arcMaterial = new THREE.LineBasicMaterial({ color: color });
       const arcLine = new THREE.Line(arcGeometry, arcMaterial);
       arcLine.name = 'Angular2Line_Arc';
-      group.add(arcLine);
+      objects.push(arcLine);
     }
+    return objects;
   }
 
-  private static renderDiameter(diameterData: DiameterData, group: THREE.Group, color: THREE.Color): void {
+  private static renderDiameter(diameterData: DiameterData, color: THREE.Color): THREE.Object3D[] {
+    const objects: THREE.Object3D[] = [];
     const centerZ = diameterData.CenterZ ?? 0;
     const definitionPointZ = diameterData.DefinitionPointZ ?? 0;
     const angleVertexZ = diameterData.AngleVertexZ ?? 0;
@@ -632,7 +649,7 @@ export class DimensionEntityThreejsRenderer {
     const material = new THREE.LineBasicMaterial({ color: color });
     const line = new THREE.Line(geometry, material);
     line.name = 'Diameter_Lines';
-    group.add(line);
+    objects.push(line);
 
     if (diameterData.CirclePoints && diameterData.CirclePoints.length > 0) {
       const circlePoints = diameterData.CirclePoints.map(p => new THREE.Vector3(p.X, p.Y, p.Z));
@@ -640,11 +657,13 @@ export class DimensionEntityThreejsRenderer {
       const circleMaterial = new THREE.LineBasicMaterial({ color: color });
       const circleLine = new THREE.Line(circleGeometry, circleMaterial);
       circleLine.name = 'Diameter_Circle';
-      group.add(circleLine);
+      objects.push(circleLine);
     }
+    return objects;
   }
 
-  private static renderRadius(radiusData: RadiusData, group: THREE.Group, color: THREE.Color): void {
+  private static renderRadius(radiusData: RadiusData, color: THREE.Color): THREE.Object3D[] {
+    const objects: THREE.Object3D[] = [];
     const centerZ = radiusData.CenterZ ?? 0;
     const definitionPointZ = radiusData.DefinitionPointZ ?? 0;
     const angleVertexZ = radiusData.AngleVertexZ ?? 0;
@@ -657,7 +676,7 @@ export class DimensionEntityThreejsRenderer {
     const material = new THREE.LineBasicMaterial({ color: color });
     const line = new THREE.Line(geometry, material);
     line.name = 'Radius_Lines';
-    group.add(line);
+    objects.push(line);
 
     if (radiusData.ArcPoints && radiusData.ArcPoints.length > 0) {
       const arcPoints = radiusData.ArcPoints.map(p => new THREE.Vector3(p.X, p.Y, p.Z));
@@ -665,11 +684,13 @@ export class DimensionEntityThreejsRenderer {
       const arcMaterial = new THREE.LineBasicMaterial({ color: color });
       const arcLine = new THREE.Line(arcGeometry, arcMaterial);
       arcLine.name = 'Radius_Arc';
-      group.add(arcLine);
+      objects.push(arcLine);
     }
+    return objects;
   }
 
-  private static renderOrdinate(ordinateData: OrdinateData, group: THREE.Group, color: THREE.Color): void {
+  private static renderOrdinate(ordinateData: OrdinateData, color: THREE.Color): THREE.Object3D[] {
+    const objects: THREE.Object3D[] = [];
     const featureLocationZ = ordinateData.FeatureLocationZ ?? 0;
     const leaderEndpointZ = ordinateData.LeaderEndpointZ ?? 0;
 
@@ -682,10 +703,12 @@ export class DimensionEntityThreejsRenderer {
     const material = new THREE.LineBasicMaterial({ color: color });
     const line = new THREE.Line(geometry, material);
     line.name = 'Ordinate_Lines';
-    group.add(line);
+    objects.push(line);
+    return objects;
   }
 
-  private static renderAligned(alignedData: AlignedData, group: THREE.Group, color: THREE.Color): void {
+  private static renderAligned(alignedData: AlignedData, color: THREE.Color): THREE.Object3D[] {
+    const objects: THREE.Object3D[] = [];
     const firstPointZ = alignedData.FirstPointZ ?? 0;
     const secondPointZ = alignedData.SecondPointZ ?? 0;
     const definitionPointZ = alignedData.DefinitionPointZ ?? 0;
@@ -700,10 +723,12 @@ export class DimensionEntityThreejsRenderer {
     const material = new THREE.LineBasicMaterial({ color: color });
     const line = new THREE.Line(geometry, material);
     line.name = 'Aligned_Lines';
-    group.add(line);
+    objects.push(line);
+    return objects;
   }
 
-  private static renderLinear(linearData: LinearData, group: THREE.Group, color: THREE.Color): void {
+  private static renderLinear(linearData: LinearData, color: THREE.Color): THREE.Object3D[] {
+    const objects: THREE.Object3D[] = [];
     const definitionPointZ = linearData.DefinitionPointZ ?? 0;
     const firstPointZ = linearData.FirstPointZ ?? 0;
     const secondPointZ = linearData.SecondPointZ ?? 0;
@@ -718,7 +743,8 @@ export class DimensionEntityThreejsRenderer {
     const material = new THREE.LineBasicMaterial({ color: color });
     const line = new THREE.Line(geometry, material);
     line.name = 'Linear_Lines';
-    group.add(line);
+    objects.push(line);
+    return objects;
   }
 
   private static getColor(dimensionData: DimensionData): THREE.Color {
@@ -732,7 +758,7 @@ export class DimensionEntityThreejsRenderer {
   }
 
   public static dispose(result: DimensionRenderResult): void {
-    result.group.traverse((object) => {
+    for (const object of result.objects) {
       if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
         if (object.geometry) {
           object.geometry.dispose();
@@ -751,6 +777,6 @@ export class DimensionEntityThreejsRenderer {
         }
         object.material.dispose();
       }
-    });
+    }
   }
 }

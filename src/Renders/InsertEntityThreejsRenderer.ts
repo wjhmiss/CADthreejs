@@ -137,20 +137,26 @@ export interface InsertData {
 }
 
 export class InsertEntityThreejsRenderer {
-  public static render(insertData: InsertData, scene: THREE.Scene): THREE.Group | null {
+  private static insertCache = new Map<string, THREE.Object3D[]>();
+
+  public static render(insertData: InsertData, scene: THREE.Scene): THREE.Object3D[] | null {
     if (!insertData || !insertData.Visible || insertData.IsInvisible) {
       return null;
     }
 
-    const group = new THREE.Group();
-    group.name = `Insert_${insertData.BlockName}_${insertData.Uuid}`;
+    const objects: THREE.Object3D[] = [];
 
-    group.visible = insertData.Visible;
-    group.castShadow = insertData.CastShadow;
-    group.receiveShadow = insertData.ReceiveShadow;
-    group.renderOrder = insertData.RenderOrder;
+    const entityObjects = this.renderEntities(insertData);
+    if (entityObjects && entityObjects.length > 0) {
+      objects.push(...entityObjects);
+    }
 
-    group.userData = {
+    const attributeObjects = this.renderAttributes(insertData);
+    if (attributeObjects && attributeObjects.length > 0) {
+      objects.push(...attributeObjects);
+    }
+
+    const insertDataUserData = {
       type: insertData.Type,
       uuid: insertData.Uuid,
       entityType: insertData.EntityType,
@@ -182,42 +188,49 @@ export class InsertEntityThreejsRenderer {
         obliqueAngle: attr.ObliqueAngle
       })),
       elevation: insertData.InsertPointZ,
-      transparency: insertData.Transparency
+      transparency: insertData.Transparency,
+      objectType: 'Insert'
     };
 
-    if (insertData.Transform3D && insertData.Transform3D.Matrix) {
-      const matrix = new THREE.Matrix4();
-      matrix.fromArray(insertData.Transform3D.Matrix);
-      group.applyMatrix4(matrix);
+    for (const obj of objects) {
+      obj.visible = insertData.Visible;
+      obj.castShadow = insertData.CastShadow;
+      obj.receiveShadow = insertData.ReceiveShadow;
+      obj.renderOrder = insertData.RenderOrder;
+      obj.userData = { ...insertDataUserData, ...obj.userData };
+      obj.name = `Insert_${insertData.BlockName}_${insertData.Uuid}_${obj.name}`;
+
+      if (insertData.Transform3D && insertData.Transform3D.Matrix) {
+        const matrix = new THREE.Matrix4();
+        matrix.fromArray(insertData.Transform3D.Matrix);
+        obj.applyMatrix4(matrix);
+      }
     }
 
-    this.renderEntities(insertData, group);
+    this.insertCache.set(insertData.Uuid, objects);
 
-    this.renderAttributes(insertData, group);
-
-    return group;
+    return objects;
   }
 
-  private static renderEntities(insertData: InsertData, group: THREE.Group): void {
+  private static renderEntities(insertData: InsertData): THREE.Object3D[] {
     if (!insertData.Entities || insertData.Entities.length === 0) {
-      return;
+      return [];
     }
 
-    const entityGroup = new THREE.Group();
-    entityGroup.name = 'Entities';
+    const objects: THREE.Object3D[] = [];
 
     for (const entityData of insertData.Entities) {
       try {
         const entityObject = this.renderEntity(entityData);
         if (entityObject) {
-          entityGroup.add(entityObject);
+          objects.push(entityObject);
         }
       } catch (error) {
         console.error(`Error rendering entity of type ${entityData.Type}:`, error);
       }
     }
 
-    group.add(entityGroup);
+    return objects;
   }
 
   private static renderEntity(entityData: EntityData): THREE.Object3D | null {
@@ -432,26 +445,25 @@ export class InsertEntityThreejsRenderer {
     return mesh;
   }
 
-  private static renderAttributes(insertData: InsertData, group: THREE.Group): void {
+  private static renderAttributes(insertData: InsertData): THREE.Object3D[] {
     if (!insertData.Attributes || insertData.Attributes.length === 0) {
-      return;
+      return [];
     }
 
-    const attributeGroup = new THREE.Group();
-    attributeGroup.name = 'Attributes';
+    const objects: THREE.Object3D[] = [];
 
     for (const attribute of insertData.Attributes) {
       try {
         const attributeObject = this.renderAttribute(attribute);
         if (attributeObject) {
-          attributeGroup.add(attributeObject);
+          objects.push(attributeObject);
         }
       } catch (error) {
         console.error(`Error rendering attribute ${attribute.Tag}:`, error);
       }
     }
 
-    group.add(attributeGroup);
+    return objects;
   }
 
   private static renderAttribute(attributeData: AttributeData): THREE.Sprite | null {
@@ -495,32 +507,33 @@ export class InsertEntityThreejsRenderer {
   }
 
   public static dispose(insertData: InsertData, scene: THREE.Scene): void {
-    const group = scene.getObjectByName(`Insert_${insertData.BlockName}_${insertData.Uuid}`);
-    if (group) {
-      scene.remove(group);
-      this.disposeGroup(group);
+    const objects = this.insertCache.get(insertData.Uuid);
+    if (objects) {
+      for (const obj of objects) {
+        scene.remove(obj);
+        this.disposeObject(obj);
+      }
+      this.insertCache.delete(insertData.Uuid);
     }
   }
 
-  private static disposeGroup(group: THREE.Group): void {
-    group.traverse((object) => {
-      if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
-        if (object.geometry) {
-          object.geometry.dispose();
-        }
-        if (object.material) {
-          if (Array.isArray(object.material)) {
-            object.material.forEach(material => material.dispose());
-          } else {
-            object.material.dispose();
-          }
-        }
-      } else if (object instanceof THREE.Sprite) {
-        if (object.material && object.material.map) {
-          object.material.map.dispose();
-        }
-        object.material.dispose();
+  private static disposeObject(object: THREE.Object3D): void {
+    if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
+      if (object.geometry) {
+        object.geometry.dispose();
       }
-    });
+      if (object.material) {
+        if (Array.isArray(object.material)) {
+          object.material.forEach(material => material.dispose());
+        } else {
+          object.material.dispose();
+        }
+      }
+    } else if (object instanceof THREE.Sprite) {
+      if (object.material && object.material.map) {
+        object.material.map.dispose();
+      }
+      object.material.dispose();
+    }
   }
 }

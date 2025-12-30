@@ -83,27 +83,28 @@ export interface XLineData {
 export class XLineEntityThreejsRenderer {
   private static readonly xlineCache = new Map<string, THREE.Line>();
 
-  public static render(xlineData: XLineData, scene: THREE.Scene): THREE.Group | null {
+  public static render(xlineData: XLineData, scene: THREE.Scene): THREE.Object3D[] | null {
     if (!xlineData || !xlineData.Visible) {
       return null;
     }
 
-    const group = new THREE.Group();
-    group.name = `XLine_${xlineData.Handle}`;
-    group.visible = xlineData.Visible;
+    const objects: THREE.Object3D[] = [];
 
     const geometry = this.createXLineGeometry(xlineData);
     const material = this.createXLineMaterial(xlineData);
     const line = new THREE.Line(geometry, material);
-    line.name = 'XLine';
-    line.userData = { handle: xlineData.Handle };
+    line.name = `XLine_${xlineData.Handle}`;
+    line.userData = { 
+      handle: xlineData.Handle,
+      objectType: 'XLine'
+    };
     line.visible = xlineData.Visible !== false;
 
-    group.add(line);
+    objects.push(line);
 
     this.xlineCache.set(xlineData.Handle, line);
 
-    return group;
+    return objects;
   }
 
   public static update(xlineData: XLineData, scene: THREE.Scene): boolean {
@@ -139,10 +140,7 @@ export class XLineEntityThreejsRenderer {
       return false;
     }
 
-    const group = existingLine.parent;
-    if (group) {
-      scene.remove(group);
-    }
+    scene.remove(existingLine);
 
     existingLine.geometry.dispose();
     (existingLine.material as THREE.Material).dispose();
@@ -157,10 +155,6 @@ export class XLineEntityThreejsRenderer {
       return false;
     }
 
-    const group = existingLine.parent;
-    if (group) {
-      group.visible = visible;
-    }
     existingLine.visible = visible;
     return true;
   }
@@ -287,33 +281,30 @@ export class XLineEntityThreejsRenderer {
     return material;
   }
 
-  public static renderMultiple(xlineDataArray: XLineData[], scene: THREE.Scene): THREE.Group {
-    const group = new THREE.Group();
-    group.name = 'MultipleXLines';
+  public static renderMultiple(xlineDataArray: XLineData[], scene: THREE.Scene): THREE.Object3D[] {
+    const objects: THREE.Object3D[] = [];
 
     xlineDataArray.forEach((xlineData) => {
-      const xlineGroup = this.render(xlineData, scene);
-      group.add(xlineGroup);
+      const xlineObjects = this.render(xlineData, scene);
+      if (xlineObjects) {
+        objects.push(...xlineObjects);
+      }
     });
 
-    return group;
+    return objects;
   }
 
-  public static disposeMultiple(group: THREE.Group, scene: THREE.Scene): void {
-    if (!group) {
+  public static disposeMultiple(objects: THREE.Object3D[], scene: THREE.Scene): void {
+    if (!objects || objects.length === 0) {
       return;
     }
 
-    scene.remove(group);
-    group.children.forEach((child) => {
-      if (child instanceof THREE.Group) {
-        child.children.forEach((line) => {
-          if (line instanceof THREE.Line) {
-            line.geometry.dispose();
-            (line.material as THREE.Material).dispose();
-            this.xlineCache.delete(line.userData.handle);
-          }
-        });
+    objects.forEach((obj) => {
+      scene.remove(obj);
+      if (obj instanceof THREE.Line) {
+        obj.geometry.dispose();
+        (obj.material as THREE.Material).dispose();
+        this.xlineCache.delete(obj.userData.handle);
       }
     });
   }

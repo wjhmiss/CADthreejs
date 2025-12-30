@@ -121,48 +121,47 @@ export class Polyline3DEntityThreejsRenderer {
   private static readonly DEFAULT_LINE_WIDTH = 1.0;
   private static readonly DEFAULT_OPACITY = 1.0;
   private static readonly DEFAULT_COLOR = '#FFFFFF';
-  private static readonly polylineCache = new Map<string, THREE.Group>();
+  private static readonly polylineCache = new Map<string, THREE.Line>();
 
-  public static render(polyline3DData: Polyline3DData, scene: THREE.Scene): THREE.Group | null {
+  public static render(polyline3DData: Polyline3DData, scene: THREE.Scene): THREE.Object3D[] | null {
     if (!polyline3DData || !polyline3DData.Visible) {
       return null;
     }
 
-    const group = new THREE.Group();
-    group.name = `Polyline3D_${polyline3DData.Handle}`;
-    group.visible = polyline3DData.Visible;
-
     if (polyline3DData.Vertices.length === 0) {
       console.warn(`Polyline3D ${polyline3DData.Handle} has no vertices`);
-      return group;
+      return null;
     }
+
+    const objects: THREE.Object3D[] = [];
 
     const geometry = this.createPolylineGeometry(polyline3DData);
     const material = this.createPolylineMaterial(polyline3DData);
     const line = new THREE.Line(geometry, material);
-    line.name = 'Polyline3D';
-    line.userData = { handle: polyline3DData.Handle };
+    line.name = `Polyline3D_${polyline3DData.Handle}`;
+    line.userData = {
+      type: polyline3DData.Type,
+      entityType: polyline3DData.EntityType,
+      handle: polyline3DData.Handle,
+      layerName: polyline3DData.LayerName,
+      objectType: 'Polyline3D'
+    };
     line.visible = polyline3DData.Visible;
 
-    group.add(line);
+    this.polylineCache.set(polyline3DData.Handle, line);
 
-    this.polylineCache.set(polyline3DData.Handle, group);
+    objects.push(line);
 
-    return group;
+    return objects;
   }
 
   public static update(polyline3DData: Polyline3DData, scene: THREE.Scene): boolean {
-    const existingGroup = this.polylineCache.get(polyline3DData.Handle);
-    if (!existingGroup) {
+    const existingLine = this.polylineCache.get(polyline3DData.Handle);
+    if (!existingLine) {
       return false;
     }
 
-    const line = existingGroup.children[0] as THREE.Line;
-    if (!line) {
-      return false;
-    }
-
-    const material = line.material as THREE.LineBasicMaterial;
+    const material = existingLine.material as THREE.LineBasicMaterial;
     if (material) {
       material.color.setHex(polyline3DData.Material.Color);
       material.opacity = polyline3DData.Material.Opacity;
@@ -170,7 +169,7 @@ export class Polyline3DEntityThreejsRenderer {
       material.linewidth = polyline3DData.Material.LineWidth;
     }
 
-    const geometry = line.geometry as THREE.BufferGeometry;
+    const geometry = existingLine.geometry as THREE.BufferGeometry;
     if (geometry) {
       const positions = geometry.attributes.position.array as Float32Array;
       for (let i = 0; i < polyline3DData.VertexPositions.length / 3; i++) {
@@ -191,81 +190,63 @@ export class Polyline3DEntityThreejsRenderer {
       }
     }
 
-    existingGroup.visible = polyline3DData.Visible;
+    existingLine.visible = polyline3DData.Visible;
 
     return true;
   }
 
   public static dispose(polyline3DData: Polyline3DData, scene: THREE.Scene): void {
-    const group = this.polylineCache.get(polyline3DData.Handle);
-    if (!group) {
+    const line = this.polylineCache.get(polyline3DData.Handle);
+    if (!line) {
       return;
     }
 
-    scene.remove(group);
+    scene.remove(line);
 
-    group.children.forEach(child => {
-      if (child instanceof THREE.Line) {
-        if (child.geometry) {
-          child.geometry.dispose();
-        }
-        if (child.material) {
-          if (Array.isArray(child.material)) {
-            child.material.forEach(m => m.dispose());
-          } else {
-            child.material.dispose();
-          }
-        }
+    if (line.geometry) {
+      line.geometry.dispose();
+    }
+    if (line.material) {
+      if (Array.isArray(line.material)) {
+        line.material.forEach(m => m.dispose());
+      } else {
+        line.material.dispose();
       }
-    });
+    }
 
     this.polylineCache.delete(polyline3DData.Handle);
   }
 
   public static setVisibility(polyline3DData: Polyline3DData, visible: boolean): void {
-    const group = this.polylineCache.get(polyline3DData.Handle);
-    if (group) {
-      group.visible = visible;
+    const line = this.polylineCache.get(polyline3DData.Handle);
+    if (line) {
+      line.visible = visible;
       polyline3DData.Visible = visible;
     }
   }
 
   public static setOpacity(polyline3DData: Polyline3DData, opacity: number): void {
-    const group = this.polylineCache.get(polyline3DData.Handle);
-    if (group) {
-      const line = group.children[0] as THREE.Line;
-      if (line && line.material) {
-        const material = line.material as THREE.LineBasicMaterial;
-        material.opacity = opacity;
-        material.transparent = opacity < 1.0;
-        polyline3DData.Material.Opacity = opacity;
-        polyline3DData.Material.Transparent = opacity < 1.0;
-      }
+    const line = this.polylineCache.get(polyline3DData.Handle);
+    if (line && line.material) {
+      const material = line.material as THREE.LineBasicMaterial;
+      material.opacity = opacity;
+      material.transparent = opacity < 1.0;
+      polyline3DData.Material.Opacity = opacity;
+      polyline3DData.Material.Transparent = opacity < 1.0;
     }
   }
 
   public static setColor(polyline3DData: Polyline3DData, color: number): void {
-    const group = this.polylineCache.get(polyline3DData.Handle);
-    if (group) {
-      const line = group.children[0] as THREE.Line;
-      if (line && line.material) {
-        const material = line.material as THREE.LineBasicMaterial;
-        material.color.setHex(color);
-        polyline3DData.Material.Color = color;
-      }
+    const line = this.polylineCache.get(polyline3DData.Handle);
+    if (line && line.material) {
+      const material = line.material as THREE.LineBasicMaterial;
+      material.color.setHex(color);
+      polyline3DData.Material.Color = color;
     }
-  }
-
-  public static getGroup(polyline3DData: Polyline3DData): THREE.Group | null {
-    return this.polylineCache.get(polyline3DData.Handle) || null;
   }
 
   public static getLine(polyline3DData: Polyline3DData): THREE.Line | null {
-    const group = this.polylineCache.get(polyline3DData.Handle);
-    if (group && group.children.length > 0) {
-      return group.children[0] as THREE.Line;
-    }
-    return null;
+    return this.polylineCache.get(polyline3DData.Handle) || null;
   }
 
   public static getVertices(polyline3DData: Polyline3DData): VertexData[] {
@@ -398,21 +379,17 @@ export class Polyline3DEntityThreejsRenderer {
   }
 
   public static clearCache(): void {
-    this.polylineCache.forEach((group, handle) => {
-      group.children.forEach(child => {
-        if (child instanceof THREE.Line) {
-          if (child.geometry) {
-            child.geometry.dispose();
-          }
-          if (child.material) {
-            if (Array.isArray(child.material)) {
-              child.material.forEach(m => m.dispose());
-            } else {
-              child.material.dispose();
-            }
-          }
+    this.polylineCache.forEach((line, handle) => {
+      if (line.geometry) {
+        line.geometry.dispose();
+      }
+      if (line.material) {
+        if (Array.isArray(line.material)) {
+          line.material.forEach(m => m.dispose());
+        } else {
+          line.material.dispose();
         }
-      });
+      }
     });
     this.polylineCache.clear();
   }
@@ -456,7 +433,7 @@ export class Polyline3DEntityThreejsRenderer {
     return material;
   }
 
-  public static renderFromJson(jsonString: string, scene: THREE.Scene): THREE.Group | null {
+  public static renderFromJson(jsonString: string, scene: THREE.Scene): THREE.Line | null {
     try {
       const polyline3DData: Polyline3DData = JSON.parse(jsonString);
       return this.render(polyline3DData, scene);

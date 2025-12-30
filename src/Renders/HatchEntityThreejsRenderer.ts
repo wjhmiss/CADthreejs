@@ -124,7 +124,7 @@ export interface HatchData {
 }
 
 export class HatchEntityThreejsRenderer {
-  public static render(hatchData: HatchData, scene: THREE.Scene): THREE.Group | null {
+  public static render(hatchData: HatchData, scene: THREE.Scene): THREE.Mesh | null {
     if (!hatchData || !hatchData.Visible || hatchData.IsInvisible) {
       return null;
     }
@@ -132,9 +132,6 @@ export class HatchEntityThreejsRenderer {
     if (!hatchData.Vertices || hatchData.Vertices.length === 0) {
       return null;
     }
-
-    const group = new THREE.Group();
-    group.name = `Hatch_${hatchData.Handle}`;
 
     const geometry = this.createGeometry(hatchData);
     if (!geometry) {
@@ -144,6 +141,7 @@ export class HatchEntityThreejsRenderer {
     const material = this.createMaterial(hatchData);
     const mesh = new THREE.Mesh(geometry, material);
 
+    mesh.name = `Hatch_${hatchData.Handle}`;
     mesh.visible = hatchData.Visible;
     mesh.castShadow = hatchData.CastShadow;
     mesh.receiveShadow = hatchData.ReceiveShadow;
@@ -165,7 +163,8 @@ export class HatchEntityThreejsRenderer {
       isDouble: hatchData.IsDouble,
       area: hatchData.Area,
       pathCount: hatchData.PathCount,
-      elevation: hatchData.Elevation
+      elevation: hatchData.Elevation,
+      objectType: 'Hatch'
     };
 
     if (hatchData.Transform && hatchData.Transform.Matrix) {
@@ -174,8 +173,7 @@ export class HatchEntityThreejsRenderer {
       mesh.applyMatrix4(matrix);
     }
 
-    group.add(mesh);
-    return group;
+    return mesh;
   }
 
   private static createGeometry(hatchData: HatchData): THREE.BufferGeometry | null {
@@ -277,7 +275,7 @@ export class HatchEntityThreejsRenderer {
     return texture;
   }
 
-  public static renderPatternHatch(hatchData: HatchData, scene: THREE.Scene): THREE.Group | null {
+  public static renderPatternHatch(hatchData: HatchData, scene: THREE.Scene): THREE.Mesh | null {
     if (!hatchData || !hatchData.Visible || hatchData.IsInvisible) {
       return null;
     }
@@ -285,9 +283,6 @@ export class HatchEntityThreejsRenderer {
     if (hatchData.IsSolid) {
       return this.render(hatchData, scene);
     }
-
-    const group = new THREE.Group();
-    group.name = `HatchPattern_${hatchData.Handle}`;
 
     const geometry = this.createGeometry(hatchData);
     if (!geometry) {
@@ -311,6 +306,7 @@ export class HatchEntityThreejsRenderer {
     const material = new THREE.MeshPhongMaterial(materialOptions);
     const mesh = new THREE.Mesh(geometry, material);
 
+    mesh.name = `HatchPattern_${hatchData.Handle}`;
     mesh.visible = hatchData.Visible;
     mesh.castShadow = hatchData.CastShadow;
     mesh.receiveShadow = hatchData.ReceiveShadow;
@@ -326,7 +322,8 @@ export class HatchEntityThreejsRenderer {
       isSolid: hatchData.IsSolid,
       patternName: hatchData.PatternName,
       area: hatchData.Area,
-      pathCount: hatchData.PathCount
+      pathCount: hatchData.PathCount,
+      objectType: 'HatchPattern'
     };
 
     if (hatchData.Transform && hatchData.Transform.Matrix) {
@@ -335,11 +332,10 @@ export class HatchEntityThreejsRenderer {
       mesh.applyMatrix4(matrix);
     }
 
-    group.add(mesh);
-    return group;
+    return mesh;
   }
 
-  public static renderGradientHatch(hatchData: HatchData, scene: THREE.Scene): THREE.Group | null {
+  public static renderGradientHatch(hatchData: HatchData, scene: THREE.Scene): THREE.Mesh | null {
     if (!hatchData || !hatchData.Visible || hatchData.IsInvisible) {
       return null;
     }
@@ -347,9 +343,6 @@ export class HatchEntityThreejsRenderer {
     if (!hatchData.HasGradient) {
       return this.render(hatchData, scene);
     }
-
-    const group = new THREE.Group();
-    group.name = `HatchGradient_${hatchData.Handle}`;
 
     const geometry = this.createGeometry(hatchData);
     if (!geometry) {
@@ -387,6 +380,7 @@ export class HatchEntityThreejsRenderer {
     const material = new THREE.MeshPhongMaterial(materialOptions);
     const mesh = new THREE.Mesh(geometry, material);
 
+    mesh.name = `HatchGradient_${hatchData.Handle}`;
     mesh.visible = hatchData.Visible;
     mesh.castShadow = hatchData.CastShadow;
     mesh.receiveShadow = hatchData.ReceiveShadow;
@@ -404,7 +398,8 @@ export class HatchEntityThreejsRenderer {
       area: hatchData.Area,
       pathCount: hatchData.PathCount,
       hasGradient: hatchData.HasGradient,
-      gradientColorName: hatchData.GradientColorName
+      gradientColorName: hatchData.GradientColorName,
+      objectType: 'HatchGradient'
     };
 
     if (hatchData.Transform && hatchData.Transform.Matrix) {
@@ -413,17 +408,13 @@ export class HatchEntityThreejsRenderer {
       mesh.applyMatrix4(matrix);
     }
 
-    group.add(mesh);
-    return group;
+    return mesh;
   }
 
-  public static renderBoundaryEdges(hatchData: HatchData, scene: THREE.Scene): THREE.Group | null {
+  public static renderBoundaryEdges(hatchData: HatchData, scene: THREE.Scene): THREE.LineSegments | null {
     if (!hatchData || !hatchData.Paths || hatchData.Paths.length === 0) {
       return null;
     }
-
-    const group = new THREE.Group();
-    group.name = `HatchBoundary_${hatchData.Handle}`;
 
     const vertices: number[] = [];
 
@@ -473,16 +464,17 @@ export class HatchEntityThreejsRenderer {
     });
 
     const lineSegments = new THREE.LineSegments(geometry, material);
+    lineSegments.name = `HatchBoundary_${hatchData.Handle}`;
 
     lineSegments.userData = {
       type: 'HatchBoundary',
       uuid: hatchData.Uuid,
       handle: hatchData.Handle,
-      layerName: hatchData.LayerName
+      layerName: hatchData.LayerName,
+      objectType: 'HatchBoundary'
     };
 
-    group.add(lineSegments);
-    return group;
+    return lineSegments;
   }
 
   public static dispose(mesh: THREE.Mesh): void {

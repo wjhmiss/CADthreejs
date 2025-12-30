@@ -108,16 +108,21 @@ export class MTextEntityThreejsRenderer {
   private static canvas: HTMLCanvasElement | null = null;
   private static context: CanvasRenderingContext2D | null = null;
 
-  public static render(mtextData: MTextData, scene: THREE.Scene): THREE.Group | null {
+  public static render(mtextData: MTextData, scene: THREE.Scene): THREE.Object3D[] | null {
     if (!mtextData || !mtextData.Visible) {
       return null;
     }
 
-    const group = new THREE.Group();
-    group.name = `MText_${mtextData.Handle}`;
-    group.visible = mtextData.Visible;
+    const objects: THREE.Object3D[] = [];
 
-    group.userData = {
+    this.renderText(mtextData, objects);
+    this.renderBackground(mtextData, objects);
+    const boundsLine = this.renderBounds(mtextData);
+    if (boundsLine) {
+      objects.push(boundsLine);
+    }
+
+    const userData = {
       type: mtextData.Type,
       entityType: mtextData.EntityType,
       handle: mtextData.Handle,
@@ -167,23 +172,26 @@ export class MTextEntityThreejsRenderer {
       insertPoint3D: mtextData.InsertPoint3D,
       alignmentPoint3D: mtextData.AlignmentPoint3D,
       textWidth: mtextData.TextWidth,
-      textHeight: mtextData.TextHeight
+      textHeight: mtextData.TextHeight,
+      objectType: 'MText'
     };
 
-    if (mtextData.Transform && mtextData.Transform.Matrix) {
-      const matrix = new THREE.Matrix4();
-      matrix.fromArray(mtextData.Transform.Matrix);
-      group.applyMatrix4(matrix);
-    }
+    objects.forEach(obj => {
+      obj.userData = { ...userData, ...obj.userData };
+      obj.name = `MText_${mtextData.Handle}_${obj.name}`;
+      obj.visible = mtextData.Visible;
 
-    this.renderText(mtextData, group);
-    this.renderBackground(mtextData, group);
-    this.renderBounds(mtextData, group);
+      if (mtextData.Transform && mtextData.Transform.Matrix) {
+        const matrix = new THREE.Matrix4();
+        matrix.fromArray(mtextData.Transform.Matrix);
+        obj.applyMatrix4(matrix);
+      }
+    });
 
-    return group;
+    return objects;
   }
 
-  private static renderText(mtextData: MTextData, group: THREE.Group): void {
+  private static renderText(mtextData: MTextData, objects: THREE.Object3D[]): void {
     if (!mtextData.Lines || mtextData.Lines.length === 0) {
       return;
     }
@@ -211,7 +219,7 @@ export class MTextEntityThreejsRenderer {
       textValue: mtextData.TextValue
     };
 
-    group.add(mesh);
+    objects.push(mesh);
   }
 
   private static createTextTexture(mtextData: MTextData): THREE.CanvasTexture | null {
@@ -295,7 +303,7 @@ export class MTextEntityThreejsRenderer {
     return ctx.measureText(text).width;
   }
 
-  private static renderBackground(mtextData: MTextData, group: THREE.Group): void {
+  private static renderBackground(mtextData: MTextData, objects: THREE.Object3D[]): void {
     if (mtextData.BackgroundFillFlags === 0 || !mtextData.BackgroundColor) {
       return;
     }
@@ -318,10 +326,10 @@ export class MTextEntityThreejsRenderer {
       backgroundColorIndex: mtextData.BackgroundColor.Index
     };
 
-    group.add(mesh);
+    objects.push(mesh);
   }
 
-  private static renderBounds(mtextData: MTextData, group: THREE.Group): void {
+  private static renderBounds(mtextData: MTextData): THREE.Line | null {
     const vertices: number[] = [];
     
     if (mtextData.Vertices3D && mtextData.Vertices3D.length >= 4) {
@@ -357,119 +365,91 @@ export class MTextEntityThreejsRenderer {
 
     const line = new THREE.Line(geometry, material);
     line.name = 'Bounds';
-    line.userData = {
-      type: 'MTextBounds',
-      textWidth: mtextData.TextWidth,
-      textHeight: mtextData.TextHeight
-    };
+    line.visible = mtextData.Visible;
 
-    group.add(line);
+    return line;
   }
 
   public static dispose(mtextData: MTextData, scene: THREE.Scene): boolean {
     if (!mtextData || !scene) {
       return false;
     }
-    const group = scene.getObjectByName(`MText_${mtextData.Handle}`);
-    if (group) {
-      scene.remove(group);
-      this.disposeGroup(group);
-      return true;
+    const objects = this.getMTextObjects(mtextData, scene);
+    if (objects.length === 0) {
+      return false;
     }
-    return false;
-  }
-
-  private static disposeGroup(group: THREE.Group): void {
-    group.traverse((object) => {
-      if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
-        if (object.geometry) {
-          object.geometry.dispose();
+    objects.forEach(obj => {
+      scene.remove(obj);
+      if (obj instanceof THREE.Mesh || obj instanceof THREE.Line) {
+        if (obj.geometry) {
+          obj.geometry.dispose();
         }
-        if (object.material) {
-          if (object.material instanceof THREE.MeshBasicMaterial) {
-            if (object.material.map) {
-              object.material.map.dispose();
+        if (obj.material) {
+          if (obj.material instanceof THREE.MeshBasicMaterial) {
+            if (obj.material.map) {
+              obj.material.map.dispose();
             }
-            object.material.dispose();
-          } else if (object.material instanceof THREE.LineBasicMaterial) {
-            object.material.dispose();
+            obj.material.dispose();
+          } else if (obj.material instanceof THREE.LineBasicMaterial) {
+            obj.material.dispose();
           }
         }
       }
     });
-    group.clear();
+    return true;
   }
 
   public static update(mtextData: MTextData, scene: THREE.Scene): boolean {
     if (!mtextData || !scene) {
       return false;
     }
-    const group = this.getMTextGroup(mtextData, scene);
-    if (!group) {
-      return false;
-    }
-    
-    group.visible = mtextData.Visible;
-    group.userData.visible = mtextData.Visible;
-    group.userData.textValue = mtextData.TextValue;
-    group.userData.lines = mtextData.Lines;
-    
-    group.traverse((object) => {
-      if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
-        if (object.material instanceof THREE.MeshBasicMaterial || 
-            object.material instanceof THREE.LineBasicMaterial) {
-          object.material.opacity = mtextData.Opacity;
-          object.material.transparent = mtextData.Transparent;
-        }
-      }
-    });
-    
-    return true;
+    this.dispose(mtextData, scene);
+    const result = this.render(mtextData, scene);
+    return result !== null;
   }
 
-  public static getMTextGroup(mtextData: MTextData, scene: THREE.Scene): THREE.Group | null {
-    return scene.getObjectByName(`MText_${mtextData.Handle}`) as THREE.Group || null;
+  public static getMTextObjects(mtextData: MTextData, scene: THREE.Scene): THREE.Object3D[] {
+    const objects: THREE.Object3D[] = [];
+    scene.traverse((object) => {
+      if (object.userData && object.userData.handle === mtextData.Handle) {
+        objects.push(object);
+      }
+    });
+    return objects;
   }
 
   public static setVisibility(mtextData: MTextData, scene: THREE.Scene, visible: boolean): boolean {
-    const group = this.getMTextGroup(mtextData, scene);
-    if (group) {
-      group.visible = visible;
-      return true;
-    }
-    return false;
+    const objects = this.getMTextObjects(mtextData, scene);
+    objects.forEach(obj => {
+      obj.visible = visible;
+    });
+    return objects.length > 0;
   }
 
   public static setColor(mtextData: MTextData, scene: THREE.Scene, color: string): boolean {
-    const group = this.getMTextGroup(mtextData, scene);
-    if (group) {
-      group.traverse((object) => {
-        if (object instanceof THREE.Mesh && object.name === 'Text') {
-          if (object.material instanceof THREE.MeshBasicMaterial) {
-            object.material.color.set(color);
-          }
+    const objects = this.getMTextObjects(mtextData, scene);
+    objects.forEach(obj => {
+      if (obj instanceof THREE.Mesh && obj.name === 'Text') {
+        if (obj.material instanceof THREE.MeshBasicMaterial) {
+          obj.material.color.set(color);
         }
-      });
-      return true;
-    }
-    return false;
+      }
+    });
+    return objects.length > 0;
   }
 
   public static setOpacity(mtextData: MTextData, scene: THREE.Scene, opacity: number): boolean {
-    const group = this.getMTextGroup(mtextData, scene);
-    if (group) {
-      group.traverse((object) => {
-        if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
-          if (object.material instanceof THREE.MeshBasicMaterial || 
-              object.material instanceof THREE.LineBasicMaterial) {
-            object.material.opacity = opacity;
-            object.material.transparent = opacity < 1.0;
-          }
+    const objects = this.getMTextObjects(mtextData, scene);
+    objects.forEach(obj => {
+      if (obj instanceof THREE.Mesh || obj instanceof THREE.Line) {
+        if (obj.material instanceof THREE.MeshBasicMaterial || 
+            obj.material instanceof THREE.LineBasicMaterial) {
+          obj.material.opacity = opacity;
+          obj.material.transparent = opacity < 1.0;
         }
-      });
-      return true;
-    }
-    return false;
+      }
+    });
+    return objects.length > 0;
   }
 
   public static getLineCount(mtextData: MTextData): number {

@@ -118,27 +118,41 @@ export interface WipeoutData {
 export class WipeoutEntityThreejsRenderer {
   private static readonly wipeoutCache = new Map<string, THREE.Mesh>();
 
-  public static render(wipeoutData: WipeoutData, scene: THREE.Scene): THREE.Group | null {
+  public static render(wipeoutData: WipeoutData, scene?: THREE.Scene): THREE.Mesh | null {
     if (!wipeoutData || !wipeoutData.Visible) {
       return null;
     }
 
-    const group = new THREE.Group();
-    group.name = `Wipeout_${wipeoutData.Handle}`;
-    group.visible = wipeoutData.Visible;
-
     const geometry = this.createWipeoutGeometry(wipeoutData);
     const material = this.createWipeoutMaterial(wipeoutData);
     const mesh = new THREE.Mesh(geometry, material);
-    mesh.name = 'Wipeout';
-    mesh.userData = { handle: wipeoutData.Handle, isMask: wipeoutData.IsMask };
+    mesh.name = `Wipeout_${wipeoutData.Handle}`;
+    mesh.userData = { 
+      handle: wipeoutData.Handle, 
+      isMask: wipeoutData.IsMask,
+      type: wipeoutData.Type,
+      uuid: wipeoutData.Uuid,
+      entityType: wipeoutData.EntityType,
+      layerName: wipeoutData.LayerName,
+      colorIndex: wipeoutData.ColorIndex,
+      lineTypeName: wipeoutData.LineTypeName,
+      lineWeight: wipeoutData.LineWeight,
+      brightness: wipeoutData.Brightness,
+      contrast: wipeoutData.Contrast,
+      fade: wipeoutData.Fade,
+      flags: wipeoutData.Flags,
+      clippingState: wipeoutData.ClippingState,
+      boundaryPointCount: wipeoutData.BoundaryPointCount,
+      area: wipeoutData.Area,
+      opacity: wipeoutData.Opacity,
+      transparent: wipeoutData.Transparent,
+      objectType: 'Wipeout'
+    };
     mesh.visible = wipeoutData.Visible !== false;
-
-    group.add(mesh);
 
     this.wipeoutCache.set(wipeoutData.Handle, mesh);
 
-    return group;
+    return mesh;
   }
 
   public static update(wipeoutData: WipeoutData, scene: THREE.Scene): boolean {
@@ -174,11 +188,7 @@ export class WipeoutEntityThreejsRenderer {
       return false;
     }
 
-    const group = existingMesh.parent;
-    if (group) {
-      scene.remove(group);
-    }
-
+    scene.remove(existingMesh);
     existingMesh.geometry.dispose();
     (existingMesh.material as THREE.Material).dispose();
     this.wipeoutCache.delete(wipeoutData.Handle);
@@ -192,10 +202,6 @@ export class WipeoutEntityThreejsRenderer {
       return false;
     }
 
-    const group = existingMesh.parent;
-    if (group) {
-      group.visible = visible;
-    }
     existingMesh.visible = visible;
     return true;
   }
@@ -330,34 +336,29 @@ export class WipeoutEntityThreejsRenderer {
     return material;
   }
 
-  public static renderMultiple(wipeoutDataArray: WipeoutData[], scene: THREE.Scene): THREE.Group {
-    const group = new THREE.Group();
-    group.name = 'MultipleWipeouts';
+  public static renderMultiple(wipeoutDataArray: WipeoutData[], scene?: THREE.Scene): THREE.Mesh[] {
+    const meshes: THREE.Mesh[] = [];
 
     wipeoutDataArray.forEach((wipeoutData) => {
-      const wipeoutGroup = this.render(wipeoutData, scene);
-      group.add(wipeoutGroup);
+      const wipeoutMesh = this.render(wipeoutData, scene);
+      if (wipeoutMesh) {
+        meshes.push(wipeoutMesh);
+      }
     });
 
-    return group;
+    return meshes;
   }
 
-  public static disposeMultiple(group: THREE.Group, scene: THREE.Scene): void {
-    if (!group) {
+  public static disposeMultiple(meshes: THREE.Mesh[], scene: THREE.Scene): void {
+    if (!meshes || meshes.length === 0) {
       return;
     }
 
-    scene.remove(group);
-    group.children.forEach((child) => {
-      if (child instanceof THREE.Group) {
-        child.children.forEach((mesh) => {
-          if (mesh instanceof THREE.Mesh) {
-            mesh.geometry.dispose();
-            (mesh.material as THREE.Material).dispose();
-            this.wipeoutCache.delete(mesh.userData.handle);
-          }
-        });
-      }
+    meshes.forEach((mesh) => {
+      scene.remove(mesh);
+      mesh.geometry.dispose();
+      (mesh.material as THREE.Material).dispose();
+      this.wipeoutCache.delete(mesh.userData.handle);
     });
   }
 

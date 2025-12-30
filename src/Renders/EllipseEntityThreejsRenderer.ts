@@ -82,21 +82,18 @@ export interface EllipseRenderResult {
   mesh: THREE.Line | THREE.LineLoop;
   material: THREE.Material;
   geometry: THREE.BufferGeometry;
-  group: THREE.Group;
 }
 
 export class EllipseEntityThreejsRenderer {
   private static readonly DEFAULT_COLOR = new THREE.Color(0xffffff);
   private static readonly DEFAULT_SEGMENTS = 64;
 
-  public static render(ellipseData: EllipseData, scene: THREE.Scene): THREE.Group | null {
+  public static render(ellipseData: EllipseData, scene: THREE.Scene): THREE.Object3D[] | null {
     if (!ellipseData.Visible || ellipseData.IsInvisible) {
       return null;
     }
 
-    const group = new THREE.Group();
-    group.name = `Ellipse_${ellipseData.Handle || ellipseData.Uuid}`;
-    group.visible = ellipseData.Visible;
+    const objects: THREE.Object3D[] = [];
 
     const material = this.createMaterial(ellipseData);
     const geometry = this.createGeometry(ellipseData);
@@ -120,7 +117,8 @@ export class EllipseEntityThreejsRenderer {
       uuid: ellipseData.Uuid,
       entityType: ellipseData.EntityType,
       handle: ellipseData.Handle,
-      layerName: ellipseData.LayerName
+      layerName: ellipseData.LayerName,
+      objectType: 'Ellipse'
     };
 
     line.visible = ellipseData.Visible;
@@ -128,12 +126,12 @@ export class EllipseEntityThreejsRenderer {
     line.receiveShadow = ellipseData.ReceiveShadow;
     line.renderOrder = ellipseData.RenderOrder;
 
-    group.add(line);
+    objects.push(line);
 
-    return group;
+    return objects;
   }
 
-  public static renderFromJson(jsonString: string, scene: THREE.Scene): THREE.Group | null {
+  public static renderFromJson(jsonString: string, scene: THREE.Scene): THREE.Object3D[] | null {
     try {
       const ellipseData: EllipseData = JSON.parse(jsonString);
       return this.render(ellipseData, scene);
@@ -143,7 +141,7 @@ export class EllipseEntityThreejsRenderer {
     }
   }
 
-  public static renderWithGroup(ellipseData: EllipseData, scene: THREE.Scene): EllipseRenderResult | null {
+  public static renderWithResult(ellipseData: EllipseData, scene: THREE.Scene): EllipseRenderResult | null {
     if (!ellipseData.Visible || ellipseData.IsInvisible) {
       return null;
     }
@@ -156,7 +154,6 @@ export class EllipseEntityThreejsRenderer {
     }
 
     const line = ellipseData.IsFullEllipse ? new THREE.LineLoop(geometry, material) : new THREE.Line(geometry, material);
-    const group = new THREE.Group();
 
     if (ellipseData.Transform && ellipseData.Transform.Matrix && ellipseData.Transform.Matrix.length === 16) {
       const matrix = new THREE.Matrix4();
@@ -171,16 +168,19 @@ export class EllipseEntityThreejsRenderer {
       uuid: ellipseData.Uuid,
       entityType: ellipseData.EntityType,
       handle: ellipseData.Handle,
-      layerName: ellipseData.LayerName
+      layerName: ellipseData.LayerName,
+      objectType: 'Ellipse'
     };
 
-    group.add(line);
+    line.visible = ellipseData.Visible;
+    line.castShadow = ellipseData.CastShadow;
+    line.receiveShadow = ellipseData.ReceiveShadow;
+    line.renderOrder = ellipseData.RenderOrder;
 
     return {
       mesh: line,
       material,
-      geometry,
-      group
+      geometry
     };
   }
 
@@ -190,9 +190,6 @@ export class EllipseEntityThreejsRenderer {
     }
     if (result.material) {
       result.material.dispose();
-    }
-    if (result.group) {
-      result.group.clear();
     }
   }
 
@@ -285,15 +282,14 @@ export class EllipseEntityThreejsRenderer {
     return geometry;
   }
 
-  public static createEllipseFromData(ellipseData: EllipseData): THREE.Object3D | null {
+  public static createEllipseFromData(ellipseData: EllipseData): THREE.Object3D[] | null {
     const scene = new THREE.Scene();
     return this.render(ellipseData, scene);
   }
 
-  public static createEllipseGroup(ellipseData: EllipseData): THREE.Group | null {
+  public static createEllipseObjects(ellipseData: EllipseData): THREE.Object3D[] | null {
     const scene = new THREE.Scene();
-    const result = this.renderWithGroup(ellipseData, scene);
-    return result ? result.group : null;
+    return this.render(ellipseData, scene);
   }
 
   public static getEllipseProperties(ellipseData: EllipseData): {

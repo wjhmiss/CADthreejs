@@ -96,102 +96,116 @@ export class SolidEntityThreejsRenderer {
   private static readonly DEFAULT_OPACITY = 1.0;
   private static readonly DEFAULT_COLOR = '#FFFFFF';
 
-  private static solidCache = new Map<string, THREE.Group>();
+  private static solidCache = new Map<string, THREE.Object3D[]>();
 
-  public static render(solidData: SolidData, scene: THREE.Scene): THREE.Group | null {
+  public static render(solidData: SolidData, scene: THREE.Scene): THREE.Object3D[] | null {
     if (!solidData || !solidData.Visible) {
       return null;
     }
 
-    const group = new THREE.Group();
-    group.name = `Solid_${solidData.Handle}`;
-    group.visible = solidData.Visible;
+    const objects: THREE.Object3D[] = [];
 
-    group.userData = {
-      type: solidData.Type,
-      handle: solidData.Handle,
-      layerName: solidData.LayerName,
-      layerIndex: solidData.LayerIndex,
-      coordinateSystem: solidData.CoordinateSystem,
-      points: solidData.Points,
-      colorIndex: solidData.ColorIndex,
-      lineTypeName: solidData.LineTypeName,
-      lineWeight: solidData.LineWeight,
-      lineTypeScale: solidData.LineTypeScale,
-      normal: solidData.Normal,
-      thickness: solidData.Thickness,
-      hasFourthCorner: solidData.HasFourthCorner,
-      bounds: solidData.Bounds,
-      centroid: solidData.Centroid,
-      area: solidData.Area,
-      perimeter: solidData.Perimeter,
-      transform: solidData.Transform,
-      geometry: solidData.Geometry,
-      material: solidData.Material,
-      color: solidData.Color,
-      vertexPositions: solidData.VertexPositions,
-      vertexNormals: solidData.VertexNormals,
-      vertexColors: solidData.VertexColors,
-      vertexUVs: solidData.VertexUVs,
-      indices: solidData.Indices,
-      isTriangle: solidData.IsTriangle,
-      firstCorner: solidData.FirstCorner,
-      secondCorner: solidData.SecondCorner,
-      thirdCorner: solidData.ThirdCorner,
-      fourthCorner: solidData.FourthCorner,
-      vertexCount: solidData.VertexCount,
-      faceCount: solidData.FaceCount,
-      isFilled: solidData.IsFilled,
-      isExtruded: solidData.IsExtruded,
-      extrusionDepth: solidData.ExtrusionDepth,
-      opacity: solidData.Opacity,
-      transparent: solidData.Transparent,
-      depthTest: solidData.DepthTest
-    };
-
-    if (solidData.Transform && solidData.Transform.Matrix) {
-      const matrix = new THREE.Matrix4();
-      matrix.fromArray(solidData.Transform.Matrix);
-      group.applyMatrix4(matrix);
+    const solidMesh = this.renderSolid(solidData);
+    if (solidMesh) {
+      objects.push(solidMesh);
     }
 
-    this.renderSolid(solidData, group);
-    this.renderEdges(solidData, group);
-    this.renderBounds(solidData, group);
+    const edges = this.renderEdges(solidData);
+    if (edges) {
+      objects.push(edges);
+    }
 
-    this.solidCache.set(solidData.Handle, group);
+    const bounds = this.renderBounds(solidData);
+    if (bounds) {
+      objects.push(bounds);
+    }
 
-    return group;
+    objects.forEach(obj => {
+      obj.visible = solidData.Visible;
+      obj.userData = {
+        type: solidData.Type,
+        handle: solidData.Handle,
+        layerName: solidData.LayerName,
+        layerIndex: solidData.LayerIndex,
+        coordinateSystem: solidData.CoordinateSystem,
+        points: solidData.Points,
+        colorIndex: solidData.ColorIndex,
+        lineTypeName: solidData.LineTypeName,
+        lineWeight: solidData.LineWeight,
+        lineTypeScale: solidData.LineTypeScale,
+        normal: solidData.Normal,
+        thickness: solidData.Thickness,
+        hasFourthCorner: solidData.HasFourthCorner,
+        bounds: solidData.Bounds,
+        centroid: solidData.Centroid,
+        area: solidData.Area,
+        perimeter: solidData.Perimeter,
+        transform: solidData.Transform,
+        geometry: solidData.Geometry,
+        material: solidData.Material,
+        color: solidData.Color,
+        vertexPositions: solidData.VertexPositions,
+        vertexNormals: solidData.VertexNormals,
+        vertexColors: solidData.VertexColors,
+        vertexUVs: solidData.VertexUVs,
+        indices: solidData.Indices,
+        isTriangle: solidData.IsTriangle,
+        firstCorner: solidData.FirstCorner,
+        secondCorner: solidData.SecondCorner,
+        thirdCorner: solidData.ThirdCorner,
+        fourthCorner: solidData.FourthCorner,
+        vertexCount: solidData.VertexCount,
+        faceCount: solidData.FaceCount,
+        isFilled: solidData.IsFilled,
+        isExtruded: solidData.IsExtruded,
+        extrusionDepth: solidData.ExtrusionDepth,
+        opacity: solidData.Opacity,
+        transparent: solidData.Transparent,
+        depthTest: solidData.DepthTest,
+        objectType: obj.userData.objectType || 'Solid'
+      };
+
+      if (solidData.Transform && solidData.Transform.Matrix) {
+        const matrix = new THREE.Matrix4();
+        matrix.fromArray(solidData.Transform.Matrix);
+        obj.applyMatrix4(matrix);
+      }
+    });
+
+    this.solidCache.set(solidData.Handle, objects);
+
+    return objects;
   }
 
-  private static renderSolid(solidData: SolidData, group: THREE.Group): void {
+  private static renderSolid(solidData: SolidData): THREE.Mesh | null {
     if (!solidData.VertexPositions || solidData.VertexPositions.length === 0) {
       console.warn(`Solid ${solidData.Handle} has no vertex positions`);
-      return;
+      return null;
     }
 
     const geometry = this.createGeometry(solidData);
     if (!geometry) {
-      return;
+      return null;
     }
 
     const material = this.createMaterial(solidData);
 
     const mesh = new THREE.Mesh(geometry, material);
-    mesh.name = 'Solid';
+    mesh.name = `Solid_${solidData.Handle}`;
     mesh.userData = {
       type: 'Solid',
       handle: solidData.Handle,
       isTriangle: solidData.IsTriangle,
       isExtruded: solidData.IsExtruded,
-      extrusionDepth: solidData.ExtrusionDepth
+      extrusionDepth: solidData.ExtrusionDepth,
+      objectType: 'Solid'
     };
 
     if (solidData.Material && solidData.Material.Side) {
       mesh.material.side = THREE.DoubleSide;
     }
 
-    group.add(mesh);
+    return mesh;
   }
 
   private static createGeometry(solidData: SolidData): THREE.BufferGeometry | null {
@@ -252,9 +266,9 @@ export class SolidEntityThreejsRenderer {
     return material;
   }
 
-  private static renderEdges(solidData: SolidData, group: THREE.Group): void {
+  private static renderEdges(solidData: SolidData): THREE.Line | null {
     if (!solidData.Points || solidData.Points.length === 0) {
-      return;
+      return null;
     }
 
     const vertices: number[] = [];
@@ -281,19 +295,19 @@ export class SolidEntityThreejsRenderer {
     });
 
     const line = new THREE.Line(geometry, material);
-    line.name = 'Edges';
     line.userData = {
       type: 'Edges',
       isTriangle: solidData.IsTriangle,
-      vertexCount: solidData.Points.length
+      vertexCount: solidData.Points.length,
+      objectType: 'SolidEdges'
     };
 
-    group.add(line);
+    return line;
   }
 
-  private static renderBounds(solidData: SolidData, group: THREE.Group): void {
+  private static renderBounds(solidData: SolidData): THREE.Line | null {
     if (!solidData.Bounds) {
-      return;
+      return null;
     }
 
     const bounds = solidData.Bounds;
@@ -321,13 +335,13 @@ export class SolidEntityThreejsRenderer {
     });
 
     const line = new THREE.Line(geometry, material);
-    line.name = 'Bounds';
     line.userData = {
       type: 'Bounds',
-      size: bounds.Size
+      size: bounds.Size,
+      objectType: 'SolidBounds'
     };
 
-    group.add(line);
+    return line;
   }
 
   public static dispose(solidData: SolidData, scene: THREE.Scene): boolean {
@@ -335,30 +349,25 @@ export class SolidEntityThreejsRenderer {
       return false;
     }
 
-    const group = this.solidCache.get(solidData.Handle);
-    if (!group) {
+    const objects = this.solidCache.get(solidData.Handle);
+    if (!objects) {
       return false;
     }
 
-    scene.remove(group);
-    this.disposeGroup(group);
-    this.solidCache.delete(solidData.Handle);
-
-    return true;
-  }
-
-  private static disposeGroup(group: THREE.Group): void {
-    group.traverse((object) => {
-      if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
-        if (object.geometry) {
-          object.geometry.dispose();
+    objects.forEach(obj => {
+      scene.remove(obj);
+      if (obj instanceof THREE.Mesh || obj instanceof THREE.Line) {
+        if (obj.geometry) {
+          obj.geometry.dispose();
         }
-        if (object.material) {
-          object.material.dispose();
+        if (obj.material) {
+          obj.material.dispose();
         }
       }
     });
-    group.clear();
+    this.solidCache.delete(solidData.Handle);
+
+    return true;
   }
 
   public static update(solidData: SolidData, scene: THREE.Scene): boolean {
@@ -366,20 +375,19 @@ export class SolidEntityThreejsRenderer {
       return false;
     }
 
-    const group = this.solidCache.get(solidData.Handle);
-    if (!group) {
+    const objects = this.solidCache.get(solidData.Handle);
+    if (!objects) {
       return false;
     }
 
-    group.visible = solidData.Visible;
-    group.userData.visible = solidData.Visible;
+    objects.forEach(obj => {
+      obj.visible = solidData.Visible;
 
-    group.traverse((object) => {
-      if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
-        if (object.material instanceof THREE.MeshBasicMaterial || 
-            object.material instanceof THREE.LineBasicMaterial) {
-          object.material.opacity = solidData.Opacity;
-          object.material.transparent = solidData.Transparent;
+      if (obj instanceof THREE.Mesh || obj instanceof THREE.Line) {
+        if (obj.material instanceof THREE.MeshBasicMaterial || 
+            obj.material instanceof THREE.LineBasicMaterial) {
+          obj.material.opacity = solidData.Opacity;
+          obj.material.transparent = solidData.Transparent;
         }
       }
     });
@@ -387,28 +395,30 @@ export class SolidEntityThreejsRenderer {
     return true;
   }
 
-  public static getSolidGroup(solidData: SolidData, scene: THREE.Scene): THREE.Group | null {
+  public static getSolidObjects(solidData: SolidData, scene: THREE.Scene): THREE.Object3D[] | null {
     return this.solidCache.get(solidData.Handle) || null;
   }
 
   public static setVisibility(solidData: SolidData, scene: THREE.Scene, visible: boolean): boolean {
-    const group = this.solidCache.get(solidData.Handle);
-    if (group) {
-      group.visible = visible;
+    const objects = this.solidCache.get(solidData.Handle);
+    if (objects) {
+      objects.forEach(obj => {
+        obj.visible = visible;
+      });
       return true;
     }
     return false;
   }
 
   public static setOpacity(solidData: SolidData, scene: THREE.Scene, opacity: number): boolean {
-    const group = this.solidCache.get(solidData.Handle);
-    if (group) {
-      group.traverse((object) => {
-        if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
-          if (object.material instanceof THREE.MeshBasicMaterial || 
-              object.material instanceof THREE.LineBasicMaterial) {
-            object.material.opacity = opacity;
-            object.material.transparent = opacity < 1.0;
+    const objects = this.solidCache.get(solidData.Handle);
+    if (objects) {
+      objects.forEach(obj => {
+        if (obj instanceof THREE.Mesh || obj instanceof THREE.Line) {
+          if (obj.material instanceof THREE.MeshBasicMaterial || 
+              obj.material instanceof THREE.LineBasicMaterial) {
+            obj.material.opacity = opacity;
+            obj.material.transparent = opacity < 1.0;
           }
         }
       });
@@ -524,35 +534,48 @@ export class SolidEntityThreejsRenderer {
   }
 
   public static clearCache(): void {
-    this.solidCache.forEach((group) => {
-      this.disposeGroup(group);
+    this.solidCache.forEach((objects) => {
+      objects.forEach((obj) => {
+        if (obj instanceof THREE.Mesh || obj instanceof THREE.Line) {
+          if (obj.geometry) {
+            obj.geometry.dispose();
+          }
+          if (obj.material) {
+            obj.material.dispose();
+          }
+        }
+      });
     });
     this.solidCache.clear();
   }
 
-  public static renderMultiple(solidDataArray: SolidData[], scene: THREE.Scene): THREE.Group {
-    const group = new THREE.Group();
-    group.name = 'MultipleSolids';
+  public static renderMultiple(solidDataArray: SolidData[], scene: THREE.Scene): THREE.Object3D[] {
+    const objects: THREE.Object3D[] = [];
 
     solidDataArray.forEach((solidData) => {
-      const solidGroup = this.render(solidData, scene);
-      if (solidGroup) {
-        group.add(solidGroup);
+      const solidObjects = this.render(solidData, scene);
+      if (solidObjects) {
+        objects.push(...solidObjects);
       }
     });
 
-    return group;
+    return objects;
   }
 
-  public static disposeMultiple(group: THREE.Group, scene: THREE.Scene): void {
-    if (!group) {
+  public static disposeMultiple(objects: THREE.Object3D[], scene: THREE.Scene): void {
+    if (!objects || objects.length === 0) {
       return;
     }
 
-    scene.remove(group);
-    group.children.forEach((child) => {
-      if (child instanceof THREE.Group) {
-        this.disposeGroup(child);
+    objects.forEach((obj) => {
+      scene.remove(obj);
+      if (obj instanceof THREE.Mesh || obj instanceof THREE.Line) {
+        if (obj.geometry) {
+          obj.geometry.dispose();
+        }
+        if (obj.material) {
+          obj.material.dispose();
+        }
       }
     });
   }

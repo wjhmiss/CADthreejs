@@ -96,79 +96,100 @@ export class ShapeEntityThreejsRenderer {
   private static readonly DEFAULT_OPACITY = 1.0;
   private static readonly DEFAULT_COLOR = '#FFFFFF';
 
-  private static shapeCache = new Map<string, THREE.Group>();
+  private static shapeCache = new Map<string, THREE.Object3D[]>();
 
-  public static render(shapeData: ShapeData, scene: THREE.Scene): THREE.Group | null {
+  public static render(shapeData: ShapeData, scene: THREE.Scene): THREE.Object3D[] | null {
     if (!shapeData || !shapeData.Visible) {
       return null;
     }
 
-    const group = new THREE.Group();
-    group.name = `Shape_${shapeData.Handle}`;
-    group.visible = shapeData.Visible;
+    const objects: THREE.Object3D[] = [];
 
-    group.userData = {
-      type: shapeData.Type,
-      handle: shapeData.Handle,
-      layerName: shapeData.LayerName,
-      layerIndex: shapeData.LayerIndex,
-      coordinateSystem: shapeData.CoordinateSystem,
-      insertionPoint: shapeData.InsertionPoint,
-      size: shapeData.Size,
-      rotation: shapeData.Rotation,
-      relativeXScale: shapeData.RelativeXScale,
-      obliqueAngle: shapeData.ObliqueAngle,
-      normal: shapeData.Normal,
-      colorIndex: shapeData.ColorIndex,
-      lineTypeName: shapeData.LineTypeName,
-      lineWeight: shapeData.LineWeight,
-      lineTypeScale: shapeData.LineTypeScale,
-      shapeStyleName: shapeData.ShapeStyleName,
-      shapeIndex: shapeData.ShapeIndex,
-      boundaryPoints: shapeData.BoundaryPoints,
-      bounds: shapeData.Bounds,
-      centroid: shapeData.Centroid,
-      width: shapeData.Width,
-      height: shapeData.Height,
-      boundaryPointCount: shapeData.BoundaryPointCount,
-      thickness: shapeData.Thickness,
-      transform: shapeData.Transform,
-      geometry: shapeData.Geometry,
-      material: shapeData.Material,
-      color: shapeData.Color,
-      vertexPositions: shapeData.VertexPositions,
-      vertexNormals: shapeData.VertexNormals,
-      vertexColors: shapeData.VertexColors,
-      indices: shapeData.Indices,
-      opacity: shapeData.Opacity,
-      transparent: shapeData.Transparent,
-      depthTest: shapeData.DepthTest
-    };
+    const shapeMesh = this.renderShape(shapeData);
+    if (shapeMesh) {
+      shapeMesh.name = `Shape_${shapeData.Handle}`;
+      shapeMesh.userData = {
+        type: shapeData.Type,
+        handle: shapeData.Handle,
+        layerName: shapeData.LayerName,
+        layerIndex: shapeData.LayerIndex,
+        coordinateSystem: shapeData.CoordinateSystem,
+        insertionPoint: shapeData.InsertionPoint,
+        size: shapeData.Size,
+        rotation: shapeData.Rotation,
+        relativeXScale: shapeData.RelativeXScale,
+        obliqueAngle: shapeData.ObliqueAngle,
+        normal: shapeData.Normal,
+        colorIndex: shapeData.ColorIndex,
+        lineTypeName: shapeData.LineTypeName,
+        lineWeight: shapeData.LineWeight,
+        lineTypeScale: shapeData.LineTypeScale,
+        shapeStyleName: shapeData.ShapeStyleName,
+        shapeIndex: shapeData.ShapeIndex,
+        boundaryPoints: shapeData.BoundaryPoints,
+        bounds: shapeData.Bounds,
+        centroid: shapeData.Centroid,
+        width: shapeData.Width,
+        height: shapeData.Height,
+        boundaryPointCount: shapeData.BoundaryPointCount,
+        thickness: shapeData.Thickness,
+        transform: shapeData.Transform,
+        geometry: shapeData.Geometry,
+        material: shapeData.Material,
+        color: shapeData.Color,
+        vertexPositions: shapeData.VertexPositions,
+        vertexNormals: shapeData.VertexNormals,
+        vertexColors: shapeData.VertexColors,
+        indices: shapeData.Indices,
+        opacity: shapeData.Opacity,
+        transparent: shapeData.Transparent,
+        depthTest: shapeData.DepthTest
+      };
+      objects.push(shapeMesh);
+    }
+
+    const boundaryLine = this.renderBoundary(shapeData);
+    if (boundaryLine) {
+      boundaryLine.name = `ShapeBoundary_${shapeData.Handle}`;
+      boundaryLine.userData = {
+        type: 'Boundary',
+        handle: shapeData.Handle,
+        boundaryPointCount: shapeData.BoundaryPoints.length
+      };
+      objects.push(boundaryLine);
+    }
+
+    const boundsLine = this.renderBounds(shapeData);
+    if (boundsLine) {
+      boundsLine.name = `ShapeBounds_${shapeData.Handle}`;
+      boundsLine.userData = {
+        type: 'Bounds',
+        handle: shapeData.Handle,
+        size: shapeData.Bounds?.Size
+      };
+      objects.push(boundsLine);
+    }
 
     if (shapeData.Transform && shapeData.Transform.Matrix) {
       const matrix = new THREE.Matrix4();
       matrix.fromArray(shapeData.Transform.Matrix);
-      group.applyMatrix4(matrix);
+      objects.forEach(obj => obj.applyMatrix4(matrix));
     }
 
-    this.renderShape(shapeData, group);
-    this.renderBoundary(shapeData, group);
-    this.renderBounds(shapeData, group);
+    this.shapeCache.set(shapeData.Handle, objects);
 
-    this.shapeCache.set(shapeData.Handle, group);
-
-    return group;
+    return objects;
   }
 
-  private static renderShape(shapeData: ShapeData, group: THREE.Group): void {
+  private static renderShape(shapeData: ShapeData): THREE.Mesh | null {
     if (!shapeData.VertexPositions || shapeData.VertexPositions.length === 0) {
       console.warn(`Shape ${shapeData.Handle} has no vertex positions`);
-      return;
+      return null;
     }
 
     const geometry = this.createGeometry(shapeData);
     if (!geometry) {
-      return;
+      return null;
     }
 
     const material = this.createMaterial(shapeData);
@@ -186,7 +207,7 @@ export class ShapeEntityThreejsRenderer {
       mesh.material.side = THREE.DoubleSide;
     }
 
-    group.add(mesh);
+    return mesh;
   }
 
   private static createGeometry(shapeData: ShapeData): THREE.BufferGeometry | null {
@@ -242,9 +263,9 @@ export class ShapeEntityThreejsRenderer {
     return material;
   }
 
-  private static renderBoundary(shapeData: ShapeData, group: THREE.Group): void {
+  private static renderBoundary(shapeData: ShapeData): THREE.Line | null {
     if (!shapeData.BoundaryPoints || shapeData.BoundaryPoints.length === 0) {
-      return;
+      return null;
     }
 
     const vertices: number[] = [];
@@ -253,7 +274,7 @@ export class ShapeEntityThreejsRenderer {
     });
 
     if (vertices.length === 0) {
-      return;
+      return null;
     }
 
     const geometry = new THREE.BufferGeometry();
@@ -275,12 +296,12 @@ export class ShapeEntityThreejsRenderer {
       boundaryPointCount: shapeData.BoundaryPoints.length
     };
 
-    group.add(line);
+    return line;
   }
 
-  private static renderBounds(shapeData: ShapeData, group: THREE.Group): void {
+  private static renderBounds(shapeData: ShapeData): THREE.Line | null {
     if (!shapeData.Bounds) {
-      return;
+      return null;
     }
 
     const bounds = shapeData.Bounds;
@@ -314,7 +335,7 @@ export class ShapeEntityThreejsRenderer {
       size: bounds.Size
     };
 
-    group.add(line);
+    return line;
   }
 
   public static dispose(shapeData: ShapeData, scene: THREE.Scene): boolean {
@@ -322,51 +343,49 @@ export class ShapeEntityThreejsRenderer {
       return false;
     }
 
-    const group = this.shapeCache.get(shapeData.Handle);
-    if (!group) {
+    const objects = this.shapeCache.get(shapeData.Handle);
+    if (!objects) {
       return false;
     }
 
-    scene.remove(group);
-    this.disposeGroup(group);
+    objects.forEach(obj => {
+      scene.remove(obj);
+      if (obj instanceof THREE.Mesh || obj instanceof THREE.Line) {
+        if (obj.geometry) {
+          obj.geometry.dispose();
+        }
+        if (obj.material) {
+          obj.material.dispose();
+        }
+      }
+    });
     this.shapeCache.delete(shapeData.Handle);
 
     return true;
   }
 
-  private static disposeGroup(group: THREE.Group): void {
-    group.traverse((object) => {
-      if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
-        if (object.geometry) {
-          object.geometry.dispose();
-        }
-        if (object.material) {
-          object.material.dispose();
-        }
-      }
-    });
-    group.clear();
-  }
+
 
   public static update(shapeData: ShapeData, scene: THREE.Scene): boolean {
     if (!shapeData || !scene) {
       return false;
     }
 
-    const group = this.shapeCache.get(shapeData.Handle);
-    if (!group) {
+    const objects = this.shapeCache.get(shapeData.Handle);
+    if (!objects) {
       return false;
     }
 
-    group.visible = shapeData.Visible;
-    group.userData.visible = shapeData.Visible;
-
-    group.traverse((object) => {
-      if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
-        if (object.material instanceof THREE.MeshBasicMaterial || 
-            object.material instanceof THREE.LineBasicMaterial) {
-          object.material.opacity = shapeData.Opacity;
-          object.material.transparent = shapeData.Transparent;
+    objects.forEach(obj => {
+      obj.visible = shapeData.Visible;
+      if (obj.userData) {
+        obj.userData.visible = shapeData.Visible;
+      }
+      if (obj instanceof THREE.Mesh || obj instanceof THREE.Line) {
+        if (obj.material instanceof THREE.MeshBasicMaterial || 
+            obj.material instanceof THREE.LineBasicMaterial) {
+          obj.material.opacity = shapeData.Opacity;
+          obj.material.transparent = shapeData.Transparent;
         }
       }
     });
@@ -374,28 +393,30 @@ export class ShapeEntityThreejsRenderer {
     return true;
   }
 
-  public static getShapeGroup(shapeData: ShapeData, scene: THREE.Scene): THREE.Group | null {
+  public static getShapeObjects(shapeData: ShapeData, scene: THREE.Scene): THREE.Object3D[] | null {
     return this.shapeCache.get(shapeData.Handle) || null;
   }
 
   public static setVisibility(shapeData: ShapeData, scene: THREE.Scene, visible: boolean): boolean {
-    const group = this.shapeCache.get(shapeData.Handle);
-    if (group) {
-      group.visible = visible;
+    const objects = this.shapeCache.get(shapeData.Handle);
+    if (objects) {
+      objects.forEach(obj => {
+        obj.visible = visible;
+      });
       return true;
     }
     return false;
   }
 
   public static setOpacity(shapeData: ShapeData, scene: THREE.Scene, opacity: number): boolean {
-    const group = this.shapeCache.get(shapeData.Handle);
-    if (group) {
-      group.traverse((object) => {
-        if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
-          if (object.material instanceof THREE.MeshBasicMaterial || 
-              object.material instanceof THREE.LineBasicMaterial) {
-            object.material.opacity = opacity;
-            object.material.transparent = opacity < 1.0;
+    const objects = this.shapeCache.get(shapeData.Handle);
+    if (objects) {
+      objects.forEach(obj => {
+        if (obj instanceof THREE.Mesh || obj instanceof THREE.Line) {
+          if (obj.material instanceof THREE.MeshBasicMaterial || 
+              obj.material instanceof THREE.LineBasicMaterial) {
+            obj.material.opacity = opacity;
+            obj.material.transparent = opacity < 1.0;
           }
         }
       });
@@ -507,35 +528,48 @@ export class ShapeEntityThreejsRenderer {
   }
 
   public static clearCache(): void {
-    this.shapeCache.forEach((group) => {
-      this.disposeGroup(group);
+    this.shapeCache.forEach((objects) => {
+      objects.forEach(obj => {
+        if (obj instanceof THREE.Mesh || obj instanceof THREE.Line) {
+          if (obj.geometry) {
+            obj.geometry.dispose();
+          }
+          if (obj.material) {
+            obj.material.dispose();
+          }
+        }
+      });
     });
     this.shapeCache.clear();
   }
 
-  public static renderMultiple(shapeDataArray: ShapeData[], scene: THREE.Scene): THREE.Group {
-    const group = new THREE.Group();
-    group.name = 'MultipleShapes';
+  public static renderMultiple(shapeDataArray: ShapeData[], scene: THREE.Scene): THREE.Object3D[] {
+    const allObjects: THREE.Object3D[] = [];
 
     shapeDataArray.forEach((shapeData) => {
-      const shapeGroup = this.render(shapeData, scene);
-      if (shapeGroup) {
-        group.add(shapeGroup);
+      const shapeObjects = this.render(shapeData, scene);
+      if (shapeObjects) {
+        allObjects.push(...shapeObjects);
       }
     });
 
-    return group;
+    return allObjects;
   }
 
-  public static disposeMultiple(group: THREE.Group, scene: THREE.Scene): void {
-    if (!group) {
+  public static disposeMultiple(objects: THREE.Object3D[], scene: THREE.Scene): void {
+    if (!objects || objects.length === 0) {
       return;
     }
 
-    scene.remove(group);
-    group.children.forEach((child) => {
-      if (child instanceof THREE.Group) {
-        this.disposeGroup(child);
+    objects.forEach(obj => {
+      scene.remove(obj);
+      if (obj instanceof THREE.Mesh || obj instanceof THREE.Line) {
+        if (obj.geometry) {
+          obj.geometry.dispose();
+        }
+        if (obj.material) {
+          obj.material.dispose();
+        }
       }
     });
   }

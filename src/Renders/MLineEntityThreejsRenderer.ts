@@ -119,79 +119,129 @@ export interface MLineData {
 }
 
 export class MLineEntityThreejsRenderer {
-  public static render(mlineData: MLineData, scene: THREE.Scene): THREE.Group | null {
+  public static render(mlineData: MLineData, scene: THREE.Scene): THREE.Object3D[] | null {
     if (!mlineData || !mlineData.Visible) {
       return null;
     }
 
-    const group = new THREE.Group();
-    group.name = `MLine_${mlineData.Handle}`;
-    group.visible = mlineData.Visible;
+    const objects: THREE.Object3D[] = [];
 
-    group.userData = {
-      type: mlineData.Type,
-      entityType: mlineData.EntityType,
-      handle: mlineData.Handle,
-      layerName: mlineData.LayerName,
-      layerIndex: mlineData.LayerIndex,
-      coordinateSystem: mlineData.CoordinateSystem,
-      elements: mlineData.Elements,
-      isClosed: mlineData.IsClosed,
-      scaleFactor: mlineData.ScaleFactor,
-      colorIndex: mlineData.ColorIndex,
-      styleFlags: mlineData.StyleFlags,
-      fillColorIndex: mlineData.FillColorIndex,
-      fillOn: mlineData.FillOn,
-      vertices: mlineData.Vertices,
-      elementCount: mlineData.ElementCount,
-      vertexCount: mlineData.VertexCount,
-      bounds: mlineData.Bounds,
-      centroid: mlineData.Centroid,
-      vertices3D: mlineData.Vertices3D,
-      centroid3D: mlineData.Centroid3D,
-      normals: mlineData.Normals,
-      bounds3D: mlineData.Bounds3D,
-      color: mlineData.Color,
-      transform: mlineData.Transform,
-      normal: mlineData.Normal,
-      opacity: mlineData.Opacity,
-      transparent: mlineData.Transparent,
-      materialType: mlineData.MaterialType,
-      depthTest: mlineData.DepthTest,
-      depthWrite: mlineData.DepthWrite,
-      flags: mlineData.Flags,
-      justification: mlineData.Justification,
-      startPoint: mlineData.StartPoint,
-      endPoint: mlineData.EndPoint,
-      totalLength: mlineData.TotalLength,
-      styleName: mlineData.StyleName,
-      startAngle: mlineData.StartAngle,
-      endAngle: mlineData.EndAngle,
-      hasStartCaps: mlineData.HasStartCaps,
-      hasEndCaps: mlineData.HasEndCaps,
-      displayJoints: mlineData.DisplayJoints,
-      lineIndices: mlineData.LineIndices,
-      offsets: mlineData.Offsets,
-      elementColorIndices: mlineData.ElementColorIndices
-    };
+    const elements = this.renderElements(mlineData);
+    elements.forEach((element, index) => {
+      element.userData = {
+        type: mlineData.Type,
+        entityType: mlineData.EntityType,
+        handle: mlineData.Handle,
+        layerName: mlineData.LayerName,
+        layerIndex: mlineData.LayerIndex,
+        coordinateSystem: mlineData.CoordinateSystem,
+        isClosed: mlineData.IsClosed,
+        scaleFactor: mlineData.ScaleFactor,
+        colorIndex: mlineData.ColorIndex,
+        styleFlags: mlineData.StyleFlags,
+        fillColorIndex: mlineData.FillColorIndex,
+        fillOn: mlineData.FillOn,
+        elementCount: mlineData.ElementCount,
+        vertexCount: mlineData.VertexCount,
+        bounds: mlineData.Bounds,
+        centroid: mlineData.Centroid,
+        vertices3D: mlineData.Vertices3D,
+        centroid3D: mlineData.Centroid3D,
+        normals: mlineData.Normals,
+        bounds3D: mlineData.Bounds3D,
+        color: mlineData.Color,
+        transform: mlineData.Transform,
+        normal: mlineData.Normal,
+        opacity: mlineData.Opacity,
+        transparent: mlineData.Transparent,
+        materialType: mlineData.MaterialType,
+        depthTest: mlineData.DepthTest,
+        depthWrite: mlineData.DepthWrite,
+        flags: mlineData.Flags,
+        justification: mlineData.Justification,
+        startPoint: mlineData.StartPoint,
+        endPoint: mlineData.EndPoint,
+        totalLength: mlineData.TotalLength,
+        styleName: mlineData.StyleName,
+        startAngle: mlineData.StartAngle,
+        endAngle: mlineData.EndAngle,
+        hasStartCaps: mlineData.HasStartCaps,
+        hasEndCaps: mlineData.HasEndCaps,
+        displayJoints: mlineData.DisplayJoints,
+        lineIndices: mlineData.LineIndices,
+        offsets: mlineData.Offsets,
+        elementColorIndices: mlineData.ElementColorIndices,
+        objectType: 'MLineElement',
+        elementIndex: index,
+        offset: mlineData.Elements[index]?.Offset,
+        elementColorIndex: mlineData.Elements[index]?.ColorIndex,
+        lineTypeName: mlineData.Elements[index]?.LineTypeName,
+        pointCount: mlineData.Elements[index]?.PointCount,
+        elementTotalLength: mlineData.Elements[index]?.TotalLength
+      };
+      objects.push(element);
+    });
+
+    const fill = this.renderFill(mlineData);
+    if (fill) {
+      fill.userData = {
+        type: mlineData.Type,
+        entityType: mlineData.EntityType,
+        handle: mlineData.Handle,
+        layerName: mlineData.LayerName,
+        layerIndex: mlineData.LayerIndex,
+        objectType: 'MLineFill',
+        fillColorIndex: mlineData.FillColorIndex
+      };
+      objects.push(fill);
+    }
+
+    const startCap = this.renderStartCap(mlineData);
+    if (startCap) {
+      startCap.userData = {
+        type: mlineData.Type,
+        entityType: mlineData.EntityType,
+        handle: mlineData.Handle,
+        layerName: mlineData.LayerName,
+        layerIndex: mlineData.LayerIndex,
+        objectType: 'MLineCap',
+        capType: 'Start'
+      };
+      objects.push(startCap);
+    }
+
+    const endCap = this.renderEndCap(mlineData);
+    if (endCap) {
+      endCap.userData = {
+        type: mlineData.Type,
+        entityType: mlineData.EntityType,
+        handle: mlineData.Handle,
+        layerName: mlineData.LayerName,
+        layerIndex: mlineData.LayerIndex,
+        objectType: 'MLineCap',
+        capType: 'End'
+      };
+      objects.push(endCap);
+    }
+
+    const joints = this.renderJoints(mlineData);
+    joints.forEach(joint => {
+      objects.push(joint);
+    });
 
     if (mlineData.Transform && mlineData.Transform.Matrix) {
       const matrix = new THREE.Matrix4();
       matrix.fromArray(mlineData.Transform.Matrix);
-      group.applyMatrix4(matrix);
+      objects.forEach(obj => obj.applyMatrix4(matrix));
     }
 
-    this.renderElements(mlineData, group);
-    this.renderFill(mlineData, group);
-    this.renderCaps(mlineData, group);
-    this.renderJoints(mlineData, group);
-
-    return group;
+    return objects.length > 0 ? objects : null;
   }
 
-  private static renderElements(mlineData: MLineData, group: THREE.Group): void {
+  private static renderElements(mlineData: MLineData): THREE.Line[] {
+    const lines: THREE.Line[] = [];
     if (!mlineData.Elements || mlineData.Elements.length === 0) {
-      return;
+      return lines;
     }
 
     mlineData.Elements.forEach((element, index) => {
@@ -219,23 +269,16 @@ export class MLineEntityThreejsRenderer {
 
       const line = new THREE.Line(geometry, material);
       line.name = `Element_${index}`;
-      line.userData = {
-        type: 'MLineElement',
-        elementIndex: index,
-        offset: element.Offset,
-        colorIndex: element.ColorIndex,
-        lineTypeName: element.LineTypeName,
-        pointCount: element.PointCount,
-        totalLength: element.TotalLength
-      };
-
-      group.add(line);
+      line.visible = mlineData.Visible;
+      lines.push(line);
     });
+
+    return lines;
   }
 
-  private static renderFill(mlineData: MLineData, group: THREE.Group): void {
+  private static renderFill(mlineData: MLineData): THREE.Mesh | null {
     if (!mlineData.FillOn || !mlineData.Elements || mlineData.Elements.length < 2) {
-      return;
+      return null;
     }
 
     const firstElement = mlineData.Elements[0];
@@ -243,7 +286,7 @@ export class MLineEntityThreejsRenderer {
 
     if (!firstElement.Points || !lastElement.Points || 
         firstElement.Points.length !== lastElement.Points.length) {
-      return;
+      return null;
     }
 
     const vertices: number[] = [];
@@ -273,31 +316,18 @@ export class MLineEntityThreejsRenderer {
 
     const mesh = new THREE.Mesh(geometry, material);
     mesh.name = 'Fill';
+    mesh.visible = mlineData.Visible;
     mesh.userData = {
       type: 'MLineFill',
       fillColorIndex: mlineData.FillColorIndex
     };
 
-    group.add(mesh);
+    return mesh;
   }
 
-  private static renderCaps(mlineData: MLineData, group: THREE.Group): void {
+  private static renderStartCap(mlineData: MLineData): THREE.Mesh | null {
     if (!mlineData.Elements || mlineData.Elements.length === 0) {
-      return;
-    }
-
-    if (mlineData.HasStartCaps) {
-      this.renderStartCap(mlineData, group);
-    }
-
-    if (mlineData.HasEndCaps) {
-      this.renderEndCap(mlineData, group);
-    }
-  }
-
-  private static renderStartCap(mlineData: MLineData, group: THREE.Group): void {
-    if (!mlineData.Elements || mlineData.Elements.length === 0) {
-      return;
+      return null;
     }
 
     const firstElement = mlineData.Elements[0];
@@ -305,7 +335,7 @@ export class MLineEntityThreejsRenderer {
 
     if (!firstElement.Points || !lastElement.Points || 
         firstElement.Points.length === 0 || lastElement.Points.length === 0) {
-      return;
+      return null;
     }
 
     const startPoint1 = firstElement.Points[0];
@@ -333,17 +363,18 @@ export class MLineEntityThreejsRenderer {
 
     const mesh = new THREE.Mesh(geometry, material);
     mesh.name = 'StartCap';
+    mesh.visible = mlineData.Visible;
     mesh.userData = {
       type: 'MLineCap',
       capType: 'Start'
     };
 
-    group.add(mesh);
+    return mesh;
   }
 
-  private static renderEndCap(mlineData: MLineData, group: THREE.Group): void {
+  private static renderEndCap(mlineData: MLineData): THREE.Mesh | null {
     if (!mlineData.Elements || mlineData.Elements.length === 0) {
-      return;
+      return null;
     }
 
     const firstElement = mlineData.Elements[0];
@@ -351,7 +382,7 @@ export class MLineEntityThreejsRenderer {
 
     if (!firstElement.Points || !lastElement.Points || 
         firstElement.Points.length === 0 || lastElement.Points.length === 0) {
-      return;
+      return null;
     }
 
     const endPoint1 = firstElement.Points[firstElement.Points.length - 1];
@@ -379,17 +410,19 @@ export class MLineEntityThreejsRenderer {
 
     const mesh = new THREE.Mesh(geometry, material);
     mesh.name = 'EndCap';
+    mesh.visible = mlineData.Visible;
     mesh.userData = {
       type: 'MLineCap',
       capType: 'End'
     };
 
-    group.add(mesh);
+    return mesh;
   }
 
-  private static renderJoints(mlineData: MLineData, group: THREE.Group): void {
+  private static renderJoints(mlineData: MLineData): THREE.Mesh[] {
+    const joints: THREE.Mesh[] = [];
     if (!mlineData.DisplayJoints || !mlineData.Elements || mlineData.Elements.length === 0) {
-      return;
+      return joints;
     }
 
     mlineData.Elements.forEach((element, elementIndex) => {
@@ -412,53 +445,56 @@ export class MLineEntityThreejsRenderer {
         circle.position.set(point.X, point.Y, 0.1);
         circle.name = `Joint_${elementIndex}_${i}`;
         circle.userData = {
-          type: 'MLineJoint',
+          type: mlineData.Type,
+          entityType: mlineData.EntityType,
+          handle: mlineData.Handle,
+          layerName: mlineData.LayerName,
+          layerIndex: mlineData.LayerIndex,
+          objectType: 'MLineJoint',
           elementIndex: elementIndex,
           pointIndex: i
         };
-
-        group.add(circle);
+        circle.visible = mlineData.Visible;
+        joints.push(circle);
       }
     });
+
+    return joints;
   }
 
   public static dispose(mlineData: MLineData, scene: THREE.Scene): boolean {
     if (!mlineData || !scene) {
       return false;
     }
-    const group = scene.getObjectByName(`MLine_${mlineData.Handle}`);
-    if (group) {
-      scene.remove(group);
-      this.disposeGroup(group);
-      return true;
-    }
-    return false;
-  }
-
-  private static disposeGroup(group: THREE.Group): void {
-    group.traverse((object) => {
-      if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
-        if (object.geometry) {
-          object.geometry.dispose();
+    
+    const objectsToRemove: THREE.Object3D[] = [];
+    scene.traverse((object) => {
+      if (object.userData && object.userData.handle === mlineData.Handle) {
+        objectsToRemove.push(object);
+      }
+    });
+    
+    objectsToRemove.forEach(obj => {
+      scene.remove(obj);
+      if (obj instanceof THREE.Mesh || obj instanceof THREE.Line) {
+        if (obj.geometry) {
+          obj.geometry.dispose();
         }
-        if (object.material) {
-          if (Array.isArray(object.material)) {
-            object.material.forEach(material => material.dispose());
+        if (obj.material) {
+          if (Array.isArray(obj.material)) {
+            obj.material.forEach(material => material.dispose());
           } else {
-            object.material.dispose();
+            obj.material.dispose();
           }
         }
       }
     });
-    group.clear();
+    
+    return objectsToRemove.length > 0;
   }
 
   public static update(mlineData: MLineData, scene: THREE.Scene): boolean {
     if (!mlineData || !scene) {
-      return false;
-    }
-    const group = this.getMLineGroup(mlineData, scene);
-    if (!group) {
       return false;
     }
     this.dispose(mlineData, scene);
@@ -466,72 +502,70 @@ export class MLineEntityThreejsRenderer {
     return result !== null;
   }
 
-  public static getMLineGroup(mlineData: MLineData, scene: THREE.Scene): THREE.Group | null {
-    return scene.getObjectByName(`MLine_${mlineData.Handle}`) as THREE.Group || null;
+  public static getMLineObjects(mlineData: MLineData, scene: THREE.Scene): THREE.Object3D[] {
+    const objects: THREE.Object3D[] = [];
+    scene.traverse((object) => {
+      if (object.userData && object.userData.handle === mlineData.Handle) {
+        objects.push(object);
+      }
+    });
+    return objects;
   }
 
   public static setVisibility(mlineData: MLineData, scene: THREE.Scene, visible: boolean): boolean {
-    const group = this.getMLineGroup(mlineData, scene);
-    if (group) {
-      group.visible = visible;
-      return true;
-    }
-    return false;
+    const objects = this.getMLineObjects(mlineData, scene);
+    objects.forEach(obj => {
+      obj.visible = visible;
+    });
+    return objects.length > 0;
   }
 
   public static setColor(mlineData: MLineData, scene: THREE.Scene, color: string): boolean {
-    const group = this.getMLineGroup(mlineData, scene);
-    if (group) {
-      group.traverse((object) => {
-        if (object instanceof THREE.Line) {
-          if (object.material instanceof THREE.LineBasicMaterial) {
-            object.material.color.set(color);
-          }
+    const objects = this.getMLineObjects(mlineData, scene);
+    objects.forEach(obj => {
+      if (obj instanceof THREE.Line) {
+        if (obj.material instanceof THREE.LineBasicMaterial) {
+          obj.material.color.set(color);
         }
-      });
-      return true;
-    }
-    return false;
+      }
+    });
+    return objects.length > 0;
   }
 
   public static setElementColor(mlineData: MLineData, scene: THREE.Scene, elementIndex: number, color: string): boolean {
-    const group = this.getMLineGroup(mlineData, scene);
-    if (group) {
-      const element = group.getObjectByName(`Element_${elementIndex}`);
-      if (element instanceof THREE.Line && element.material instanceof THREE.LineBasicMaterial) {
-        element.material.color.set(color);
-        return true;
-      }
+    const objects = this.getMLineObjects(mlineData, scene);
+    const element = objects.find(obj => obj.name === `Element_${elementIndex}`);
+    if (element instanceof THREE.Line && element.material instanceof THREE.LineBasicMaterial) {
+      element.material.color.set(color);
+      return true;
     }
     return false;
   }
 
   public static setOpacity(mlineData: MLineData, scene: THREE.Scene, opacity: number): boolean {
-    const group = this.getMLineGroup(mlineData, scene);
-    if (group) {
-      group.traverse((object) => {
-        if (object instanceof THREE.Line || object instanceof THREE.Mesh) {
-          if (object.material instanceof THREE.LineBasicMaterial || 
-              object.material instanceof THREE.MeshBasicMaterial) {
-            object.material.opacity = opacity;
-            object.material.transparent = opacity < 1.0;
-          }
-        }
-      });
-      return true;
+    const objects = this.getMLineObjects(mlineData, scene);
+    if (objects.length === 0) {
+      return false;
     }
-    return false;
+    objects.forEach((object) => {
+      if (object instanceof THREE.Line || object instanceof THREE.Mesh) {
+        if (object.material instanceof THREE.LineBasicMaterial || 
+            object.material instanceof THREE.MeshBasicMaterial) {
+          object.material.opacity = opacity;
+          object.material.transparent = opacity < 1.0;
+        }
+      }
+    });
+    return true;
   }
 
   public static setFillOpacity(mlineData: MLineData, scene: THREE.Scene, opacity: number): boolean {
-    const group = this.getMLineGroup(mlineData, scene);
-    if (group) {
-      const fill = group.getObjectByName('Fill');
-      if (fill instanceof THREE.Mesh && fill.material instanceof THREE.MeshBasicMaterial) {
-        fill.material.opacity = opacity;
-        fill.material.transparent = opacity < 1.0;
-        return true;
-      }
+    const objects = this.getMLineObjects(mlineData, scene);
+    const fill = objects.find(obj => obj.name === 'Fill');
+    if (fill instanceof THREE.Mesh && fill.material instanceof THREE.MeshBasicMaterial) {
+      fill.material.opacity = opacity;
+      fill.material.transparent = opacity < 1.0;
+      return true;
     }
     return false;
   }

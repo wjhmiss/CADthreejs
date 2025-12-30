@@ -104,72 +104,66 @@ export interface RasterImageData {
 }
 
 export class RasterImageEntityThreejsRenderer {
-  private static readonly rasterImageCache: Map<string, THREE.Group> = new Map();
+  private static readonly rasterImageCache: Map<string, THREE.Mesh> = new Map();
   private static readonly textureLoader: THREE.TextureLoader = new THREE.TextureLoader();
   private static readonly textureCache: Map<string, THREE.Texture> = new Map();
 
-  public static render(rasterImageData: RasterImageData, scene: THREE.Scene): THREE.Group | null {
+  public static render(rasterImageData: RasterImageData, scene: THREE.Scene): THREE.Mesh | null {
     if (!rasterImageData || !rasterImageData.Visible) {
       return null;
     }
 
-    const group = new THREE.Group();
-    group.name = `RasterImage_${rasterImageData.Handle}`;
-    group.visible = rasterImageData.Visible;
-
     if (rasterImageData.CornerPoints.length === 0) {
       console.warn(`RasterImage ${rasterImageData.Handle} has no corner points`);
-      return group;
+      return null;
     }
 
     const geometry = this.createRasterImageGeometry(rasterImageData);
     const material = this.createRasterImageMaterial(rasterImageData);
     const mesh = new THREE.Mesh(geometry, material);
-    mesh.name = 'RasterImage';
-    mesh.userData = { handle: rasterImageData.Handle };
+    mesh.name = `RasterImage_${rasterImageData.Handle}`;
+    mesh.userData = { 
+      handle: rasterImageData.Handle,
+      entityType: rasterImageData.EntityType,
+      layerName: rasterImageData.LayerName,
+      objectType: 'RasterImage'
+    };
     mesh.visible = rasterImageData.Visible;
-
     mesh.castShadow = rasterImageData.CastShadows;
     mesh.receiveShadow = rasterImageData.ReceiveShadows;
 
     this.applyTransform(mesh, rasterImageData.Transform);
 
-    group.add(mesh);
+    this.rasterImageCache.set(rasterImageData.Handle, mesh);
 
-    this.rasterImageCache.set(rasterImageData.Handle, group);
-
-    return group;
+    return mesh;
   }
 
-  public static update(rasterImageData: RasterImageData, scene: THREE.Scene): THREE.Group {
+  public static update(rasterImageData: RasterImageData, scene: THREE.Scene): THREE.Mesh | null {
     this.dispose(rasterImageData.Handle);
     return this.render(rasterImageData, scene);
   }
 
   public static dispose(handle: string): void {
-    const cachedGroup = this.rasterImageCache.get(handle);
-    if (cachedGroup) {
-      cachedGroup.traverse((child) => {
-        if (child instanceof THREE.Mesh) {
-          if (child.geometry) {
-            child.geometry.dispose();
+    const cachedMesh = this.rasterImageCache.get(handle);
+    if (cachedMesh) {
+      if (cachedMesh.geometry) {
+        cachedMesh.geometry.dispose();
+      }
+      if (cachedMesh.material) {
+        if (cachedMesh.material instanceof THREE.Material) {
+          if ('map' in cachedMesh.material && cachedMesh.material.map) {
+            cachedMesh.material.map.dispose();
           }
-          if (child.material) {
-            if (child.material instanceof THREE.Material) {
-              if ('map' in child.material && child.material.map) {
-                child.material.map.dispose();
-              }
-              child.material.dispose();
-            }
-          }
+          cachedMesh.material.dispose();
         }
-      });
+      }
       this.rasterImageCache.delete(handle);
     }
   }
 
   public static disposeAll(): void {
-    this.rasterImageCache.forEach((group, handle) => {
+    this.rasterImageCache.forEach((objects, handle) => {
       this.dispose(handle);
     });
     this.textureCache.forEach((texture) => {
@@ -269,7 +263,7 @@ export class RasterImageEntityThreejsRenderer {
     }
   }
 
-  public static getRasterImageByHandle(handle: string): THREE.Group | null {
+  public static getRasterImageByHandle(handle: string): THREE.Mesh | null {
     return this.rasterImageCache.get(handle) || null;
   }
 
@@ -282,66 +276,41 @@ export class RasterImageEntityThreejsRenderer {
   }
 
   public static setVisibility(handle: string, visible: boolean): void {
-    const group = this.rasterImageCache.get(handle);
-    if (group) {
-      group.visible = visible;
-      group.traverse((child) => {
-        if (child instanceof THREE.Mesh) {
-          child.visible = visible;
-        }
-      });
+    const mesh = this.rasterImageCache.get(handle);
+    if (mesh) {
+      mesh.visible = visible;
     }
   }
 
   public static setOpacity(handle: string, opacity: number): void {
-    const group = this.rasterImageCache.get(handle);
-    if (group) {
-      group.traverse((child) => {
-        if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshBasicMaterial) {
-          child.material.opacity = opacity;
-          child.material.transparent = opacity < 1.0;
-          child.material.needsUpdate = true;
-        }
-      });
+    const mesh = this.rasterImageCache.get(handle);
+    if (mesh && mesh.material instanceof THREE.MeshBasicMaterial) {
+      mesh.material.opacity = opacity;
+      mesh.material.transparent = opacity < 1.0;
+      mesh.material.needsUpdate = true;
     }
   }
 
   public static setBrightness(handle: string, brightness: number): void {
-    const group = this.rasterImageCache.get(handle);
-    if (group) {
-      group.traverse((child) => {
-        if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshBasicMaterial) {
-          if (child.material.map) {
-            child.material.map.colorSpace = brightness > 50 ? THREE.SRGBColorSpace : THREE.LinearSRGBColorSpace;
-            child.material.needsUpdate = true;
-          }
-        }
-      });
+    const mesh = this.rasterImageCache.get(handle);
+    if (mesh && mesh.material instanceof THREE.MeshBasicMaterial && mesh.material.map) {
+      mesh.material.map.colorSpace = brightness > 50 ? THREE.SRGBColorSpace : THREE.LinearSRGBColorSpace;
+      mesh.material.needsUpdate = true;
     }
   }
 
   public static setContrast(handle: string, contrast: number): void {
-    const group = this.rasterImageCache.get(handle);
-    if (group) {
-      group.traverse((child) => {
-        if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshBasicMaterial) {
-          if (child.material.map) {
-            child.material.needsUpdate = true;
-          }
-        }
-      });
+    const mesh = this.rasterImageCache.get(handle);
+    if (mesh && mesh.material instanceof THREE.MeshBasicMaterial && mesh.material.map) {
+      mesh.material.needsUpdate = true;
     }
   }
 
   public static getBounds(handle: string): THREE.Box3 | null {
-    const group = this.rasterImageCache.get(handle);
-    if (group) {
+    const mesh = this.rasterImageCache.get(handle);
+    if (mesh && mesh.geometry) {
       const box = new THREE.Box3();
-      group.traverse((child) => {
-        if (child instanceof THREE.Mesh) {
-          box.expandByObject(child);
-        }
-      });
+      box.setFromObject(mesh);
       return box;
     }
     return null;
@@ -356,25 +325,19 @@ export class RasterImageEntityThreejsRenderer {
   }
 
   public static getArea(handle: string): number {
-    const group = this.rasterImageCache.get(handle);
-    if (group) {
-      let area = 0;
-      group.traverse((child) => {
-        if (child instanceof THREE.Mesh && child.geometry) {
-          const positions = child.geometry.attributes.position;
-          if (positions && positions.count >= 4) {
-            const v0 = new THREE.Vector3(positions.getX(0), positions.getY(0), positions.getZ(0));
-            const v1 = new THREE.Vector3(positions.getX(1), positions.getY(1), positions.getZ(1));
-            const v2 = new THREE.Vector3(positions.getX(2), positions.getY(2), positions.getZ(2));
-            const v3 = new THREE.Vector3(positions.getX(3), positions.getY(3), positions.getZ(3));
+    const mesh = this.rasterImageCache.get(handle);
+    if (mesh && mesh.geometry) {
+      const positions = mesh.geometry.attributes.position;
+      if (positions && positions.count >= 4) {
+        const v0 = new THREE.Vector3(positions.getX(0), positions.getY(0), positions.getZ(0));
+        const v1 = new THREE.Vector3(positions.getX(1), positions.getY(1), positions.getZ(1));
+        const v2 = new THREE.Vector3(positions.getX(2), positions.getY(2), positions.getZ(2));
+        const v3 = new THREE.Vector3(positions.getX(3), positions.getY(3), positions.getZ(3));
 
-            const triangle1 = this.calculateTriangleArea(v0, v1, v2);
-            const triangle2 = this.calculateTriangleArea(v0, v2, v3);
-            area += triangle1 + triangle2;
-          }
-        }
-      });
-      return area;
+        const triangle1 = this.calculateTriangleArea(v0, v1, v2);
+        const triangle2 = this.calculateTriangleArea(v0, v2, v3);
+        return triangle1 + triangle2;
+      }
     }
     return 0;
   }
@@ -387,59 +350,41 @@ export class RasterImageEntityThreejsRenderer {
   }
 
   public static getCornerPoints(handle: string): THREE.Vector3[] | null {
-    const group = this.rasterImageCache.get(handle);
-    if (group) {
-      const corners: THREE.Vector3[] = [];
-      group.traverse((child) => {
-        if (child instanceof THREE.Mesh && child.geometry) {
-          const positions = child.geometry.attributes.position;
-          if (positions && positions.count >= 4) {
-            for (let i = 0; i < 4; i++) {
-              corners.push(new THREE.Vector3(
-                positions.getX(i),
-                positions.getY(i),
-                positions.getZ(i)
-              ));
-            }
-          }
+    const mesh = this.rasterImageCache.get(handle);
+    if (mesh && mesh.geometry) {
+      const positions = mesh.geometry.attributes.position;
+      if (positions && positions.count >= 4) {
+        const corners: THREE.Vector3[] = [];
+        for (let i = 0; i < 4; i++) {
+          corners.push(new THREE.Vector3(
+            positions.getX(i),
+            positions.getY(i),
+            positions.getZ(i)
+          ));
         }
-      });
-      return corners;
+        return corners;
+      }
     }
     return null;
   }
 
   public static isRasterImageVisible(handle: string): boolean {
-    const group = this.rasterImageCache.get(handle);
-    return group ? group.visible : false;
+    const mesh = this.rasterImageCache.get(handle);
+    return mesh ? mesh.visible : false;
   }
 
   public static hasTexture(handle: string): boolean {
-    const group = this.rasterImageCache.get(handle);
-    if (group) {
-      let hasTexture = false;
-      group.traverse((child) => {
-        if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshBasicMaterial) {
-          hasTexture = child.material.map !== null;
-        }
-      });
-      return hasTexture;
+    const mesh = this.rasterImageCache.get(handle);
+    if (mesh && mesh.material instanceof THREE.MeshBasicMaterial) {
+      return mesh.material.map !== null;
     }
     return false;
   }
 
   public static getTexturePath(handle: string): string | null {
-    const group = this.rasterImageCache.get(handle);
-    if (group) {
-      let texturePath: string | null = null;
-      group.traverse((child) => {
-        if (child instanceof THREE.Mesh && child.material instanceof THREE.MeshBasicMaterial) {
-          if (child.material.map && child.material.map instanceof THREE.Texture) {
-            texturePath = child.material.map.source.data?.src || null;
-          }
-        }
-      });
-      return texturePath;
+    const mesh = this.rasterImageCache.get(handle);
+    if (mesh && mesh.material instanceof THREE.MeshBasicMaterial && mesh.material.map && mesh.material.map instanceof THREE.Texture) {
+      return mesh.material.map.source.data?.src || null;
     }
     return null;
   }

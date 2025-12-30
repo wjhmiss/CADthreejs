@@ -85,9 +85,9 @@ export interface LwPolylineData {
 }
 
 export class LwPolylineEntityThreejsRenderer {
-  private static readonly groupNamePrefix = 'lwPolyline-';
+  private static readonly lineNamePrefix = 'lwPolyline-';
 
-  public static render(lwPolylineData: LwPolylineData, scene: THREE.Scene): THREE.Group | null {
+  public static render(lwPolylineData: LwPolylineData, scene: THREE.Scene): THREE.Line | null {
     if (!lwPolylineData || !lwPolylineData.Visible) {
       return null;
     }
@@ -95,9 +95,6 @@ export class LwPolylineEntityThreejsRenderer {
     if (!lwPolylineData.Vertices || lwPolylineData.Vertices.length === 0) {
       return null;
     }
-
-    const group = new THREE.Group();
-    group.name = `${this.groupNamePrefix}${lwPolylineData.Handle || 'unknown'}`;
 
     const vertices = lwPolylineData.Vertices;
     const points: THREE.Vector3[] = [];
@@ -131,14 +128,12 @@ export class LwPolylineEntityThreejsRenderer {
     const material = this.createMaterial(lwPolylineData);
     
     const line = new THREE.Line(geometry, material);
-    line.name = 'lwPolyline-line';
+    line.name = `${this.lineNamePrefix}${lwPolylineData.Handle || 'unknown'}`;
     
-    group.add(line);
+    this.applyTransform(line, lwPolylineData.Transform);
+    this.setUserData(line, lwPolylineData);
 
-    this.applyTransform(group, lwPolylineData.Transform);
-    this.setUserData(group, lwPolylineData);
-
-    return group;
+    return line;
   }
 
   private static createMaterial(lwPolylineData: LwPolylineData): THREE.Material {
@@ -172,7 +167,7 @@ export class LwPolylineEntityThreejsRenderer {
     return undefined;
   }
 
-  private static applyTransform(group: THREE.Group, transform: TransformData): void {
+  private static applyTransform(line: THREE.Line, transform: TransformData): void {
     if (!transform) return;
 
     const matrix = new THREE.Matrix4();
@@ -186,11 +181,11 @@ export class LwPolylineEntityThreejsRenderer {
       matrix.compose(position, new THREE.Quaternion().setFromEuler(rotation), scale);
     }
 
-    group.applyMatrix4(matrix);
+    line.applyMatrix4(matrix);
   }
 
-  private static setUserData(group: THREE.Group, lwPolylineData: LwPolylineData): void {
-    group.userData = {
+  private static setUserData(line: THREE.Line, lwPolylineData: LwPolylineData): void {
+    line.userData = {
       type: lwPolylineData.Type,
       entityType: lwPolylineData.EntityType,
       handle: lwPolylineData.Handle,
@@ -256,8 +251,8 @@ export class LwPolylineEntityThreejsRenderer {
   }
 
   public static update(lwPolylineData: LwPolylineData, scene: THREE.Scene): boolean {
-    const group = this.getLwPolylineGroup(lwPolylineData, scene);
-    if (!group) {
+    const line = this.getLwPolylineLine(lwPolylineData, scene);
+    if (!line) {
       return false;
     }
     this.dispose(lwPolylineData, scene);
@@ -265,42 +260,40 @@ export class LwPolylineEntityThreejsRenderer {
     return result !== null;
   }
 
-  public static getLwPolylineGroup(lwPolylineData: LwPolylineData, scene: THREE.Scene): THREE.Group | null {
+  public static getLwPolylineLine(lwPolylineData: LwPolylineData, scene: THREE.Scene): THREE.Line | null {
     if (!lwPolylineData || !lwPolylineData.Handle) {
       return null;
     }
 
-    const groupName = `${this.groupNamePrefix}${lwPolylineData.Handle}`;
-    const group = scene.getObjectByName(groupName) as THREE.Group;
+    const lineName = `${this.lineNamePrefix}${lwPolylineData.Handle}`;
+    const line = scene.getObjectByName(lineName) as THREE.Line;
     
-    return group || null;
+    return line || null;
   }
 
   public static setVisibility(lwPolylineData: LwPolylineData, scene: THREE.Scene, visible: boolean): boolean {
-    const group = this.getLwPolylineGroup(lwPolylineData, scene);
-    if (!group) {
+    const line = this.getLwPolylineLine(lwPolylineData, scene);
+    if (!line) {
       return false;
     }
 
-    group.visible = visible;
-    group.userData.visible = visible;
+    line.visible = visible;
+    line.userData.visible = visible;
     
     return true;
   }
 
   public static setColor(lwPolylineData: LwPolylineData, scene: THREE.Scene, color: THREE.Color): boolean {
-    const group = this.getLwPolylineGroup(lwPolylineData, scene);
-    if (!group) {
+    const line = this.getLwPolylineLine(lwPolylineData, scene);
+    if (!line) {
       return false;
     }
 
-    group.traverse((child) => {
-      if (child instanceof THREE.Line && child.material instanceof THREE.LineBasicMaterial) {
-        child.material.color = color;
-      }
-    });
+    if (line.material instanceof THREE.LineBasicMaterial) {
+      line.material.color = color;
+    }
 
-    group.userData.color = {
+    line.userData.color = {
       Index: lwPolylineData.Color.Index,
       Hex: '#' + color.getHexString(),
       R: Math.round(color.r * 255),
@@ -313,48 +306,39 @@ export class LwPolylineEntityThreejsRenderer {
   }
 
   public static setOpacity(lwPolylineData: LwPolylineData, scene: THREE.Scene, opacity: number): boolean {
-    const group = this.getLwPolylineGroup(lwPolylineData, scene);
-    if (!group) {
+    const line = this.getLwPolylineLine(lwPolylineData, scene);
+    if (!line) {
       return false;
     }
 
-    group.traverse((child) => {
-      if (child instanceof THREE.Line && child.material instanceof THREE.LineBasicMaterial) {
-        child.material.opacity = opacity;
-        child.material.transparent = opacity < 1.0;
-      }
-    });
+    if (line.material instanceof THREE.LineBasicMaterial) {
+      line.material.opacity = opacity;
+      line.material.transparent = opacity < 1.0;
+    }
 
-    group.userData.opacity = opacity;
-    group.userData.transparent = opacity < 1.0;
+    line.userData.opacity = opacity;
+    line.userData.transparent = opacity < 1.0;
 
     return true;
   }
 
   public static setLineWidth(lwPolylineData: LwPolylineData, scene: THREE.Scene, lineWidth: number): boolean {
-    const group = this.getLwPolylineGroup(lwPolylineData, scene);
-    if (!group) {
+    const line = this.getLwPolylineLine(lwPolylineData, scene);
+    if (!line) {
       return false;
     }
 
-    group.traverse((child) => {
-      if (child instanceof THREE.Line && child.material instanceof THREE.LineBasicMaterial) {
-        (child.material as any).linewidth = lineWidth;
-      }
-    });
+    if (line.material instanceof THREE.LineBasicMaterial) {
+      (line.material as any).linewidth = lineWidth;
+    }
 
-    group.userData.lineWeight = lineWidth;
+    line.userData.lineWeight = lineWidth;
 
     return true;
   }
 
   public static isPointOnLwPolyline(lwPolylineData: LwPolylineData, scene: THREE.Scene, point: THREE.Vector3, tolerance: number = 0.01): boolean {
-    const group = this.getLwPolylineGroup(lwPolylineData, scene);
-    if (!group) {
-      return false;
-    }
-
-    const line = group.getObjectByName('lwPolyline-line') as THREE.Line;
+    const line = this.getLwPolylineLine(lwPolylineData, scene);
     if (!line) {
       return false;
     }
@@ -380,12 +364,7 @@ export class LwPolylineEntityThreejsRenderer {
       return null;
     }
 
-    const group = this.getLwPolylineGroup(lwPolylineData, scene);
-    if (!group) {
-      return null;
-    }
-
-    const line = group.getObjectByName('lwPolyline-line') as THREE.Line;
+    const line = this.getLwPolylineLine(lwPolylineData, scene);
     if (!line) {
       return null;
     }
@@ -421,12 +400,7 @@ export class LwPolylineEntityThreejsRenderer {
   }
 
   public static getClosestPoint(lwPolylineData: LwPolylineData, scene: THREE.Scene, point: THREE.Vector3): THREE.Vector3 | null {
-    const group = this.getLwPolylineGroup(lwPolylineData, scene);
-    if (!group) {
-      return null;
-    }
-
-    const line = group.getObjectByName('lwPolyline-line') as THREE.Line;
+    const line = this.getLwPolylineLine(lwPolylineData, scene);
     if (!line) {
       return null;
     }
@@ -474,27 +448,23 @@ export class LwPolylineEntityThreejsRenderer {
       return false;
     }
 
-    const group = this.getLwPolylineGroup(lwPolylineData, scene);
-    if (!group) {
+    const line = this.getLwPolylineLine(lwPolylineData, scene);
+    if (!line) {
       return false;
     }
 
-    group.traverse((child) => {
-      if (child instanceof THREE.Line) {
-        if (child.geometry) {
-          child.geometry.dispose();
-        }
-        if (child.material) {
-          if (Array.isArray(child.material)) {
-            child.material.forEach((mat) => mat.dispose());
-          } else {
-            child.material.dispose();
-          }
-        }
+    if (line.geometry) {
+      line.geometry.dispose();
+    }
+    if (line.material) {
+      if (Array.isArray(line.material)) {
+        line.material.forEach((mat) => mat.dispose());
+      } else {
+        line.material.dispose();
       }
-    });
+    }
 
-    scene.remove(group);
+    scene.remove(line);
 
     return true;
   }

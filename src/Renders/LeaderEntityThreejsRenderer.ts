@@ -86,16 +86,14 @@ export interface LeaderData {
 }
 
 export class LeaderEntityThreejsRenderer {
-  public static render(leaderData: LeaderData, scene: THREE.Scene): THREE.Group | null {
+  public static render(leaderData: LeaderData, scene: THREE.Scene): THREE.Object3D[] | null {
     if (!leaderData || !leaderData.Visible) {
       return null;
     }
 
-    const group = new THREE.Group();
-    group.name = `Leader_${leaderData.Handle}`;
-    group.visible = leaderData.Visible;
+    const objects: THREE.Object3D[] = [];
 
-    group.userData = {
+    const userData = {
       type: leaderData.Type,
       handle: leaderData.Handle,
       layerName: leaderData.LayerName,
@@ -122,29 +120,36 @@ export class LeaderEntityThreejsRenderer {
       annotationOffset: leaderData.AnnotationOffset,
       blockOffset: leaderData.BlockOffset,
       bounds: leaderData.Bounds,
-      transform: leaderData.Transform3D
+      transform: leaderData.Transform3D,
+      objectType: 'Leader'
     };
 
-    if (leaderData.Transform3D && leaderData.Transform3D.Matrix) {
-      const matrix = new THREE.Matrix4();
-      matrix.fromArray(leaderData.Transform3D.Matrix);
-      group.applyMatrix4(matrix);
-    }
-
-    this.renderLeaderLine(leaderData, group);
+    this.renderLeaderLine(leaderData, objects);
 
     if (leaderData.ArrowHeadEnabled && leaderData.ArrowHeadPoints3D && leaderData.ArrowHeadPoints3D.length > 0) {
-      this.renderArrowHead(leaderData, group);
+      this.renderArrowHead(leaderData, objects);
     }
 
     if (leaderData.HasHookline && leaderData.HookLineStart3D && leaderData.HookLineEnd3D) {
-      this.renderHookLine(leaderData, group);
+      this.renderHookLine(leaderData, objects);
     }
 
-    return group;
+    objects.forEach(obj => {
+      obj.userData = { ...userData, ...obj.userData };
+      obj.name = `Leader_${leaderData.Handle}_${obj.name}`;
+      obj.visible = leaderData.Visible;
+
+      if (leaderData.Transform3D && leaderData.Transform3D.Matrix) {
+        const matrix = new THREE.Matrix4();
+        matrix.fromArray(leaderData.Transform3D.Matrix);
+        obj.applyMatrix4(matrix);
+      }
+    });
+
+    return objects;
   }
 
-  private static renderLeaderLine(leaderData: LeaderData, group: THREE.Group): void {
+  private static renderLeaderLine(leaderData: LeaderData, objects: THREE.Object3D[]): void {
     if (!leaderData.Vertices3D || leaderData.Vertices3D.length < 2) {
       return;
     }
@@ -174,10 +179,10 @@ export class LeaderEntityThreejsRenderer {
       totalLength: leaderData.TotalLength
     };
 
-    group.add(line);
+    objects.push(line);
   }
 
-  private static renderArrowHead(leaderData: LeaderData, group: THREE.Group): void {
+  private static renderArrowHead(leaderData: LeaderData, objects: THREE.Object3D[]): void {
     if (!leaderData.ArrowHeadPoints3D || leaderData.ArrowHeadPoints3D.length < 3) {
       return;
     }
@@ -207,10 +212,10 @@ export class LeaderEntityThreejsRenderer {
       enabled: leaderData.ArrowHeadEnabled
     };
 
-    group.add(arrowHead);
+    objects.push(arrowHead);
   }
 
-  private static renderHookLine(leaderData: LeaderData, group: THREE.Group): void {
+  private static renderHookLine(leaderData: LeaderData, objects: THREE.Object3D[]): void {
     if (!leaderData.HookLineStart3D || !leaderData.HookLineEnd3D) {
       return;
     }
@@ -238,78 +243,80 @@ export class LeaderEntityThreejsRenderer {
       direction: leaderData.HookLineDirection
     };
 
-    group.add(hookLine);
+    objects.push(hookLine);
   }
 
   public static dispose(leaderData: LeaderData, scene: THREE.Scene): void {
     if (!leaderData || !scene) {
       return;
     }
-    const group = scene.getObjectByName(`Leader_${leaderData.Handle}`);
-    if (group) {
-      scene.remove(group);
-      this.disposeGroup(group);
-    }
-  }
-
-  private static disposeGroup(group: THREE.Group): void {
-    group.traverse((object) => {
-      if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
-        if (object.geometry) {
-          object.geometry.dispose();
+    
+    const objectsToRemove: THREE.Object3D[] = [];
+    scene.traverse((object) => {
+      if (object.userData && object.userData.handle === leaderData.Handle) {
+        objectsToRemove.push(object);
+      }
+    });
+    
+    objectsToRemove.forEach(obj => {
+      scene.remove(obj);
+      if (obj instanceof THREE.Mesh || obj instanceof THREE.Line) {
+        if (obj.geometry) {
+          obj.geometry.dispose();
         }
-        if (object.material) {
-          if (Array.isArray(object.material)) {
-            object.material.forEach(material => material.dispose());
+        if (obj.material) {
+          if (Array.isArray(obj.material)) {
+            obj.material.forEach(material => material.dispose());
           } else {
-            object.material.dispose();
+            obj.material.dispose();
           }
         }
       }
     });
-    group.clear();
   }
 
-  public static update(leaderData: LeaderData, scene: THREE.Scene): THREE.Group | null {
+  public static update(leaderData: LeaderData, scene: THREE.Scene): THREE.Object3D[] | null {
     this.dispose(leaderData, scene);
     return this.render(leaderData, scene);
   }
 
-  public static getLeaderGroup(leaderData: LeaderData, scene: THREE.Scene): THREE.Group | null {
-    return scene.getObjectByName(`Leader_${leaderData.Handle}`) as THREE.Group || null;
+  public static getLeaderObjects(leaderData: LeaderData, scene: THREE.Scene): THREE.Object3D[] {
+    const objects: THREE.Object3D[] = [];
+    scene.traverse((object) => {
+      if (object.userData && object.userData.handle === leaderData.Handle) {
+        objects.push(object);
+      }
+    });
+    return objects;
   }
 
   public static setVisibility(leaderData: LeaderData, scene: THREE.Scene, visible: boolean): void {
-    const group = this.getLeaderGroup(leaderData, scene);
-    if (group) {
-      group.visible = visible;
-    }
+    const objects = this.getLeaderObjects(leaderData, scene);
+    objects.forEach(obj => {
+      obj.visible = visible;
+    });
   }
 
   public static setColor(leaderData: LeaderData, scene: THREE.Scene, color: string): void {
-    const group = this.getLeaderGroup(leaderData, scene);
-    if (group) {
-      group.traverse((object) => {
-        if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
-          if (object.material instanceof THREE.MeshBasicMaterial || object.material instanceof THREE.LineBasicMaterial) {
-            object.material.color.set(color);
-          }
+    const objects = this.getLeaderObjects(leaderData, scene);
+    objects.forEach(obj => {
+      if (obj instanceof THREE.Mesh || obj instanceof THREE.Line) {
+        if (obj.material instanceof THREE.MeshBasicMaterial || obj.material instanceof THREE.LineBasicMaterial) {
+          obj.material.color.set(color);
         }
-      });
-    }
+      }
+    });
   }
 
   public static setOpacity(leaderData: LeaderData, scene: THREE.Scene, opacity: number): void {
-    const group = this.getLeaderGroup(leaderData, scene);
-    if (group) {
-      group.traverse((object) => {
-        if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
-          if (object.material instanceof THREE.MeshBasicMaterial || object.material instanceof THREE.LineBasicMaterial) {
-            object.material.opacity = opacity;
-            object.material.transparent = opacity < 1.0;
-          }
+    const objects = this.getLeaderObjects(leaderData, scene);
+    objects.forEach(obj => {
+      if (obj instanceof THREE.Mesh || obj instanceof THREE.Line) {
+        if (obj.material instanceof THREE.MeshBasicMaterial || obj.material instanceof THREE.LineBasicMaterial) {
+          obj.material.opacity = opacity;
+          obj.material.transparent = opacity < 1.0;
         }
-      });
-    }
+      }
+    });
   }
 }

@@ -72,20 +72,15 @@ export interface Face3DRenderResult {
   mesh: THREE.Mesh;
   material: THREE.Material;
   geometry: THREE.BufferGeometry;
-  group: THREE.Group;
 }
 
 export class Face3DEntityThreejsRenderer {
   private static readonly DEFAULT_COLOR = new THREE.Color(0xffffff);
 
-  public static render(face3DData: Face3DData, scene: THREE.Scene): THREE.Group | null {
+  public static render(face3DData: Face3DData, scene: THREE.Scene): THREE.Mesh | null {
     if (!face3DData.Visible || face3DData.IsInvisible) {
       return null;
     }
-
-    const group = new THREE.Group();
-    group.name = `Face3D_${face3DData.Handle || face3DData.Uuid}`;
-    group.visible = face3DData.Visible;
 
     const material = this.createMaterial(face3DData);
     const geometry = this.createGeometry(face3DData);
@@ -107,7 +102,8 @@ export class Face3DEntityThreejsRenderer {
       uuid: face3DData.Uuid,
       entityType: face3DData.EntityType,
       handle: face3DData.Handle,
-      layerName: face3DData.LayerName
+      layerName: face3DData.LayerName,
+      objectType: 'Face3D'
     };
 
     mesh.visible = face3DData.Visible;
@@ -115,12 +111,10 @@ export class Face3DEntityThreejsRenderer {
     mesh.receiveShadow = face3DData.ReceiveShadow;
     mesh.renderOrder = face3DData.RenderOrder;
 
-    group.add(mesh);
-
-    return group;
+    return mesh;
   }
 
-  public static renderFromJson(jsonString: string, scene: THREE.Scene): THREE.Group | null {
+  public static renderFromJson(jsonString: string, scene: THREE.Scene): THREE.Mesh | null {
     try {
       const face3DData: Face3DData = JSON.parse(jsonString);
       return this.render(face3DData, scene);
@@ -130,7 +124,7 @@ export class Face3DEntityThreejsRenderer {
     }
   }
 
-  public static renderWithGroup(face3DData: Face3DData, scene: THREE.Scene): Face3DRenderResult | null {
+  public static renderWithResult(face3DData: Face3DData, scene: THREE.Scene): Face3DRenderResult | null {
     if (!face3DData.Visible || face3DData.IsInvisible) {
       return null;
     }
@@ -143,7 +137,6 @@ export class Face3DEntityThreejsRenderer {
     }
 
     const mesh = new THREE.Mesh(geometry, material);
-    const group = new THREE.Group();
 
     if (face3DData.Transform && face3DData.Transform.Matrix && face3DData.Transform.Matrix.length === 16) {
       const matrix = new THREE.Matrix4();
@@ -156,16 +149,19 @@ export class Face3DEntityThreejsRenderer {
       uuid: face3DData.Uuid,
       entityType: face3DData.EntityType,
       handle: face3DData.Handle,
-      layerName: face3DData.LayerName
+      layerName: face3DData.LayerName,
+      objectType: 'Face3D'
     };
 
-    group.add(mesh);
+    mesh.visible = face3DData.Visible;
+    mesh.castShadow = face3DData.CastShadow;
+    mesh.receiveShadow = face3DData.ReceiveShadow;
+    mesh.renderOrder = face3DData.RenderOrder;
 
     return {
       mesh,
       material,
-      geometry,
-      group
+      geometry
     };
   }
 
@@ -175,9 +171,6 @@ export class Face3DEntityThreejsRenderer {
     }
     if (result.material) {
       result.material.dispose();
-    }
-    if (result.group) {
-      result.group.clear();
     }
   }
 
@@ -280,15 +273,14 @@ export class Face3DEntityThreejsRenderer {
     return geometry;
   }
 
-  public static createFaceFromData(face3DData: Face3DData): THREE.Object3D | null {
+  public static createFaceFromData(face3DData: Face3DData): THREE.Mesh | null {
     const scene = new THREE.Scene();
     return this.render(face3DData, scene);
   }
 
-  public static createFaceGroup(face3DData: Face3DData): THREE.Group | null {
+  public static createFaceMesh(face3DData: Face3DData): THREE.Mesh | null {
     const scene = new THREE.Scene();
-    const result = this.renderWithGroup(face3DData, scene);
-    return result ? result.group : null;
+    return this.render(face3DData, scene);
   }
 
   public static getFaceProperties(face3DData: Face3DData): {
@@ -374,5 +366,85 @@ export class Face3DEntityThreejsRenderer {
     const v2 = new THREE.Vector3().subVectors(p3, p1);
     const cross = new THREE.Vector3().crossVectors(v1, v2);
     return 0.5 * cross.length();
+  }
+
+  public static disposeFromScene(face3DData: Face3DData, scene: THREE.Scene): void {
+    if (!face3DData || !scene) {
+      return;
+    }
+    
+    const objectsToRemove: THREE.Object3D[] = [];
+    scene.traverse((object) => {
+      if (object.userData && 
+          (object.userData.handle === face3DData.Handle || 
+           object.userData.uuid === face3DData.Uuid)) {
+        objectsToRemove.push(object);
+      }
+    });
+    
+    objectsToRemove.forEach(obj => {
+      scene.remove(obj);
+      if (obj instanceof THREE.Mesh) {
+        if (obj.geometry) {
+          obj.geometry.dispose();
+        }
+        if (obj.material) {
+          if (Array.isArray(obj.material)) {
+            obj.material.forEach(material => material.dispose());
+          } else {
+            obj.material.dispose();
+          }
+        }
+      }
+    });
+  }
+
+  public static update(face3DData: Face3DData, scene: THREE.Scene): THREE.Mesh | null {
+    this.disposeFromScene(face3DData, scene);
+    return this.render(face3DData, scene);
+  }
+
+  public static getFace3DObjects(face3DData: Face3DData, scene: THREE.Scene): THREE.Object3D[] {
+    const objects: THREE.Object3D[] = [];
+    scene.traverse((object) => {
+      if (object.userData && 
+          (object.userData.handle === face3DData.Handle || 
+           object.userData.uuid === face3DData.Uuid)) {
+        objects.push(object);
+      }
+    });
+    return objects;
+  }
+
+  public static setVisibility(face3DData: Face3DData, scene: THREE.Scene, visible: boolean): void {
+    const objects = this.getFace3DObjects(face3DData, scene);
+    objects.forEach(obj => {
+      obj.visible = visible;
+    });
+  }
+
+  public static setColor(face3DData: Face3DData, scene: THREE.Scene, color: string): void {
+    const objects = this.getFace3DObjects(face3DData, scene);
+    objects.forEach(obj => {
+      if (obj instanceof THREE.Mesh) {
+        if (obj.material instanceof THREE.MeshBasicMaterial || 
+            obj.material instanceof THREE.MeshPhongMaterial) {
+          obj.material.color.set(color);
+        }
+      }
+    });
+  }
+
+  public static setOpacity(face3DData: Face3DData, scene: THREE.Scene, opacity: number): void {
+    const objects = this.getFace3DObjects(face3DData, scene);
+    objects.forEach(obj => {
+      if (obj instanceof THREE.Mesh) {
+        if (obj.material instanceof THREE.MeshBasicMaterial || 
+            obj.material instanceof THREE.MeshPhongMaterial) {
+          obj.material.opacity = opacity;
+          obj.material.transparent = opacity < 1.0;
+        }
+      }
+    });
   }
 }

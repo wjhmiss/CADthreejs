@@ -93,25 +93,48 @@ export class PolygonMeshEntityThreejsRenderer {
   private static readonly meshCache = new Map<string, THREE.Mesh>();
   private static readonly edgeCache = new Map<string, THREE.LineSegments>();
 
-  public static render(polygonMeshData: PolygonMeshData, scene: THREE.Scene): THREE.Group | null {
+  public static render(polygonMeshData: PolygonMeshData, scene: THREE.Scene): THREE.Object3D[] | null {
     if (!polygonMeshData || !polygonMeshData.Visible) {
       return null;
     }
 
-    const group = new THREE.Group();
-    group.name = `PolygonMesh_${polygonMeshData.Handle}`;
-    group.visible = polygonMeshData.Visible;
+    const objects: THREE.Object3D[] = [];
 
     const geometry = this.createMeshGeometry(polygonMeshData);
     const material = this.createMeshMaterial(polygonMeshData);
     const mesh = new THREE.Mesh(geometry, material);
-    mesh.name = 'PolygonMesh';
-    mesh.userData = { handle: polygonMeshData.Handle };
+    mesh.name = `PolygonMesh_${polygonMeshData.Handle}`;
+    mesh.userData = {
+      type: polygonMeshData.EntityType,
+      handle: polygonMeshData.Handle,
+      layerName: polygonMeshData.LayerName,
+      layerIndex: polygonMeshData.LayerIndex,
+      entityType: polygonMeshData.EntityType,
+      colorIndex: polygonMeshData.ColorIndex,
+      lineTypeName: polygonMeshData.LineTypeName,
+      lineWeight: polygonMeshData.LineWeight,
+      vertexCount: polygonMeshData.VertexCount,
+      faceCount: polygonMeshData.FaceCount,
+      edgeCount: polygonMeshData.EdgeCount,
+      subdivisionLevel: polygonMeshData.SubdivisionLevel,
+      version: polygonMeshData.Version,
+      blendCrease: polygonMeshData.BlendCrease,
+      transparency: polygonMeshData.Transparency,
+      materialName: polygonMeshData.MaterialName,
+      castShadows: polygonMeshData.CastShadows,
+      receiveShadows: polygonMeshData.ReceiveShadows,
+      geometryType: polygonMeshData.GeometryType,
+      doubleSided: polygonMeshData.DoubleSided,
+      flatShading: polygonMeshData.FlatShading,
+      bounds3D: polygonMeshData.Bounds3D,
+      centroid: polygonMeshData.Centroid,
+      transform: polygonMeshData.Transform
+    };
     mesh.visible = polygonMeshData.Visible;
     mesh.castShadow = polygonMeshData.CastShadows;
     mesh.receiveShadow = polygonMeshData.ReceiveShadows;
 
-    group.add(mesh);
+    objects.push(mesh);
 
     this.meshCache.set(polygonMeshData.Handle, mesh);
 
@@ -119,13 +142,18 @@ export class PolygonMeshEntityThreejsRenderer {
       const edgeGeometry = this.createEdgeGeometry(polygonMeshData);
       const edgeMaterial = this.createEdgeMaterial(polygonMeshData);
       const edges = new THREE.LineSegments(edgeGeometry, edgeMaterial);
-      edges.name = 'PolygonMeshEdges';
+      edges.name = `PolygonMeshEdges_${polygonMeshData.Handle}`;
+      edges.userData = {
+        type: 'PolygonMeshEdges',
+        handle: polygonMeshData.Handle,
+        edgeCount: polygonMeshData.Edges.length
+      };
       edges.visible = polygonMeshData.Visible;
-      group.add(edges);
+      objects.push(edges);
       this.edgeCache.set(polygonMeshData.Handle, edges);
     }
 
-    return group;
+    return objects;
   }
 
   public static update(polygonMeshData: PolygonMeshData, scene: THREE.Scene): boolean {
@@ -198,10 +226,7 @@ export class PolygonMeshEntityThreejsRenderer {
       return false;
     }
 
-    const group = existingMesh.parent;
-    if (group) {
-      scene.remove(group);
-    }
+    scene.remove(existingMesh);
 
     existingMesh.geometry.dispose();
     (existingMesh.material as THREE.Material).dispose();
@@ -209,6 +234,7 @@ export class PolygonMeshEntityThreejsRenderer {
 
     const existingEdges = this.edgeCache.get(polygonMeshData.Handle);
     if (existingEdges) {
+      scene.remove(existingEdges);
       existingEdges.geometry.dispose();
       (existingEdges.material as THREE.Material).dispose();
       this.edgeCache.delete(polygonMeshData.Handle);
@@ -223,10 +249,6 @@ export class PolygonMeshEntityThreejsRenderer {
       return false;
     }
 
-    const group = existingMesh.parent;
-    if (group) {
-      group.visible = visible;
-    }
     existingMesh.visible = visible;
 
     const existingEdges = this.edgeCache.get(polygonMeshData.Handle);
@@ -266,11 +288,11 @@ export class PolygonMeshEntityThreejsRenderer {
     return true;
   }
 
-  public static getMeshGroup(polygonMeshData: PolygonMeshData): THREE.Mesh | null {
+  public static getMeshFromCache(polygonMeshData: PolygonMeshData): THREE.Mesh | null {
     return this.meshCache.get(polygonMeshData.Handle) || null;
   }
 
-  public static getEdgesGroup(polygonMeshData: PolygonMeshData): THREE.LineSegments | null {
+  public static getEdgesFromCache(polygonMeshData: PolygonMeshData): THREE.LineSegments | null {
     return this.edgeCache.get(polygonMeshData.Handle) || null;
   }
 

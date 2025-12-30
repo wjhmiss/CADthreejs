@@ -85,13 +85,10 @@ export interface ArcData {
 export class ArcEntityThreejsRenderer {
   private static readonly DEFAULT_SEGMENTS = 64;
 
-  public static render(arcData: ArcData, scene: THREE.Scene): THREE.Group | null {
+  public static render(arcData: ArcData, scene: THREE.Scene): THREE.Line | null {
     if (!arcData.Visible || arcData.IsInvisible) {
       return null;
     }
-
-    const group = new THREE.Group();
-    group.name = `Arc_${arcData.Handle || arcData.Uuid}`;
 
     const material = this.createMaterial(arcData);
     const geometry = this.createGeometry(arcData);
@@ -114,12 +111,10 @@ export class ArcEntityThreejsRenderer {
     this.applyTransform(line, arcData);
     this.applyRenderProperties(line, arcData);
 
-    group.add(line);
-
-    return group;
+    return line;
   }
 
-  public static renderFromJson(jsonString: string, scene: THREE.Scene): THREE.Group | null {
+  public static renderFromJson(jsonString: string, scene: THREE.Scene): THREE.Line | null {
     try {
       const arcData: ArcData = JSON.parse(jsonString);
       return this.render(arcData, scene);
@@ -129,8 +124,8 @@ export class ArcEntityThreejsRenderer {
     }
   }
 
-  public static renderMultiple(arcDataList: ArcData[], scene: THREE.Scene): THREE.Group[] {
-    const objects: THREE.Group[] = [];
+  public static renderMultiple(arcDataList: ArcData[], scene: THREE.Scene): THREE.Line[] {
+    const objects: THREE.Line[] = [];
 
     for (const arcData of arcDataList) {
       const obj = this.render(arcData, scene);
@@ -142,7 +137,7 @@ export class ArcEntityThreejsRenderer {
     return objects;
   }
 
-  public static renderMultipleFromJson(jsonString: string, scene: THREE.Scene): THREE.Group[] {
+  public static renderMultipleFromJson(jsonString: string, scene: THREE.Scene): THREE.Line[] {
     try {
       const arcDataList: ArcData[] = JSON.parse(jsonString);
       return this.renderMultiple(arcDataList, scene);

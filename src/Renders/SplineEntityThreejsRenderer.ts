@@ -119,27 +119,33 @@ export class SplineEntityThreejsRenderer {
   private static readonly DEFAULT_COLOR = '#FFFFFF';
   private static readonly splineCache = new Map<string, THREE.Line>();
 
-  public static render(splineData: SplineData, scene: THREE.Scene): THREE.Group | null {
+  public static render(splineData: SplineData, scene: THREE.Scene): THREE.Line | null {
     if (!splineData || !splineData.Visible) {
       return null;
     }
 
-    const group = new THREE.Group();
-    group.name = `Spline_${splineData.Handle}`;
-    group.visible = splineData.Visible;
-
     const geometry = this.createSplineGeometry(splineData);
     const material = this.createSplineMaterial(splineData);
     const line = new THREE.Line(geometry, material);
-    line.name = 'Spline';
-    line.userData = { handle: splineData.Handle };
+    line.name = `Spline_${splineData.Handle}`;
     line.visible = splineData.Visible;
-
-    group.add(line);
+    line.userData = {
+      type: splineData.Type,
+      entityType: splineData.EntityType,
+      handle: splineData.Handle,
+      layerName: splineData.LayerName,
+      layerIndex: splineData.LayerIndex,
+      visible: splineData.Visible,
+      opacity: splineData.Opacity,
+      transparent: splineData.Transparent,
+      depthTest: splineData.DepthTest,
+      splineData: splineData,
+      objectType: 'Spline'
+    };
 
     this.splineCache.set(splineData.Handle, line);
 
-    return group;
+    return line;
   }
 
   public static update(splineData: SplineData, scene: THREE.Scene): boolean {
@@ -174,11 +180,7 @@ export class SplineEntityThreejsRenderer {
       return false;
     }
 
-    const group = existingLine.parent;
-    if (group) {
-      scene.remove(group);
-    }
-
+    scene.remove(existingLine);
     existingLine.geometry.dispose();
     (existingLine.material as THREE.Material).dispose();
     this.splineCache.delete(splineData.Handle);
@@ -192,10 +194,6 @@ export class SplineEntityThreejsRenderer {
       return false;
     }
 
-    const group = existingLine.parent;
-    if (group) {
-      group.visible = visible;
-    }
     existingLine.visible = visible;
     return true;
   }
@@ -332,31 +330,29 @@ export class SplineEntityThreejsRenderer {
     return material;
   }
 
-  public static renderMultiple(splineDataArray: SplineData[], scene: THREE.Scene): THREE.Group {
-    const group = new THREE.Group();
-    group.name = 'MultipleSplines';
+  public static renderMultiple(splineDataArray: SplineData[], scene: THREE.Scene): THREE.Object3D[] {
+    const objects: THREE.Object3D[] = [];
 
     splineDataArray.forEach((splineData) => {
-      const splineGroup = this.render(splineData, scene);
-      group.add(splineGroup);
+      const splineLine = this.render(splineData, scene);
+      if (splineLine) {
+        objects.push(splineLine);
+      }
     });
 
-    return group;
+    return objects;
   }
 
-  public static disposeMultiple(group: THREE.Group, scene: THREE.Scene): void {
-    if (!group) {
+  public static disposeMultiple(objects: THREE.Object3D[], scene: THREE.Scene): void {
+    if (!objects || objects.length === 0) {
       return;
     }
 
-    scene.remove(group);
-    group.children.forEach((child) => {
-      if (child instanceof THREE.Group) {
-        const line = child.children[0] as THREE.Line;
-        if (line) {
-          line.geometry.dispose();
-          (line.material as THREE.Material).dispose();
-        }
+    objects.forEach((obj) => {
+      if (obj instanceof THREE.Line) {
+        scene.remove(obj);
+        obj.geometry.dispose();
+        (obj.material as THREE.Material).dispose();
       }
     });
   }

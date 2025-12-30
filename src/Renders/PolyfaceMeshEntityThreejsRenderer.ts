@@ -81,29 +81,39 @@ export class PolyfaceMeshEntityThreejsRenderer {
   private static readonly DEFAULT_COLOR = '#FFFFFF';
   private static readonly meshCache = new Map<string, THREE.Mesh>();
 
-  public static render(polyfaceMeshData: PolyfaceMeshData, scene: THREE.Scene): THREE.Group | null {
+  public static render(polyfaceMeshData: PolyfaceMeshData, scene: THREE.Scene): THREE.Mesh | null {
     if (!polyfaceMeshData || !polyfaceMeshData.Visible) {
       return null;
     }
 
-    const group = new THREE.Group();
-    group.name = `PolyfaceMesh_${polyfaceMeshData.Handle}`;
-    group.visible = polyfaceMeshData.Visible;
-
     const geometry = this.createMeshGeometry(polyfaceMeshData);
     const material = this.createMeshMaterial(polyfaceMeshData);
     const mesh = new THREE.Mesh(geometry, material);
-    mesh.name = 'PolyfaceMesh';
-    mesh.userData = { handle: polyfaceMeshData.Handle };
+    mesh.name = `PolyfaceMesh_${polyfaceMeshData.Handle}`;
     mesh.visible = polyfaceMeshData.Visible;
     mesh.castShadow = polyfaceMeshData.CastShadows;
     mesh.receiveShadow = polyfaceMeshData.ReceiveShadows;
-
-    group.add(mesh);
+    mesh.userData = {
+      type: polyfaceMeshData.EntityType,
+      entityType: polyfaceMeshData.EntityType,
+      handle: polyfaceMeshData.Handle,
+      layerName: polyfaceMeshData.LayerName,
+      layerIndex: polyfaceMeshData.LayerIndex,
+      visible: polyfaceMeshData.Visible,
+      transparency: polyfaceMeshData.Transparency,
+      materialName: polyfaceMeshData.MaterialName,
+      castShadows: polyfaceMeshData.CastShadows,
+      receiveShadows: polyfaceMeshData.ReceiveShadows,
+      geometryType: polyfaceMeshData.GeometryType,
+      doubleSided: polyfaceMeshData.DoubleSided,
+      flatShading: polyfaceMeshData.FlatShading,
+      polyfaceMeshData: polyfaceMeshData,
+      objectType: 'PolyfaceMesh'
+    };
 
     this.meshCache.set(polyfaceMeshData.Handle, mesh);
 
-    return group;
+    return mesh;
   }
 
   public static update(polyfaceMeshData: PolyfaceMeshData, scene: THREE.Scene): boolean {
@@ -156,11 +166,7 @@ export class PolyfaceMeshEntityThreejsRenderer {
       return false;
     }
 
-    const group = existingMesh.parent;
-    if (group) {
-      scene.remove(group);
-    }
-
+    scene.remove(existingMesh);
     existingMesh.geometry.dispose();
     (existingMesh.material as THREE.Material).dispose();
     this.meshCache.delete(polyfaceMeshData.Handle);
@@ -174,10 +180,6 @@ export class PolyfaceMeshEntityThreejsRenderer {
       return false;
     }
 
-    const group = existingMesh.parent;
-    if (group) {
-      group.visible = visible;
-    }
     existingMesh.visible = visible;
     return true;
   }
@@ -211,7 +213,7 @@ export class PolyfaceMeshEntityThreejsRenderer {
     return true;
   }
 
-  public static getMeshGroup(polyfaceMeshData: PolyfaceMeshData): THREE.Mesh | null {
+  public static getMeshFromCache(polyfaceMeshData: PolyfaceMeshData): THREE.Mesh | null {
     return this.meshCache.get(polyfaceMeshData.Handle) || null;
   }
 

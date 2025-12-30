@@ -66,17 +66,16 @@ export interface DxfParseData {
 
 export class RenderManager {
   private scene: THREE.Scene;
-  private renderedObjects: Map<string, THREE.Group> = new Map();
+  private renderedObjects: Map<string, THREE.Object3D[]> = new Map();
   private entityCount: number = 0;
-  private dxfGroup: THREE.Group;
   private boundingBox: THREE.Box3;
+  private scale: number = 1;
+  private rotation: { x: number; y: number; z: number } = { x: 0, y: 0, z: 0 };
+  private centerOffset: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
-    this.dxfGroup = new THREE.Group();
-    this.dxfGroup.name = 'DXF_Group';
     this.boundingBox = new THREE.Box3();
-    this.scene.add(this.dxfGroup);
   }
 
   public renderDxfData(dxfData: DxfParseData): void {
@@ -221,8 +220,8 @@ export class RenderManager {
     }
 
     console.log(`RenderManager: Total entities rendered: ${this.entityCount}`);
-    console.log(`RenderManager: DXF group children count: ${this.dxfGroup.children.length}`);
-    this.centerDxfGroup();
+    console.log(`RenderManager: Total rendered objects: ${this.renderedObjects.size}`);
+    this.centerRenderedObjects();
   }
 
   private renderEntities<T>(
@@ -234,18 +233,39 @@ export class RenderManager {
 
     entities.forEach((entityData) => {
       try {
-        const group = renderer.render(entityData, this.scene);
-        if (group) {
+        const result = renderer.render(entityData, this.scene);
+        let objectsToAdd: THREE.Object3D[] = [];
+
+        if (result) {
+          if (Array.isArray(result)) {
+            objectsToAdd = result.filter(obj => 
+              obj instanceof THREE.Mesh || obj instanceof THREE.Line || obj instanceof THREE.Object3D
+            );
+          } else if (result instanceof THREE.Mesh || result instanceof THREE.Line || result instanceof THREE.Object3D) {
+            objectsToAdd.push(result);
+          }
+        }
+
+        if (objectsToAdd.length > 0) {
           const key = `${entityType}_${entityData.Handle}`;
-          this.renderedObjects.set(key, group);
-          
-          group.traverse((child) => {
-            if (child instanceof THREE.Mesh || child instanceof THREE.Line) {
-              this.boundingBox.expandByObject(child);
+          const objects: THREE.Object3D[] = [];
+
+          objectsToAdd.forEach((obj) => {
+            if (!obj.userData.entityType) {
+              obj.userData = {
+                ...obj.userData,
+                entityType: entityType,
+                handle: entityData.Handle,
+                key: key
+              };
             }
+            
+            this.boundingBox.expandByObject(obj);
+            this.scene.add(obj);
+            objects.push(obj);
           });
           
-          this.dxfGroup.add(group);
+          this.renderedObjects.set(key, objects);
           this.entityCount++;
         }
       } catch (error) {
@@ -255,37 +275,33 @@ export class RenderManager {
   }
 
   public clearAll(): void {
-    this.renderedObjects.forEach((group, key) => {
-      this.dxfGroup.remove(group);
-      this.disposeGroup(group);
+    this.renderedObjects.forEach((objects) => {
+      objects.forEach((obj) => {
+        this.scene.remove(obj);
+        if (obj instanceof THREE.Mesh || obj instanceof THREE.Line) {
+          if (obj.geometry) {
+            obj.geometry.dispose();
+          }
+          if (obj.material) {
+            if (Array.isArray(obj.material)) {
+              obj.material.forEach(material => material.dispose());
+            } else {
+              obj.material.dispose();
+            }
+          }
+        }
+      });
     });
     this.renderedObjects.clear();
     this.entityCount = 0;
     this.boundingBox.makeEmpty();
-    this.dxfGroup.position.set(0, 0, 0);
-    this.dxfGroup.scale.set(1, 1, 1);
+    this.centerOffset.set(0, 0, 0);
+    this.scale = 1;
+    this.rotation = { x: 0, y: 0, z: 0 };
     console.log('RenderManager: All entities cleared');
   }
 
-  private disposeGroup(group: THREE.Group): void {
-    group.traverse((object) => {
-      if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
-        if (object.geometry) {
-          object.geometry.dispose();
-        }
-        if (object.material) {
-          if (Array.isArray(object.material)) {
-            object.material.forEach(material => material.dispose());
-          } else {
-            object.material.dispose();
-          }
-        }
-      }
-    });
-    group.clear();
-  }
-
-  public getRenderedObjects(): Map<string, THREE.Group> {
+  public getRenderedObjects(): Map<string, THREE.Object3D[]> {
     return this.renderedObjects;
   }
 
@@ -295,17 +311,17 @@ export class RenderManager {
 
   public getObjectsForRaycasting(): THREE.Object3D[] {
     const objects: THREE.Object3D[] = [];
-    this.renderedObjects.forEach((group) => {
-      group.traverse((child) => {
-        if (child instanceof THREE.Mesh || child instanceof THREE.Line) {
-          objects.push(child);
+    this.renderedObjects.forEach((objArray) => {
+      objArray.forEach((obj) => {
+        if (obj instanceof THREE.Mesh || obj instanceof THREE.Line) {
+          objects.push(obj);
         }
       });
     });
     return objects;
   }
 
-  private centerDxfGroup(): void {
+  private centerRenderedObjects(): void {
     if (this.entityCount === 0) {
       return;
     }
@@ -313,11 +329,15 @@ export class RenderManager {
     const center = new THREE.Vector3();
     this.boundingBox.getCenter(center);
 
-    this.dxfGroup.position.x = -center.x;
-    this.dxfGroup.position.z = -center.z;
-    this.dxfGroup.position.y = 0;
+    this.centerOffset.set(-center.x, 0, -center.z);
 
-    console.log(`RenderManager: DXF group centered at (${this.dxfGroup.position.x}, ${this.dxfGroup.position.y}, ${this.dxfGroup.position.z})`);
+    this.renderedObjects.forEach((objects) => {
+      objects.forEach((obj) => {
+        obj.position.add(this.centerOffset);
+      });
+    });
+
+    console.log(`RenderManager: Objects centered at (${this.centerOffset.x}, ${this.centerOffset.y}, ${this.centerOffset.z})`);
   }
 
   public setScale(scale: number): void {
@@ -326,16 +346,18 @@ export class RenderManager {
       return;
     }
 
-    this.dxfGroup.scale.set(scale, scale, scale);
-    console.log(`RenderManager: DXF group scaled to ${scale}`);
-  }
-
-  public getDxfGroup(): THREE.Group {
-    return this.dxfGroup;
+    const scaleRatio = scale / this.scale;
+    this.renderedObjects.forEach((objects) => {
+      objects.forEach((obj) => {
+        obj.scale.multiplyScalar(scaleRatio);
+      });
+    });
+    this.scale = scale;
+    console.log(`RenderManager: Objects scaled to ${scale}`);
   }
 
   public getCurrentScale(): number {
-    return this.dxfGroup.scale.x;
+    return this.scale;
   }
 
   public setFlipX(enabled: boolean): void {
@@ -343,8 +365,15 @@ export class RenderManager {
       console.warn('RenderManager: No entities to flip');
       return;
     }
-    this.dxfGroup.rotation.x = enabled ? Math.PI : 0;
-    console.log(`RenderManager: DXF group X flip ${enabled ? 'enabled' : 'disabled'}`);
+    const targetRotation = enabled ? Math.PI : 0;
+    const rotationDiff = targetRotation - this.rotation.x;
+    this.renderedObjects.forEach((objects) => {
+      objects.forEach((obj) => {
+        obj.rotation.x += rotationDiff;
+      });
+    });
+    this.rotation.x = targetRotation;
+    console.log(`RenderManager: Objects X flip ${enabled ? 'enabled' : 'disabled'}`);
   }
 
   public setFlipY(enabled: boolean): void {
@@ -352,8 +381,15 @@ export class RenderManager {
       console.warn('RenderManager: No entities to flip');
       return;
     }
-    this.dxfGroup.rotation.y = enabled ? Math.PI : 0;
-    console.log(`RenderManager: DXF group Y flip ${enabled ? 'enabled' : 'disabled'}`);
+    const targetRotation = enabled ? Math.PI : 0;
+    const rotationDiff = targetRotation - this.rotation.y;
+    this.renderedObjects.forEach((objects) => {
+      objects.forEach((obj) => {
+        obj.rotation.y += rotationDiff;
+      });
+    });
+    this.rotation.y = targetRotation;
+    console.log(`RenderManager: Objects Y flip ${enabled ? 'enabled' : 'disabled'}`);
   }
 
   public setFlipZ(enabled: boolean): void {
@@ -361,8 +397,15 @@ export class RenderManager {
       console.warn('RenderManager: No entities to flip');
       return;
     }
-    this.dxfGroup.rotation.z = enabled ? Math.PI : 0;
-    console.log(`RenderManager: DXF group Z flip ${enabled ? 'enabled' : 'disabled'}`);
+    const targetRotation = enabled ? Math.PI : 0;
+    const rotationDiff = targetRotation - this.rotation.z;
+    this.renderedObjects.forEach((objects) => {
+      objects.forEach((obj) => {
+        obj.rotation.z += rotationDiff;
+      });
+    });
+    this.rotation.z = targetRotation;
+    console.log(`RenderManager: Objects Z flip ${enabled ? 'enabled' : 'disabled'}`);
   }
 
   public setFlipRotation(x: number, y: number, z: number): void {
@@ -370,22 +413,27 @@ export class RenderManager {
       console.warn('RenderManager: No entities to rotate');
       return;
     }
-    this.dxfGroup.rotation.set(x, y, z);
-    console.log(`RenderManager: DXF group rotation set to (${x}, ${y}, ${z})`);
+    const rotationDiff = {
+      x: x - this.rotation.x,
+      y: y - this.rotation.y,
+      z: z - this.rotation.z
+    };
+    this.renderedObjects.forEach((objects) => {
+      objects.forEach((obj) => {
+        obj.rotation.x += rotationDiff.x;
+        obj.rotation.y += rotationDiff.y;
+        obj.rotation.z += rotationDiff.z;
+      });
+    });
+    this.rotation = { x, y, z };
+    console.log(`RenderManager: Objects rotation set to (${x}, ${y}, ${z})`);
   }
 
   public getFlipRotation(): { x: number; y: number; z: number } {
-    return {
-      x: this.dxfGroup.rotation.x,
-      y: this.dxfGroup.rotation.y,
-      z: this.dxfGroup.rotation.z
-    };
+    return this.rotation;
   }
 
   public dispose(): void {
     this.clearAll();
-    if (this.dxfGroup) {
-      this.scene.remove(this.dxfGroup);
-    }
   }
 }

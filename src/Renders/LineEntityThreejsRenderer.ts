@@ -82,16 +82,36 @@ export interface LineData {
 }
 
 export class LineEntityThreejsRenderer {
-  public static render(lineData: LineData, scene: THREE.Scene): THREE.Group | null {
+  public static render(lineData: LineData, scene: THREE.Scene): THREE.Line | null {
     if (!lineData || !lineData.Visible) {
       return null;
     }
 
-    const group = new THREE.Group();
-    group.name = `Line_${lineData.Handle}`;
-    group.visible = lineData.Visible;
+    if (!lineData.StartPoint3D || !lineData.EndPoint3D) {
+      return null;
+    }
 
-    group.userData = {
+    const vertices: number[] = [
+      lineData.StartPoint3D.X, lineData.StartPoint3D.Y, lineData.StartPoint3D.Z,
+      lineData.EndPoint3D.X, lineData.EndPoint3D.Y, lineData.EndPoint3D.Z
+    ];
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+
+    const material = new THREE.LineBasicMaterial({
+      color: lineData.Color?.Hex || '#ffffff',
+      transparent: lineData.Transparent || false,
+      opacity: lineData.Opacity || 1.0,
+      depthTest: lineData.DepthTest !== false,
+      depthWrite: lineData.DepthWrite !== false,
+      linewidth: lineData.LineWeight || 1.0
+    });
+
+    const line = new THREE.Line(geometry, material);
+    line.name = `Line_${lineData.Handle}`;
+    line.visible = lineData.Visible;
+    line.userData = {
       type: lineData.Type,
       entityType: lineData.EntityType,
       handle: lineData.Handle,
@@ -129,82 +149,37 @@ export class LineEntityThreejsRenderer {
     if (lineData.Transform && lineData.Transform.Matrix) {
       const matrix = new THREE.Matrix4();
       matrix.fromArray(lineData.Transform.Matrix);
-      group.applyMatrix4(matrix);
+      line.applyMatrix4(matrix);
     }
 
-    this.renderLine(lineData, group);
-
-    return group;
-  }
-
-  private static renderLine(lineData: LineData, group: THREE.Group): void {
-    if (!lineData.StartPoint3D || !lineData.EndPoint3D) {
-      return;
-    }
-
-    const vertices: number[] = [
-      lineData.StartPoint3D.X, lineData.StartPoint3D.Y, lineData.StartPoint3D.Z,
-      lineData.EndPoint3D.X, lineData.EndPoint3D.Y, lineData.EndPoint3D.Z
-    ];
-
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-
-    const material = new THREE.LineBasicMaterial({
-      color: lineData.Color?.Hex || '#ffffff',
-      transparent: lineData.Transparent || false,
-      opacity: lineData.Opacity || 1.0,
-      depthTest: lineData.DepthTest !== false,
-      depthWrite: lineData.DepthWrite !== false,
-      linewidth: lineData.LineWeight || 1.0
-    });
-
-    const line = new THREE.Line(geometry, material);
-    line.name = 'Line';
-    line.userData = {
-      type: 'Line',
-      length: lineData.Length,
-      angle: lineData.Angle,
-      thickness: lineData.Thickness
-    };
-
-    group.add(line);
+    return line;
   }
 
   public static dispose(lineData: LineData, scene: THREE.Scene): boolean {
     if (!lineData || !scene) {
       return false;
     }
-    const group = scene.getObjectByName(`Line_${lineData.Handle}`);
-    if (group) {
-      scene.remove(group);
-      this.disposeGroup(group);
+    const line = scene.getObjectByName(`Line_${lineData.Handle}`) as THREE.Line;
+    if (line) {
+      scene.remove(line);
+      if (line.geometry) {
+        line.geometry.dispose();
+      }
+      if (line.material) {
+        if (Array.isArray(line.material)) {
+          line.material.forEach(material => material.dispose());
+        } else {
+          line.material.dispose();
+        }
+      }
       return true;
     }
     return false;
   }
 
-  private static disposeGroup(group: THREE.Group): void {
-    group.traverse((object) => {
-      if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
-        if (object.geometry) {
-          object.geometry.dispose();
-        }
-        if (object.material) {
-          if (Array.isArray(object.material)) {
-            object.material.forEach(material => material.dispose());
-          } else {
-            object.material.dispose();
-          }
-        }
-      }
-    });
-    group.clear();
-  }
-
   public static update(lineData: LineData, scene: THREE.Scene): boolean {
-    const group = this.getLineGroup(lineData, scene);
-    if (!group) {
+    const line = this.getLine(lineData, scene);
+    if (!line) {
       return false;
     }
     this.dispose(lineData, scene);
@@ -212,60 +187,48 @@ export class LineEntityThreejsRenderer {
     return result !== null;
   }
 
-  public static getLineGroup(lineData: LineData, scene: THREE.Scene): THREE.Group | null {
-    return scene.getObjectByName(`Line_${lineData.Handle}`) as THREE.Group || null;
+  public static getLine(lineData: LineData, scene: THREE.Scene): THREE.Line | null {
+    return scene.getObjectByName(`Line_${lineData.Handle}`) as THREE.Line || null;
   }
 
   public static setVisibility(lineData: LineData, scene: THREE.Scene, visible: boolean): boolean {
-    const group = this.getLineGroup(lineData, scene);
-    if (group) {
-      group.visible = visible;
+    const line = this.getLine(lineData, scene);
+    if (line) {
+      line.visible = visible;
       return true;
     }
     return false;
   }
 
   public static setColor(lineData: LineData, scene: THREE.Scene, color: string): boolean {
-    const group = this.getLineGroup(lineData, scene);
-    if (group) {
-      group.traverse((object) => {
-        if (object instanceof THREE.Line) {
-          if (object.material instanceof THREE.LineBasicMaterial) {
-            object.material.color.set(color);
-          }
-        }
-      });
+    const line = this.getLine(lineData, scene);
+    if (line) {
+      if (line.material instanceof THREE.LineBasicMaterial) {
+        line.material.color.set(color);
+      }
       return true;
     }
     return false;
   }
 
   public static setOpacity(lineData: LineData, scene: THREE.Scene, opacity: number): boolean {
-    const group = this.getLineGroup(lineData, scene);
-    if (group) {
-      group.traverse((object) => {
-        if (object instanceof THREE.Line) {
-          if (object.material instanceof THREE.LineBasicMaterial) {
-            object.material.opacity = opacity;
-            object.material.transparent = opacity < 1.0;
-          }
-        }
-      });
+    const line = this.getLine(lineData, scene);
+    if (line) {
+      if (line.material instanceof THREE.LineBasicMaterial) {
+        line.material.opacity = opacity;
+        line.material.transparent = opacity < 1.0;
+      }
       return true;
     }
     return false;
   }
 
   public static setLineWidth(lineData: LineData, scene: THREE.Scene, width: number): boolean {
-    const group = this.getLineGroup(lineData, scene);
-    if (group) {
-      group.traverse((object) => {
-        if (object instanceof THREE.Line) {
-          if (object.material instanceof THREE.LineBasicMaterial) {
-            object.material.linewidth = width;
-          }
-        }
-      });
+    const line = this.getLine(lineData, scene);
+    if (line) {
+      if (line.material instanceof THREE.LineBasicMaterial) {
+        line.material.linewidth = width;
+      }
       return true;
     }
     return false;

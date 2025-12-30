@@ -141,27 +141,32 @@ export class TextEntityThreejsRenderer {
   private static readonly DEFAULT_COLOR = '#FFFFFF';
   private static readonly textCache = new Map<string, THREE.Mesh>();
 
-  public static render(textData: TextData, scene: THREE.Scene): THREE.Group | null {
+  public static render(textData: TextData, scene: THREE.Scene): THREE.Object3D[] | null {
     if (!textData || !textData.Visible) {
       return null;
     }
 
-    const group = new THREE.Group();
-    group.name = `Text_${textData.Handle}`;
-    group.visible = textData.Visible;
+    const objects: THREE.Object3D[] = [];
 
     const geometry = this.createTextGeometry(textData);
     const material = this.createTextMaterial(textData);
     const mesh = new THREE.Mesh(geometry, material);
-    mesh.name = 'Text';
-    mesh.userData = { handle: textData.Handle, text: textData.Value };
+    mesh.name = `Text_${textData.Handle}`;
+    mesh.userData = {
+      handle: textData.Handle,
+      text: textData.Value,
+      type: textData.Type,
+      entityType: textData.EntityType,
+      layerName: textData.LayerName,
+      objectType: 'Text'
+    };
     mesh.visible = textData.Visible;
-
-    group.add(mesh);
 
     this.textCache.set(textData.Handle, mesh);
 
-    return group;
+    objects.push(mesh);
+
+    return objects;
   }
 
   public static update(textData: TextData, scene: THREE.Scene): boolean {
@@ -195,11 +200,7 @@ export class TextEntityThreejsRenderer {
       return false;
     }
 
-    const group = existingMesh.parent;
-    if (group) {
-      scene.remove(group);
-    }
-
+    scene.remove(existingMesh);
     existingMesh.geometry.dispose();
     (existingMesh.material as THREE.Material).dispose();
     this.textCache.delete(textData.Handle);
@@ -213,10 +214,6 @@ export class TextEntityThreejsRenderer {
       return false;
     }
 
-    const group = existingMesh.parent;
-    if (group) {
-      group.visible = visible;
-    }
     existingMesh.visible = visible;
     return true;
   }
@@ -253,11 +250,8 @@ export class TextEntityThreejsRenderer {
       return false;
     }
 
-    const group = existingMesh.parent;
-    if (group) {
-      const scale = fontSize / textData.FontSize;
-      group.scale.set(scale, scale, scale);
-    }
+    const scale = fontSize / textData.FontSize;
+    existingMesh.scale.set(scale, scale, scale);
 
     return true;
   }
@@ -390,31 +384,29 @@ export class TextEntityThreejsRenderer {
     return material;
   }
 
-  public static renderMultiple(textDataArray: TextData[], scene: THREE.Scene): THREE.Group {
-    const group = new THREE.Group();
-    group.name = 'MultipleTexts';
+  public static renderMultiple(textDataArray: TextData[], scene: THREE.Scene): THREE.Object3D[] {
+    const objects: THREE.Object3D[] = [];
 
     textDataArray.forEach((textData) => {
-      const textGroup = this.render(textData, scene);
-      group.add(textGroup);
+      const textMesh = this.render(textData, scene);
+      if (textMesh) {
+        objects.push(...textMesh);
+      }
     });
 
-    return group;
+    return objects;
   }
 
-  public static disposeMultiple(group: THREE.Group, scene: THREE.Scene): void {
-    if (!group) {
+  public static disposeMultiple(objects: THREE.Object3D[], scene: THREE.Scene): void {
+    if (!objects || objects.length === 0) {
       return;
     }
 
-    scene.remove(group);
-    group.children.forEach((child) => {
-      if (child instanceof THREE.Group) {
-        const mesh = child.children[0] as THREE.Mesh;
-        if (mesh) {
-          mesh.geometry.dispose();
-          (mesh.material as THREE.Material).dispose();
-        }
+    objects.forEach((obj) => {
+      scene.remove(obj);
+      if (obj instanceof THREE.Mesh) {
+        obj.geometry.dispose();
+        (obj.material as THREE.Material).dispose();
       }
     });
   }

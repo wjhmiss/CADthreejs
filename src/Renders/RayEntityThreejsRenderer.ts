@@ -83,80 +83,75 @@ export interface RayData {
 }
 
 export class RayEntityThreejsRenderer {
-  private static readonly rayCache: Map<string, THREE.Group> = new Map();
+  private static readonly rayCache: Map<string, THREE.Line> = new Map();
   private static readonly DEFAULT_RAY_LENGTH = 1000.0;
   private static readonly DEFAULT_LINE_WIDTH = 1.0;
 
-  public static render(rayData: RayData, scene: THREE.Scene): THREE.Group | null {
+  public static render(rayData: RayData, scene: THREE.Scene): THREE.Line | null {
     if (!rayData || !rayData.Visible) {
       return null;
     }
 
-    const group = new THREE.Group();
-    group.name = `Ray_${rayData.Handle}`;
-    group.visible = rayData.Visible;
-
     if (!rayData.StartPoint || !rayData.Direction) {
       console.warn(`Ray ${rayData.Handle} has invalid start point or direction`);
-      return group;
+      return null;
     }
 
     const geometry = this.createRayGeometry(rayData);
     const material = this.createRayMaterial(rayData);
     const line = new THREE.Line(geometry, material);
-    line.name = 'Ray';
-    line.userData = { handle: rayData.Handle };
+    line.name = `Ray_${rayData.Handle}`;
+    line.userData = { 
+      handle: rayData.Handle,
+      type: rayData.EntityType,
+      entityType: rayData.EntityType,
+      layerName: rayData.LayerName
+    };
     line.visible = rayData.Visible;
 
     this.applyTransform(line, rayData.Transform);
 
-    group.add(line);
+    this.rayCache.set(rayData.Handle, line);
 
-    this.rayCache.set(rayData.Handle, group);
-
-    return group;
+    return line;
   }
 
-  public static update(rayData: RayData, scene: THREE.Scene): THREE.Group {
+  public static update(rayData: RayData, scene: THREE.Scene): THREE.Line | null {
     this.dispose(rayData.Handle);
     return this.render(rayData, scene);
   }
 
   public static dispose(handle: string): void {
-    const cachedGroup = this.rayCache.get(handle);
-    if (cachedGroup) {
-      cachedGroup.traverse((child) => {
-        if (child instanceof THREE.Line) {
-          if (child.geometry) {
-            child.geometry.dispose();
-          }
-          if (child.material) {
-            child.material.dispose();
-          }
-        }
-      });
+    const cachedLine = this.rayCache.get(handle);
+    if (cachedLine) {
+      if (cachedLine.geometry) {
+        cachedLine.geometry.dispose();
+      }
+      if (cachedLine.material) {
+        cachedLine.material.dispose();
+      }
       this.rayCache.delete(handle);
     }
   }
 
   public static disposeFromScene(handle: string, scene: THREE.Scene): void {
-    const cachedGroup = this.rayCache.get(handle);
-    if (cachedGroup) {
-      scene.remove(cachedGroup);
+    const cachedLine = this.rayCache.get(handle);
+    if (cachedLine) {
+      scene.remove(cachedLine);
       this.dispose(handle);
     }
   }
 
   public static disposeAll(): void {
-    this.rayCache.forEach((group, handle) => {
+    this.rayCache.forEach((line, handle) => {
       this.dispose(handle);
     });
     this.rayCache.clear();
   }
 
   public static disposeAllFromScene(scene: THREE.Scene): void {
-    this.rayCache.forEach((group) => {
-      scene.remove(group);
+    this.rayCache.forEach((line) => {
+      scene.remove(line);
     });
     this.disposeAll();
   }
@@ -206,7 +201,7 @@ export class RayEntityThreejsRenderer {
     }
   }
 
-  public static getRayByHandle(handle: string): THREE.Group | null {
+  public static getRayByHandle(handle: string): THREE.Line | null {
     return this.rayCache.get(handle) || null;
   }
 
@@ -215,164 +210,113 @@ export class RayEntityThreejsRenderer {
   }
 
   public static setVisibility(handle: string, visible: boolean): void {
-    const group = this.rayCache.get(handle);
-    if (group) {
-      group.visible = visible;
-      group.traverse((child) => {
-        if (child instanceof THREE.Line) {
-          child.visible = visible;
-        }
-      });
+    const line = this.rayCache.get(handle);
+    if (line) {
+      line.visible = visible;
     }
   }
 
   public static setOpacity(handle: string, opacity: number): void {
-    const group = this.rayCache.get(handle);
-    if (group) {
-      group.traverse((child) => {
-        if (child instanceof THREE.Line && child.material instanceof THREE.LineBasicMaterial) {
-          child.material.opacity = opacity;
-          child.material.transparent = opacity < 1.0;
-          child.material.needsUpdate = true;
-        }
-      });
+    const line = this.rayCache.get(handle);
+    if (line && line.material instanceof THREE.LineBasicMaterial) {
+      line.material.opacity = opacity;
+      line.material.transparent = opacity < 1.0;
+      line.material.needsUpdate = true;
     }
   }
 
   public static setColor(handle: string, color: number): void {
-    const group = this.rayCache.get(handle);
-    if (group) {
-      group.traverse((child) => {
-        if (child instanceof THREE.Line && child.material instanceof THREE.LineBasicMaterial) {
-          child.material.color.setHex(color);
-          child.material.needsUpdate = true;
-        }
-      });
+    const line = this.rayCache.get(handle);
+    if (line && line.material instanceof THREE.LineBasicMaterial) {
+      line.material.color.setHex(color);
+      line.material.needsUpdate = true;
     }
   }
 
   public static setLineWidth(handle: string, lineWidth: number): void {
-    const group = this.rayCache.get(handle);
-    if (group) {
-      group.traverse((child) => {
-        if (child instanceof THREE.Line && child.material instanceof THREE.LineBasicMaterial) {
-          child.material.linewidth = lineWidth;
-          child.material.needsUpdate = true;
-        }
-      });
+    const line = this.rayCache.get(handle);
+    if (line && line.material instanceof THREE.LineBasicMaterial) {
+      line.material.linewidth = lineWidth;
+      line.material.needsUpdate = true;
     }
   }
 
   public static getBounds(handle: string): THREE.Box3 | null {
-    const group = this.rayCache.get(handle);
-    if (group) {
+    const line = this.rayCache.get(handle);
+    if (line) {
       const box = new THREE.Box3();
-      group.traverse((child) => {
-        if (child instanceof THREE.Line) {
-          box.expandByObject(child);
-        }
-      });
+      box.expandByObject(line);
       return box;
     }
     return null;
   }
 
   public static getCentroid(handle: string): THREE.Vector3 | null {
-    const group = this.rayCache.get(handle);
-    if (group) {
-      const centroid = new THREE.Vector3();
-      group.traverse((child) => {
-        if (child instanceof THREE.Line && child.geometry) {
-          const positions = child.geometry.attributes.position;
-          if (positions && positions.count >= 2) {
-            const v0 = new THREE.Vector3(positions.getX(0), positions.getY(0), positions.getZ(0));
-            const v1 = new THREE.Vector3(positions.getX(1), positions.getY(1), positions.getZ(1));
-            centroid.add(v0).add(v1).multiplyScalar(0.5);
-          }
-        }
-      });
-      return centroid;
+    const line = this.rayCache.get(handle);
+    if (line && line.geometry) {
+      const positions = line.geometry.attributes.position;
+      if (positions && positions.count >= 2) {
+        const v0 = new THREE.Vector3(positions.getX(0), positions.getY(0), positions.getZ(0));
+        const v1 = new THREE.Vector3(positions.getX(1), positions.getY(1), positions.getZ(1));
+        return v0.clone().add(v1).multiplyScalar(0.5);
+      }
     }
     return null;
   }
 
   public static getLength(handle: string): number {
-    const group = this.rayCache.get(handle);
-    if (group) {
-      let length = 0;
-      group.traverse((child) => {
-        if (child instanceof THREE.Line && child.geometry) {
-          const positions = child.geometry.attributes.position;
-          if (positions && positions.count >= 2) {
-            const v0 = new THREE.Vector3(positions.getX(0), positions.getY(0), positions.getZ(0));
-            const v1 = new THREE.Vector3(positions.getX(1), positions.getY(1), positions.getZ(1));
-            length += v0.distanceTo(v1);
-          }
-        }
-      });
-      return length;
+    const line = this.rayCache.get(handle);
+    if (line && line.geometry) {
+      const positions = line.geometry.attributes.position;
+      if (positions && positions.count >= 2) {
+        const v0 = new THREE.Vector3(positions.getX(0), positions.getY(0), positions.getZ(0));
+        const v1 = new THREE.Vector3(positions.getX(1), positions.getY(1), positions.getZ(1));
+        return v0.distanceTo(v1);
+      }
     }
     return 0;
   }
 
   public static getAngle(handle: string): number {
-    const group = this.rayCache.get(handle);
-    if (group) {
-      let angle = 0;
-      group.traverse((child) => {
-        if (child instanceof THREE.Line && child.geometry) {
-          const positions = child.geometry.attributes.position;
-          if (positions && positions.count >= 2) {
-            const v0 = new THREE.Vector3(positions.getX(0), positions.getY(0), positions.getZ(0));
-            const v1 = new THREE.Vector3(positions.getX(1), positions.getY(1), positions.getZ(1));
-            const direction = new THREE.Vector3().subVectors(v1, v0).normalize();
-            angle = Math.atan2(direction.y, direction.x);
-          }
-        }
-      });
-      return angle;
+    const line = this.rayCache.get(handle);
+    if (line && line.geometry) {
+      const positions = line.geometry.attributes.position;
+      if (positions && positions.count >= 2) {
+        const v0 = new THREE.Vector3(positions.getX(0), positions.getY(0), positions.getZ(0));
+        const v1 = new THREE.Vector3(positions.getX(1), positions.getY(1), positions.getZ(1));
+        const direction = new THREE.Vector3().subVectors(v1, v0).normalize();
+        return Math.atan2(direction.y, direction.x);
+      }
     }
     return 0;
   }
 
   public static getStartPoint(handle: string): THREE.Vector3 | null {
-    const group = this.rayCache.get(handle);
-    if (group) {
-      let startPoint: THREE.Vector3 | null = null;
-      group.traverse((child) => {
-        if (child instanceof THREE.Line && child.geometry && !startPoint) {
-          const positions = child.geometry.attributes.position;
-          if (positions && positions.count >= 1) {
-            startPoint = new THREE.Vector3(
-              positions.getX(0),
-              positions.getY(0),
-              positions.getZ(0)
-            );
-          }
-        }
-      });
-      return startPoint;
+    const line = this.rayCache.get(handle);
+    if (line && line.geometry) {
+      const positions = line.geometry.attributes.position;
+      if (positions && positions.count >= 1) {
+        return new THREE.Vector3(
+          positions.getX(0),
+          positions.getY(0),
+          positions.getZ(0)
+        );
+      }
     }
     return null;
   }
 
   public static getEndPoint(handle: string): THREE.Vector3 | null {
-    const group = this.rayCache.get(handle);
-    if (group) {
-      let endPoint: THREE.Vector3 | null = null;
-      group.traverse((child) => {
-        if (child instanceof THREE.Line && child.geometry && !endPoint) {
-          const positions = child.geometry.attributes.position;
-          if (positions && positions.count >= 2) {
-            endPoint = new THREE.Vector3(
-              positions.getX(1),
-              positions.getY(1),
-              positions.getZ(1)
-            );
-          }
-        }
-      });
-      return endPoint;
+    const line = this.rayCache.get(handle);
+    if (line && line.geometry) {
+      const positions = line.geometry.attributes.position;
+      if (positions && positions.count >= 2) {
+        return new THREE.Vector3(
+          positions.getX(1),
+          positions.getY(1),
+          positions.getZ(1)
+        );
+      }
     }
     return null;
   }
@@ -388,8 +332,8 @@ export class RayEntityThreejsRenderer {
   }
 
   public static isRayVisible(handle: string): boolean {
-    const group = this.rayCache.get(handle);
-    return group ? group.visible : false;
+    const line = this.rayCache.get(handle);
+    return line ? line.visible : false;
   }
 
   public static getPointAtDistance(handle: string, distance: number): THREE.Vector3 | null {
@@ -455,8 +399,8 @@ export class RayEntityThreejsRenderer {
   }
 
   public static getRayData(handle: string): RayData | null {
-    const group = this.rayCache.get(handle);
-    if (group) {
+    const line = this.rayCache.get(handle);
+    if (line) {
       const startPoint = this.getStartPoint(handle);
       const endPoint = this.getEndPoint(handle);
       const direction = this.getDirection(handle);

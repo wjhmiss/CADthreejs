@@ -121,7 +121,7 @@ export class PdfUnderlayEntityThreejsRenderer {
   private static textureCache: Map<string, THREE.Texture> = new Map();
   private static pdfCache: Map<string, any> = new Map();
 
-  public static render(pdfUnderlayData: PdfUnderlayData, scene: THREE.Scene): THREE.Group | null {
+  public static render(pdfUnderlayData: PdfUnderlayData, scene: THREE.Scene): THREE.Object3D[] | null {
     if (!pdfUnderlayData || !pdfUnderlayData.Visible) {
       return null;
     }
@@ -131,11 +131,9 @@ export class PdfUnderlayEntityThreejsRenderer {
       return null;
     }
 
-    const group = new THREE.Group();
-    group.name = `PdfUnderlay_${pdfUnderlayData.Handle}`;
-    group.visible = pdfUnderlayData.Visible;
+    const objects: THREE.Object3D[] = [];
 
-    group.userData = {
+    const userData = {
       type: pdfUnderlayData.Type,
       entityType: pdfUnderlayData.EntityType,
       handle: pdfUnderlayData.Handle,
@@ -170,20 +168,20 @@ export class PdfUnderlayEntityThreejsRenderer {
       geometry: pdfUnderlayData.Geometry
     };
 
+    this.renderUnderlay(pdfUnderlayData, objects, userData);
+    this.renderClippingBoundary(pdfUnderlayData, objects, userData);
+    this.renderBounds(pdfUnderlayData, objects, userData);
+
     if (pdfUnderlayData.Transform && pdfUnderlayData.Transform.Matrix) {
       const matrix = new THREE.Matrix4();
       matrix.fromArray(pdfUnderlayData.Transform.Matrix);
-      group.applyMatrix4(matrix);
+      objects.forEach(obj => obj.applyMatrix4(matrix));
     }
 
-    this.renderUnderlay(pdfUnderlayData, group);
-    this.renderClippingBoundary(pdfUnderlayData, group);
-    this.renderBounds(pdfUnderlayData, group);
-
-    return group;
+    return objects;
   }
 
-  private static async renderUnderlay(pdfUnderlayData: PdfUnderlayData, group: THREE.Group): Promise<void> {
+  private static async renderUnderlay(pdfUnderlayData: PdfUnderlayData, objects: THREE.Object3D[], userData: any): Promise<void> {
     if (!pdfUnderlayData.Geometry || !pdfUnderlayData.Geometry.Vertices || pdfUnderlayData.Geometry.Vertices.length === 0) {
       console.warn(`PdfUnderlay ${pdfUnderlayData.Handle} has no geometry vertices`);
       return;
@@ -203,8 +201,9 @@ export class PdfUnderlayEntityThreejsRenderer {
     const material = this.createMaterial(pdfUnderlayData, texture);
 
     const mesh = new THREE.Mesh(geometry, material);
-    mesh.name = 'Underlay';
+    mesh.name = `PdfUnderlay_${pdfUnderlayData.Handle}`;
     mesh.userData = {
+      ...userData,
       type: 'PdfUnderlay',
       filePath: pdfUnderlayData.FilePath,
       pageNumber: pdfUnderlayData.PageNumber,
@@ -215,7 +214,7 @@ export class PdfUnderlayEntityThreejsRenderer {
       mesh.material.side = THREE.DoubleSide;
     }
 
-    group.add(mesh);
+    objects.push(mesh);
   }
 
   private static createGeometry(pdfUnderlayData: PdfUnderlayData): THREE.BufferGeometry | null {
@@ -383,7 +382,7 @@ export class PdfUnderlayEntityThreejsRenderer {
     return canvas;
   }
 
-  private static renderClippingBoundary(pdfUnderlayData: PdfUnderlayData, group: THREE.Group): void {
+  private static renderClippingBoundary(pdfUnderlayData: PdfUnderlayData, objects: THREE.Object3D[], userData: any): void {
     if (!pdfUnderlayData.ClippingBoundaryType || pdfUnderlayData.ClippingBoundaryType === 'None') {
       return;
     }
@@ -414,17 +413,18 @@ export class PdfUnderlayEntityThreejsRenderer {
     });
 
     const line = new THREE.Line(geometry, material);
-    line.name = 'ClippingBoundary';
+    line.name = `PdfUnderlayClippingBoundary_${pdfUnderlayData.Handle}`;
     line.userData = {
+      ...userData,
       type: 'ClippingBoundary',
       clippingBoundaryType: pdfUnderlayData.ClippingBoundaryType,
       vertexCount: pdfUnderlayData.BoundaryPoints3D.length
     };
 
-    group.add(line);
+    objects.push(line);
   }
 
-  private static renderBounds(pdfUnderlayData: PdfUnderlayData, group: THREE.Group): void {
+  private static renderBounds(pdfUnderlayData: PdfUnderlayData, objects: THREE.Object3D[], userData: any): void {
     if (!pdfUnderlayData.Geometry || !pdfUnderlayData.Geometry.Bounds) {
       return;
     }
@@ -454,13 +454,14 @@ export class PdfUnderlayEntityThreejsRenderer {
     });
 
     const line = new THREE.Line(geometry, material);
-    line.name = 'Bounds';
+    line.name = `PdfUnderlayBounds_${pdfUnderlayData.Handle}`;
     line.userData = {
+      ...userData,
       type: 'Bounds',
       size: bounds.Size
     };
 
-    group.add(line);
+    objects.push(line);
   }
 
   public static dispose(pdfUnderlayData: PdfUnderlayData, scene: THREE.Scene): boolean {
@@ -468,34 +469,33 @@ export class PdfUnderlayEntityThreejsRenderer {
       return false;
     }
 
-    const group = scene.getObjectByName(`PdfUnderlay_${pdfUnderlayData.Handle}`);
-    if (group) {
-      scene.remove(group);
-      this.disposeGroup(group);
-      return true;
-    }
-    return false;
-  }
+    const objects: THREE.Object3D[] = [];
+    scene.traverse((object) => {
+      if (object.userData && object.userData.handle === pdfUnderlayData.Handle) {
+        objects.push(object);
+      }
+    });
 
-  private static disposeGroup(group: THREE.Group): void {
-    group.traverse((object) => {
-      if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
-        if (object.geometry) {
-          object.geometry.dispose();
+    objects.forEach((obj) => {
+      scene.remove(obj);
+      if (obj instanceof THREE.Mesh || obj instanceof THREE.Line) {
+        if (obj.geometry) {
+          obj.geometry.dispose();
         }
-        if (object.material) {
-          if (object.material instanceof THREE.MeshBasicMaterial) {
-            if (object.material.map) {
-              object.material.map.dispose();
+        if (obj.material) {
+          if (obj.material instanceof THREE.MeshBasicMaterial) {
+            if (obj.material.map) {
+              obj.material.map.dispose();
             }
-            object.material.dispose();
-          } else if (object.material instanceof THREE.LineBasicMaterial) {
-            object.material.dispose();
+            obj.material.dispose();
+          } else if (obj.material instanceof THREE.LineBasicMaterial) {
+            obj.material.dispose();
           }
         }
       }
     });
-    group.clear();
+
+    return objects.length > 0;
   }
 
   public static clearCache(): void {
@@ -509,15 +509,22 @@ export class PdfUnderlayEntityThreejsRenderer {
       return false;
     }
 
-    const group = this.getPdfUnderlayGroup(pdfUnderlayData, scene);
-    if (!group) {
+    const objects: THREE.Object3D[] = [];
+    scene.traverse((object) => {
+      if (object.userData && object.userData.handle === pdfUnderlayData.Handle) {
+        objects.push(object);
+      }
+    });
+
+    if (objects.length === 0) {
       return false;
     }
 
-    group.visible = pdfUnderlayData.Visible;
-    group.userData.visible = pdfUnderlayData.Visible;
-
-    group.traverse((object) => {
+    objects.forEach((object) => {
+      object.visible = pdfUnderlayData.Visible;
+      if (object.userData) {
+        object.userData.visible = pdfUnderlayData.Visible;
+      }
       if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
         if (object.material instanceof THREE.MeshBasicMaterial || 
             object.material instanceof THREE.LineBasicMaterial) {
@@ -530,74 +537,68 @@ export class PdfUnderlayEntityThreejsRenderer {
     return true;
   }
 
-  public static getPdfUnderlayGroup(pdfUnderlayData: PdfUnderlayData, scene: THREE.Scene): THREE.Group | null {
-    return scene.getObjectByName(`PdfUnderlay_${pdfUnderlayData.Handle}`) as THREE.Group || null;
+  public static getPdfUnderlayObjects(pdfUnderlayData: PdfUnderlayData, scene: THREE.Scene): THREE.Object3D[] {
+    const objects: THREE.Object3D[] = [];
+    scene.traverse((object) => {
+      if (object.userData && object.userData.handle === pdfUnderlayData.Handle) {
+        objects.push(object);
+      }
+    });
+    return objects;
   }
 
   public static setVisibility(pdfUnderlayData: PdfUnderlayData, scene: THREE.Scene, visible: boolean): boolean {
-    const group = this.getPdfUnderlayGroup(pdfUnderlayData, scene);
-    if (group) {
-      group.visible = visible;
-      return true;
-    }
-    return false;
+    const objects = this.getPdfUnderlayObjects(pdfUnderlayData, scene);
+    objects.forEach(obj => obj.visible = visible);
+    return objects.length > 0;
   }
 
   public static setOpacity(pdfUnderlayData: PdfUnderlayData, scene: THREE.Scene, opacity: number): boolean {
-    const group = this.getPdfUnderlayGroup(pdfUnderlayData, scene);
-    if (group) {
-      const adjustedOpacity = this.calculateAdjustedOpacity(opacity, pdfUnderlayData.Fade);
-      group.traverse((object) => {
-        if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
-          if (object.material instanceof THREE.MeshBasicMaterial || 
-              object.material instanceof THREE.LineBasicMaterial) {
-            object.material.opacity = adjustedOpacity;
-            object.material.transparent = adjustedOpacity < 1.0;
-          }
+    const objects = this.getPdfUnderlayObjects(pdfUnderlayData, scene);
+    const adjustedOpacity = this.calculateAdjustedOpacity(opacity, pdfUnderlayData.Fade);
+    objects.forEach((object) => {
+      if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
+        if (object.material instanceof THREE.MeshBasicMaterial || 
+            object.material instanceof THREE.LineBasicMaterial) {
+          object.material.opacity = adjustedOpacity;
+          object.material.transparent = adjustedOpacity < 1.0;
         }
-      });
-      return true;
-    }
-    return false;
+      }
+    });
+    return objects.length > 0;
   }
 
   public static setContrast(pdfUnderlayData: PdfUnderlayData, scene: THREE.Scene, contrast: number): boolean {
-    const group = this.getPdfUnderlayGroup(pdfUnderlayData, scene);
-    if (group) {
-      const adjustedColor = this.adjustColorForContrast(pdfUnderlayData.Color?.Hex || this.DEFAULT_COLOR, contrast);
-      group.traverse((object) => {
-        if (object instanceof THREE.Mesh) {
-          if (object.material instanceof THREE.MeshBasicMaterial) {
-            object.material.color.set(adjustedColor);
-          }
+    const objects = this.getPdfUnderlayObjects(pdfUnderlayData, scene);
+    const adjustedColor = this.adjustColorForContrast(pdfUnderlayData.Color?.Hex || this.DEFAULT_COLOR, contrast);
+    objects.forEach((object) => {
+      if (object instanceof THREE.Mesh) {
+        if (object.material instanceof THREE.MeshBasicMaterial) {
+          object.material.color.set(adjustedColor);
         }
-      });
-      return true;
-    }
-    return false;
+      }
+    });
+    return objects.length > 0;
   }
 
   public static setFade(pdfUnderlayData: PdfUnderlayData, scene: THREE.Scene, fade: number): boolean {
-    const group = this.getPdfUnderlayGroup(pdfUnderlayData, scene);
-    if (group) {
-      const adjustedOpacity = this.calculateAdjustedOpacity(pdfUnderlayData.Opacity, fade);
-      group.traverse((object) => {
-        if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
-          if (object.material instanceof THREE.MeshBasicMaterial || 
-              object.material instanceof THREE.LineBasicMaterial) {
-            object.material.opacity = adjustedOpacity;
-            object.material.transparent = adjustedOpacity < 1.0;
-          }
+    const objects = this.getPdfUnderlayObjects(pdfUnderlayData, scene);
+    const adjustedOpacity = this.calculateAdjustedOpacity(pdfUnderlayData.Opacity, fade);
+    objects.forEach((object) => {
+      if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
+        if (object.material instanceof THREE.MeshBasicMaterial || 
+            object.material instanceof THREE.LineBasicMaterial) {
+          object.material.opacity = adjustedOpacity;
+          object.material.transparent = adjustedOpacity < 1.0;
         }
-      });
-      return true;
-    }
-    return false;
+      }
+    });
+    return objects.length > 0;
   }
 
   public static reloadTexture(pdfUnderlayData: PdfUnderlayData, scene: THREE.Scene): boolean {
-    const group = this.getPdfUnderlayGroup(pdfUnderlayData, scene);
-    if (!group) {
+    const objects = this.getPdfUnderlayObjects(pdfUnderlayData, scene);
+    if (!objects || objects.length === 0) {
       return false;
     }
 

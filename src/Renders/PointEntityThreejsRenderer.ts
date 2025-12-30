@@ -101,27 +101,40 @@ export class PointEntityThreejsRenderer {
   private static readonly DEFAULT_COLOR = '#FFFFFF';
   private static readonly pointCache = new Map<string, THREE.Points>();
 
-  public static render(pointData: PointData, scene: THREE.Scene): THREE.Group | null {
+  public static render(pointData: PointData, scene: THREE.Scene): THREE.Points | null {
     if (!pointData || !pointData.Visible) {
       return null;
     }
 
-    const group = new THREE.Group();
-    group.name = `Point_${pointData.Handle}`;
-    group.visible = pointData.Visible;
-
     const geometry = this.createPointGeometry(pointData);
     const material = this.createPointMaterial(pointData);
     const points = new THREE.Points(geometry, material);
-    points.name = 'Point';
-    points.userData = { handle: pointData.Handle };
+    points.name = `Point_${pointData.Handle}`;
+    points.userData = {
+      type: pointData.EntityType,
+      handle: pointData.Handle,
+      layerName: pointData.LayerName,
+      layerIndex: pointData.LayerIndex,
+      entityType: pointData.EntityType,
+      colorIndex: pointData.ColorIndex,
+      lineTypeName: pointData.LineTypeName,
+      lineWeight: pointData.LineWeight,
+      thickness: pointData.Thickness,
+      rotation: pointData.Rotation,
+      size: pointData.Size,
+      bounds3D: pointData.Bounds3D,
+      centroid3D: pointData.Centroid3D,
+      coordinateSystem: pointData.CoordinateSystem,
+      opacity: pointData.Opacity,
+      transparent: pointData.Transparent,
+      depthTest: pointData.DepthTest,
+      transform: pointData.Transform
+    };
     points.visible = pointData.Visible;
-
-    group.add(points);
 
     this.pointCache.set(pointData.Handle, points);
 
-    return group;
+    return points;
   }
 
   public static update(pointData: PointData, scene: THREE.Scene): boolean {
@@ -158,10 +171,7 @@ export class PointEntityThreejsRenderer {
       return false;
     }
 
-    const group = existingPoints.parent;
-    if (group) {
-      scene.remove(group);
-    }
+    scene.remove(existingPoints);
 
     existingPoints.geometry.dispose();
     (existingPoints.material as THREE.Material).dispose();
@@ -176,10 +186,6 @@ export class PointEntityThreejsRenderer {
       return false;
     }
 
-    const group = existingPoints.parent;
-    if (group) {
-      group.visible = visible;
-    }
     existingPoints.visible = visible;
     return true;
   }
@@ -224,7 +230,7 @@ export class PointEntityThreejsRenderer {
     return true;
   }
 
-  public static getPointGroup(pointData: PointData): THREE.Points | null {
+  public static getPointFromCache(pointData: PointData): THREE.Points | null {
     return this.pointCache.get(pointData.Handle) || null;
   }
 
@@ -281,9 +287,8 @@ export class PointEntityThreejsRenderer {
     return material;
   }
 
-  public static renderMultiple(pointDataArray: PointData[], scene: THREE.Scene): THREE.Group {
-    const group = new THREE.Group();
-    group.name = 'MultiplePoints';
+  public static renderMultiple(pointDataArray: PointData[], scene: THREE.Scene): THREE.Object3D[] {
+    const objects: THREE.Object3D[] = [];
 
     const geometry = new THREE.BufferGeometry();
     const positions: number[] = [];
@@ -311,21 +316,25 @@ export class PointEntityThreejsRenderer {
 
     const points = new THREE.Points(geometry, material);
     points.name = 'MultiplePoints';
-    group.add(points);
+    points.userData = {
+      objectType: 'MultiplePoints',
+      pointCount: pointDataArray.length
+    };
+    objects.push(points);
 
-    return group;
+    return objects;
   }
 
-  public static disposeMultiple(group: THREE.Group, scene: THREE.Scene): void {
-    if (!group) {
+  public static disposeMultiple(objects: THREE.Object3D[], scene: THREE.Scene): void {
+    if (!objects || objects.length === 0) {
       return;
     }
 
-    scene.remove(group);
-    group.children.forEach((child) => {
-      if (child instanceof THREE.Points) {
-        child.geometry.dispose();
-        (child.material as THREE.Material).dispose();
+    objects.forEach((obj) => {
+      scene.remove(obj);
+      if (obj instanceof THREE.Points) {
+        obj.geometry.dispose();
+        (obj.material as THREE.Material).dispose();
       }
     });
   }

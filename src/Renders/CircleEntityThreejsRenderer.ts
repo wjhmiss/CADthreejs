@@ -70,13 +70,10 @@ export interface CircleData {
 export class CircleEntityThreejsRenderer {
   private static readonly DEFAULT_SEGMENTS = 64;
 
-  public static render(circleData: CircleData, scene: THREE.Scene): THREE.Group | null {
+  public static render(circleData: CircleData, scene: THREE.Scene): THREE.Line | null {
     if (!circleData.Visible || circleData.IsInvisible) {
       return null;
     }
-
-    const group = new THREE.Group();
-    group.name = `Circle_${circleData.Handle || circleData.Uuid}`;
 
     const material = this.createMaterial(circleData);
     const geometry = this.createGeometry(circleData);
@@ -99,12 +96,10 @@ export class CircleEntityThreejsRenderer {
     this.applyTransform(line, circleData);
     this.applyRenderProperties(line, circleData);
 
-    group.add(line);
-
-    return group;
+    return line;
   }
 
-  public static renderFromJson(jsonString: string, scene: THREE.Scene): THREE.Group | null {
+  public static renderFromJson(jsonString: string, scene: THREE.Scene): THREE.Line | null {
     try {
       const circleData: CircleData = JSON.parse(jsonString);
       return this.render(circleData, scene);
@@ -114,8 +109,8 @@ export class CircleEntityThreejsRenderer {
     }
   }
 
-  public static renderMultiple(circleDataList: CircleData[], scene: THREE.Scene): THREE.Group[] {
-    const objects: THREE.Group[] = [];
+  public static renderMultiple(circleDataList: CircleData[], scene: THREE.Scene): THREE.Line[] {
+    const objects: THREE.Line[] = [];
 
     for (const circleData of circleDataList) {
       const obj = this.render(circleData, scene);
@@ -127,7 +122,7 @@ export class CircleEntityThreejsRenderer {
     return objects;
   }
 
-  public static renderMultipleFromJson(jsonString: string, scene: THREE.Scene): THREE.Group[] {
+  public static renderMultipleFromJson(jsonString: string, scene: THREE.Scene): THREE.Line[] {
     try {
       const circleDataList: CircleData[] = JSON.parse(jsonString);
       return this.renderMultiple(circleDataList, scene);
