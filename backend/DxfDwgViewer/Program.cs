@@ -38,6 +38,8 @@ app.UseCors("AllowAll");
 app.UseSwagger();
 app.UseSwaggerUI();
 
+app.Urls.Add("http://localhost:5000");
+
 app.MapGet("/", () => "CAD文件解析API服务运行中");
 
 app.MapPost("/api/parse", (ParseRequest request) =>
