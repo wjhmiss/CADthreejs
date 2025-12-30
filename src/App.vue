@@ -192,7 +192,6 @@ const transformControlsRef = ref<TransformControls | null>(null)
 let raycaster: THREE.Raycaster
 let mouse: THREE.Vector2
 let ground: THREE.Mesh
-let gridHelper: THREE.GridHelper
 let animationId: number
 
 // 初始化Three.js场景
@@ -278,11 +277,117 @@ const initThreeJS = () => {
   ground.userData.isTransformable = false
   scene.add(ground)
 
-  // 添加网格辅助线
-  gridHelper = new THREE.GridHelper(20, 20, 0x888888, 0xdddddd)
-  // 标记网格辅助线为不可变换的对象
-  gridHelper.userData.isTransformable = false
-  scene.add(gridHelper)
+  // 添加XYZ轴辅助线（带标签和箭头）
+  const axisLength = 15
+  const axisRadius = 0.01
+  const arrowRadius = 0.03
+  const arrowLength = 0.8
+
+  // 创建X轴（红色）
+  const xAxisGeometry = new THREE.CylinderGeometry(axisRadius, axisRadius, axisLength, 8)
+  const xAxisMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 })
+  const xAxis = new THREE.Mesh(xAxisGeometry, xAxisMaterial)
+  xAxis.rotation.z = -Math.PI / 2
+  xAxis.position.set(axisLength / 2, 0, 0)
+  xAxis.userData.isTransformable = false
+  scene.add(xAxis)
+
+  // X轴箭头
+  const xArrowGeometry = new THREE.ConeGeometry(arrowRadius, arrowLength, 8)
+  const xArrowMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 })
+  const xArrow = new THREE.Mesh(xArrowGeometry, xArrowMaterial)
+  xArrow.rotation.z = -Math.PI / 2
+  xArrow.position.set(axisLength + arrowLength / 2, 0, 0)
+  xArrow.userData.isTransformable = false
+  scene.add(xArrow)
+
+  // 创建Y轴（绿色）
+  const yAxisGeometry = new THREE.CylinderGeometry(axisRadius, axisRadius, axisLength, 8)
+  const yAxisMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+  const yAxis = new THREE.Mesh(yAxisGeometry, yAxisMaterial)
+  yAxis.position.set(0, axisLength / 2, 0)
+  yAxis.userData.isTransformable = false
+  scene.add(yAxis)
+
+  // Y轴箭头
+  const yArrowGeometry = new THREE.ConeGeometry(arrowRadius, arrowLength, 8)
+  const yArrowMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+  const yArrow = new THREE.Mesh(yArrowGeometry, yArrowMaterial)
+  yArrow.position.set(0, axisLength + arrowLength / 2, 0)
+  yArrow.userData.isTransformable = false
+  scene.add(yArrow)
+
+  // 创建Z轴（蓝色）
+  const zAxisGeometry = new THREE.CylinderGeometry(axisRadius, axisRadius, axisLength, 8)
+  const zAxisMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff })
+  const zAxis = new THREE.Mesh(zAxisGeometry, zAxisMaterial)
+  zAxis.rotation.x = Math.PI / 2
+  zAxis.position.set(0, 0, axisLength / 2)
+  zAxis.userData.isTransformable = false
+  scene.add(zAxis)
+
+  // Z轴箭头
+  const zArrowGeometry = new THREE.ConeGeometry(arrowRadius, arrowLength, 8)
+  const zArrowMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff })
+  const zArrow = new THREE.Mesh(zArrowGeometry, zArrowMaterial)
+  zArrow.rotation.x = Math.PI / 2
+  zArrow.position.set(0, 0, axisLength + arrowLength / 2)
+  zArrow.userData.isTransformable = false
+  scene.add(zArrow)
+
+  // 创建X轴标签
+  const xLabelCanvas = document.createElement('canvas')
+  const xLabelCtx = xLabelCanvas.getContext('2d')
+  xLabelCanvas.width = 64
+  xLabelCanvas.height = 64
+  xLabelCtx!.fillStyle = '#ff0000'
+  xLabelCtx!.font = 'bold 48px Arial'
+  xLabelCtx!.textAlign = 'center'
+  xLabelCtx!.textBaseline = 'middle'
+  xLabelCtx!.fillText('X', 32, 32)
+  const xLabelTexture = new THREE.CanvasTexture(xLabelCanvas)
+  const xLabelMaterial = new THREE.SpriteMaterial({ map: xLabelTexture })
+  const xLabelSprite = new THREE.Sprite(xLabelMaterial)
+  xLabelSprite.position.set(axisLength + arrowLength + 0.5, 0, 0)
+  xLabelSprite.scale.set(0.8, 0.8, 0.8)
+  xLabelSprite.userData.isTransformable = false
+  scene.add(xLabelSprite)
+
+  // 创建Y轴标签
+  const yLabelCanvas = document.createElement('canvas')
+  const yLabelCtx = yLabelCanvas.getContext('2d')
+  yLabelCanvas.width = 64
+  yLabelCanvas.height = 64
+  yLabelCtx!.fillStyle = '#00ff00'
+  yLabelCtx!.font = 'bold 48px Arial'
+  yLabelCtx!.textAlign = 'center'
+  yLabelCtx!.textBaseline = 'middle'
+  yLabelCtx!.fillText('Y', 32, 32)
+  const yLabelTexture = new THREE.CanvasTexture(yLabelCanvas)
+  const yLabelMaterial = new THREE.SpriteMaterial({ map: yLabelTexture })
+  const yLabelSprite = new THREE.Sprite(yLabelMaterial)
+  yLabelSprite.position.set(0, axisLength + arrowLength + 0.5, 0)
+  yLabelSprite.scale.set(0.8, 0.8, 0.8)
+  yLabelSprite.userData.isTransformable = false
+  scene.add(yLabelSprite)
+
+  // 创建Z轴标签
+  const zLabelCanvas = document.createElement('canvas')
+  const zLabelCtx = zLabelCanvas.getContext('2d')
+  zLabelCanvas.width = 64
+  zLabelCanvas.height = 64
+  zLabelCtx!.fillStyle = '#0000ff'
+  zLabelCtx!.font = 'bold 48px Arial'
+  zLabelCtx!.textAlign = 'center'
+  zLabelCtx!.textBaseline = 'middle'
+  zLabelCtx!.fillText('Z', 32, 32)
+  const zLabelTexture = new THREE.CanvasTexture(zLabelCanvas)
+  const zLabelMaterial = new THREE.SpriteMaterial({ map: zLabelTexture })
+  const zLabelSprite = new THREE.Sprite(zLabelMaterial)
+  zLabelSprite.position.set(0, 0, axisLength + arrowLength + 0.5)
+  zLabelSprite.scale.set(0.8, 0.8, 0.8)
+  zLabelSprite.userData.isTransformable = false
+  scene.add(zLabelSprite)
 
   // 添加环境光
   const ambientLight = new THREE.AmbientLight(0xffffff, 0.6)
@@ -1349,12 +1454,9 @@ const handleDxfDataReturn = (dxfData: string | undefined) => {
       dxfFlipY.value = 0
       dxfFlipZ.value = 0
       
-      // 隐藏原来的地面和网格辅助线，上传的DXF作为新的地面信息
+      // 隐藏原来的地面，上传的DXF作为新的地面信息
       if (ground) {
         ground.visible = false
-      }
-      if (gridHelper) {
-        gridHelper.visible = false
       }
       
       // 强制更新场景渲染
