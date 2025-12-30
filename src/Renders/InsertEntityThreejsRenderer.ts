@@ -269,7 +269,7 @@ export class InsertEntityThreejsRenderer {
     geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
 
     const material = new THREE.LineBasicMaterial({
-      color: lineData.ColorHex || 0xffffff,
+      color: lineData.ColorHex || 0x000000,
       transparent: lineData.MaterialTransparent || false,
       opacity: lineData.MaterialOpacity || 1.0,
       depthTest: lineData.MaterialDepthTest !== false,
@@ -292,7 +292,7 @@ export class InsertEntityThreejsRenderer {
     geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
 
     const material = new THREE.LineBasicMaterial({
-      color: arcData.ColorHex || 0xffffff,
+      color: arcData.ColorHex || 0x000000,
       transparent: arcData.MaterialTransparent || false,
       opacity: arcData.MaterialOpacity || 1.0,
       depthTest: arcData.MaterialDepthTest !== false,
@@ -315,7 +315,7 @@ export class InsertEntityThreejsRenderer {
     geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
 
     const material = new THREE.LineBasicMaterial({
-      color: circleData.ColorHex || 0xffffff,
+      color: circleData.ColorHex || 0x000000,
       transparent: circleData.MaterialTransparent || false,
       opacity: circleData.MaterialOpacity || 1.0,
       depthTest: circleData.MaterialDepthTest !== false,
@@ -338,7 +338,7 @@ export class InsertEntityThreejsRenderer {
     geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
 
     const material = new THREE.LineBasicMaterial({
-      color: lwPolylineData.ColorHex || 0xffffff,
+      color: lwPolylineData.ColorHex || 0x000000,
       transparent: lwPolylineData.MaterialTransparent || false,
       opacity: lwPolylineData.MaterialOpacity || 1.0,
       depthTest: lwPolylineData.MaterialDepthTest !== false,
@@ -397,7 +397,7 @@ export class InsertEntityThreejsRenderer {
     geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
 
     const material = new THREE.LineBasicMaterial({
-      color: ellipseData.ColorHex || 0xffffff,
+      color: ellipseData.ColorHex || 0x000000,
       transparent: ellipseData.MaterialTransparent || false,
       opacity: ellipseData.MaterialOpacity || 1.0,
       depthTest: ellipseData.MaterialDepthTest !== false,
@@ -431,7 +431,7 @@ export class InsertEntityThreejsRenderer {
     }
 
     const material = new THREE.MeshBasicMaterial({
-      color: face3DData.ColorHex || 0xffffff,
+      color: face3DData.ColorHex || 0x000000,
       side: face3DData.MaterialSide === 2 ? THREE.DoubleSide : THREE.FrontSide,
       transparent: face3DData.MaterialTransparent || false,
       opacity: face3DData.MaterialOpacity || 1.0,

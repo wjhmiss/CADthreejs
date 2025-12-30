@@ -426,7 +426,7 @@ export class RayEntityThreejsRenderer {
           LineWeight: 1.0,
           Transform: { Position: { X: 0, Y: 0, Z: 0 }, Rotation: { X: 0, Y: 0, Z: 0 }, Scale: { X: 1, Y: 1, Z: 1 }, Matrix: [] },
           Geometry: { Type: 'BufferGeometry', VertexCount: 2, HasColors: false, HasNormals: false, HasIndices: true, PrimitiveType: 'LinePieces', IndexCount: 2 },
-          Material: { Type: 'LineBasicMaterial', Color: 0xffffff, Opacity: 1.0, Transparent: false, LineWidth: 1.0, VertexColors: false },
+          Material: { Type: 'LineBasicMaterial', Color: 0x000000, Opacity: 1.0, Transparent: false, LineWidth: 1.0, VertexColors: false },
           Color: { Index: 0, Hex: '#000000', R: 0, G: 0, B: 0, A: 1 },
           VertexPositions: [],
           VertexNormals: [],

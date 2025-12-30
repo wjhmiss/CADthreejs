@@ -100,7 +100,7 @@ export class LineEntityThreejsRenderer {
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
 
     const material = new THREE.LineBasicMaterial({
-      color: lineData.Color?.Hex || '#ffffff',
+      color: lineData.Color?.Hex || '#000000',
       transparent: lineData.Transparent || false,
       opacity: lineData.Opacity || 1.0,
       depthTest: lineData.DepthTest !== false,

@@ -94,7 +94,7 @@ export class ShapeEntityThreejsRenderer {
   private static readonly DEFAULT_RELATIVE_X_SCALE = 1.0;
   private static readonly DEFAULT_THICKNESS = 0.0;
   private static readonly DEFAULT_OPACITY = 1.0;
-  private static readonly DEFAULT_COLOR = '#FFFFFF';
+  private static readonly DEFAULT_COLOR = '#000000';
 
   private static shapeCache = new Map<string, THREE.Object3D[]>();
 

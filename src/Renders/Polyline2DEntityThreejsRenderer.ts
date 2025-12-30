@@ -147,7 +147,7 @@ export interface Polyline2DData {
 export class Polyline2DEntityThreejsRenderer {
   private static readonly DEFAULT_LINE_WIDTH = 1.0;
   private static readonly DEFAULT_OPACITY = 1.0;
-  private static readonly DEFAULT_COLOR = '#FFFFFF';
+  private static readonly DEFAULT_COLOR = '#000000';
   private static readonly ARC_SEGMENTS_PER_DEGREE = 0.5;
   private static readonly polylineCache = new Map<string, THREE.Line>();
 

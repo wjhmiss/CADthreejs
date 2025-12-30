@@ -75,7 +75,7 @@ export interface Face3DRenderResult {
 }
 
 export class Face3DEntityThreejsRenderer {
-  private static readonly DEFAULT_COLOR = new THREE.Color(0xffffff);
+  private static readonly DEFAULT_COLOR = new THREE.Color(0x000000);
 
   public static render(face3DData: Face3DData, scene: THREE.Scene): THREE.Mesh | null {
     if (!face3DData.Visible || face3DData.IsInvisible) {

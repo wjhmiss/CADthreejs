@@ -768,16 +768,16 @@ export class MLineEntityThreejsRenderer {
 
   private static getColorFromIndex(colorIndex: number): string {
     const colors: { [key: number]: string } = {
-      0: '#ffffff',
+      0: '#000000',
       1: '#ff0000',
       2: '#ffff00',
       3: '#00ff00',
       4: '#00ffff',
       5: '#0000ff',
       6: '#ff00ff',
-      7: '#ffffff'
+      7: '#000000'
     };
-    return colors[colorIndex] || '#ffffff';
+    return colors[colorIndex] || '#000000';
   }
 
   public static getElementCount(mlineData: MLineData): number {

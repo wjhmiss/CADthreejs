@@ -120,7 +120,7 @@ export interface Polyline3DData {
 export class Polyline3DEntityThreejsRenderer {
   private static readonly DEFAULT_LINE_WIDTH = 1.0;
   private static readonly DEFAULT_OPACITY = 1.0;
-  private static readonly DEFAULT_COLOR = '#FFFFFF';
+  private static readonly DEFAULT_COLOR = '#000000';
   private static readonly polylineCache = new Map<string, THREE.Line>();
 
   public static render(polyline3DData: Polyline3DData, scene: THREE.Scene): THREE.Object3D[] | null {

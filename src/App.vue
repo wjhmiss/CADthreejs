@@ -49,6 +49,31 @@
       <button @click="resetDxfFlip" class="flip-reset-btn">重置</button>
     </div>
 
+    <!-- 坐标转换控件 -->
+    <div class="coordinate-transform-control">
+      <span class="transform-label">坐标转换:</span>
+      <div class="transform-checkboxes">
+        <label class="transform-checkbox">
+          <input type="checkbox" v-model="centeringOptions.centerX" />
+          <span>X轴</span>
+        </label>
+        <label class="transform-checkbox">
+          <input type="checkbox" v-model="centeringOptions.centerY" />
+          <span>Y轴</span>
+        </label>
+        <label class="transform-checkbox">
+          <input type="checkbox" v-model="centeringOptions.centerZ" />
+          <span>Z轴</span>
+        </label>
+      </div>
+      <div class="transform-buttons">
+        <button @click="applyCentering" class="transform-apply-btn">应用中心化</button>
+        <button @click="resetToOriginalPosition" class="transform-reset-btn">重置位置</button>
+        <button @click="printTransformInfo" class="transform-info-btn">显示转换信息</button>
+        <button @click="verifyCentering" class="transform-verify-btn">验证中心化</button>
+      </div>
+    </div>
+
     <!-- 编辑模式工具栏 -->
     <div v-if="transformControlsRef?.object" class="edit-toolbar">
       <h4>编辑模式</h4>
@@ -172,10 +197,25 @@ const objects = [] as THREE.Object3D[]
 const contextMenuVisible = ref(false)
 const contextMenuPosition = ref({ x: 0, y: 0 })
 const transformMode = ref('translate')
-const dxfScale = ref(1.0) // DXF比例缩放
-const dxfFlipX = ref(0) // DXF X轴翻转角度（度）
-const dxfFlipY = ref(0) // DXF Y轴翻转角度（度）
-const dxfFlipZ = ref(0) // DXF Z轴翻转角度（度）
+const dxfScale = ref(1.0)
+const dxfFlipX = ref(0)
+const dxfFlipY = ref(0)
+const dxfFlipZ = ref(0)
+
+// 坐标转换选项
+const centeringOptions = ref({
+  centerX: true,
+  centerY: true,
+  centerZ: true,
+  applyTransform: true
+})
+
+// GLB模型坐标转换相关变量
+let glbBoundingBox: THREE.Box3 = new THREE.Box3()
+let glbOriginalCenter: THREE.Vector3 = new THREE.Vector3()
+let glbOriginalPositions: Map<THREE.Object3D, THREE.Vector3> = new Map()
+let glbIsCentered: boolean = false
+let glbRotation: { x: number; y: number; z: number } = { x: 0, y: 0, z: 0 }
 
 // 对象属性的响应式变量
 const position = ref({ x: 0, y: 0, z: 0 })
@@ -194,6 +234,17 @@ let mouse: THREE.Vector2
 let ground: THREE.Mesh
 let animationId: number
 
+// XYZ辅助线变量
+let xAxis: THREE.Mesh
+let xArrow: THREE.Mesh
+let xLabelSprite: THREE.Sprite
+let yAxis: THREE.Mesh
+let yArrow: THREE.Mesh
+let yLabelSprite: THREE.Sprite
+let zAxis: THREE.Mesh
+let zArrow: THREE.Mesh
+let zLabelSprite: THREE.Sprite
+
 // 初始化Three.js场景
 const initThreeJS = () => {
   console.log('initThreeJS called, canvasContainer:', canvasContainer.value)
@@ -205,16 +256,16 @@ const initThreeJS = () => {
   
   // 创建场景
   scene = new THREE.Scene()
-  scene.background = new THREE.Color(0xf0f0f0)
+  scene.background = new THREE.Color(0xffffff)
 
   // 创建相机
   camera = new THREE.PerspectiveCamera(
-    75,
+    60,
     window.innerWidth / window.innerHeight,
     0.1,
-    1000
+    10000
   )
-  camera.position.set(5, 5, 5)
+  camera.position.set(50, 50, 50)
 
   // 创建渲染器
   renderer = new THREE.WebGLRenderer({ antialias: true })
@@ -278,61 +329,73 @@ const initThreeJS = () => {
   scene.add(ground)
 
   // 添加XYZ轴辅助线（带标签和箭头）
-  const axisLength = 15
+  const baseAxisLength = 15
   const axisRadius = 0.01
   const arrowRadius = 0.03
   const arrowLength = 0.8
 
   // 创建X轴（红色）
-  const xAxisGeometry = new THREE.CylinderGeometry(axisRadius, axisRadius, axisLength, 8)
+  const xAxisGeometry = new THREE.CylinderGeometry(axisRadius, axisRadius, baseAxisLength, 8)
   const xAxisMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 })
-  const xAxis = new THREE.Mesh(xAxisGeometry, xAxisMaterial)
+  xAxis = new THREE.Mesh(xAxisGeometry, xAxisMaterial)
   xAxis.rotation.z = -Math.PI / 2
-  xAxis.position.set(axisLength / 2, 0, 0)
+  xAxis.position.set(baseAxisLength / 2, 0, 0)
   xAxis.userData.isTransformable = false
+  xAxis.userData.baseLength = baseAxisLength
+  xAxis.userData.isAxis = true
   scene.add(xAxis)
 
   // X轴箭头
   const xArrowGeometry = new THREE.ConeGeometry(arrowRadius, arrowLength, 8)
   const xArrowMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 })
-  const xArrow = new THREE.Mesh(xArrowGeometry, xArrowMaterial)
+  xArrow = new THREE.Mesh(xArrowGeometry, xArrowMaterial)
   xArrow.rotation.z = -Math.PI / 2
-  xArrow.position.set(axisLength + arrowLength / 2, 0, 0)
+  xArrow.position.set(baseAxisLength + arrowLength / 2, 0, 0)
   xArrow.userData.isTransformable = false
+  xArrow.userData.baseLength = baseAxisLength
+  xArrow.userData.isAxis = true
   scene.add(xArrow)
 
   // 创建Y轴（绿色）
-  const yAxisGeometry = new THREE.CylinderGeometry(axisRadius, axisRadius, axisLength, 8)
+  const yAxisGeometry = new THREE.CylinderGeometry(axisRadius, axisRadius, baseAxisLength, 8)
   const yAxisMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 })
-  const yAxis = new THREE.Mesh(yAxisGeometry, yAxisMaterial)
-  yAxis.position.set(0, axisLength / 2, 0)
+  yAxis = new THREE.Mesh(yAxisGeometry, yAxisMaterial)
+  yAxis.position.set(0, baseAxisLength / 2, 0)
   yAxis.userData.isTransformable = false
+  yAxis.userData.baseLength = baseAxisLength
+  yAxis.userData.isAxis = true
   scene.add(yAxis)
 
   // Y轴箭头
   const yArrowGeometry = new THREE.ConeGeometry(arrowRadius, arrowLength, 8)
   const yArrowMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 })
-  const yArrow = new THREE.Mesh(yArrowGeometry, yArrowMaterial)
-  yArrow.position.set(0, axisLength + arrowLength / 2, 0)
+  yArrow = new THREE.Mesh(yArrowGeometry, yArrowMaterial)
+  yArrow.position.set(0, baseAxisLength + arrowLength / 2, 0)
   yArrow.userData.isTransformable = false
+  yArrow.userData.baseLength = baseAxisLength
+  yArrow.userData.isAxis = true
   scene.add(yArrow)
 
   // 创建Z轴（蓝色）
-  const zAxisGeometry = new THREE.CylinderGeometry(axisRadius, axisRadius, axisLength, 8)
+  const zAxisGeometry = new THREE.CylinderGeometry(axisRadius, axisRadius, baseAxisLength, 8)
   const zAxisMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff })
-  const zAxis = new THREE.Mesh(zAxisGeometry, zAxisMaterial)
+  zAxis = new THREE.Mesh(zAxisGeometry, zAxisMaterial)
   zAxis.rotation.x = Math.PI / 2
-  zAxis.position.set(0, 0, axisLength / 2)
+  zAxis.position.set(0, 0, baseAxisLength / 2)
   zAxis.userData.isTransformable = false
+  zAxis.userData.baseLength = baseAxisLength
+  zAxis.userData.isAxis = true
   scene.add(zAxis)
 
   // Z轴箭头
   const zArrowGeometry = new THREE.ConeGeometry(arrowRadius, arrowLength, 8)
   const zArrowMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff })
-  const zArrow = new THREE.Mesh(zArrowGeometry, zArrowMaterial)
+  zArrow = new THREE.Mesh(zArrowGeometry, zArrowMaterial)
   zArrow.rotation.x = Math.PI / 2
-  zArrow.position.set(0, 0, axisLength + arrowLength / 2)
+  zArrow.position.set(0, 0, baseAxisLength + arrowLength / 2)
   zArrow.userData.isTransformable = false
+  zArrow.userData.baseLength = baseAxisLength
+  zArrow.userData.isAxis = true
   scene.add(zArrow)
 
   // 创建X轴标签
@@ -347,10 +410,12 @@ const initThreeJS = () => {
   xLabelCtx!.fillText('X', 32, 32)
   const xLabelTexture = new THREE.CanvasTexture(xLabelCanvas)
   const xLabelMaterial = new THREE.SpriteMaterial({ map: xLabelTexture })
-  const xLabelSprite = new THREE.Sprite(xLabelMaterial)
-  xLabelSprite.position.set(axisLength + arrowLength + 0.5, 0, 0)
+  xLabelSprite = new THREE.Sprite(xLabelMaterial)
+  xLabelSprite.position.set(baseAxisLength + arrowLength + 0.5, 0, 0)
   xLabelSprite.scale.set(0.8, 0.8, 0.8)
   xLabelSprite.userData.isTransformable = false
+  xLabelSprite.userData.baseLength = baseAxisLength
+  xLabelSprite.userData.isAxis = true
   scene.add(xLabelSprite)
 
   // 创建Y轴标签
@@ -365,10 +430,12 @@ const initThreeJS = () => {
   yLabelCtx!.fillText('Y', 32, 32)
   const yLabelTexture = new THREE.CanvasTexture(yLabelCanvas)
   const yLabelMaterial = new THREE.SpriteMaterial({ map: yLabelTexture })
-  const yLabelSprite = new THREE.Sprite(yLabelMaterial)
-  yLabelSprite.position.set(0, axisLength + arrowLength + 0.5, 0)
+  yLabelSprite = new THREE.Sprite(yLabelMaterial)
+  yLabelSprite.position.set(0, baseAxisLength + arrowLength + 0.5, 0)
   yLabelSprite.scale.set(0.8, 0.8, 0.8)
   yLabelSprite.userData.isTransformable = false
+  yLabelSprite.userData.baseLength = baseAxisLength
+  yLabelSprite.userData.isAxis = true
   scene.add(yLabelSprite)
 
   // 创建Z轴标签
@@ -383,10 +450,12 @@ const initThreeJS = () => {
   zLabelCtx!.fillText('Z', 32, 32)
   const zLabelTexture = new THREE.CanvasTexture(zLabelCanvas)
   const zLabelMaterial = new THREE.SpriteMaterial({ map: zLabelTexture })
-  const zLabelSprite = new THREE.Sprite(zLabelMaterial)
-  zLabelSprite.position.set(0, 0, axisLength + arrowLength + 0.5)
+  zLabelSprite = new THREE.Sprite(zLabelMaterial)
+  zLabelSprite.position.set(0, 0, baseAxisLength + arrowLength + 0.5)
   zLabelSprite.scale.set(0.8, 0.8, 0.8)
   zLabelSprite.userData.isTransformable = false
+  zLabelSprite.userData.baseLength = baseAxisLength
+  zLabelSprite.userData.isAxis = true
   scene.add(zLabelSprite)
 
   // 添加环境光
@@ -1375,9 +1444,51 @@ const formatVector = (vector: THREE.Vector3 | THREE.Euler) => {
 }
 
 // 动画循环
+const updateAxisSize = () => {
+  if (!camera || !xAxis || !yAxis || !zAxis || !ground) return
+
+  const distance = camera.position.distanceTo(new THREE.Vector3(0, 0, 0))
+  const baseAxisLength = 15
+  const minScale = 0.5
+  const maxScale = 10
+  const referenceDistance = 50
+
+  let scale = distance / referenceDistance
+  scale = Math.max(minScale, Math.min(maxScale, scale))
+
+  const currentAxisLength = baseAxisLength * scale
+  const arrowLength = 0.8 * scale
+  const arrowRadius = 0.03 * scale
+  const axisRadius = 0.01 * scale
+
+  xAxis.scale.set(scale, 1, 1)
+  xAxis.position.set(currentAxisLength / 2, 0, 0)
+  xArrow.scale.set(scale, scale, scale)
+  xArrow.position.set(currentAxisLength + arrowLength / 2, 0, 0)
+  xLabelSprite.position.set(currentAxisLength + arrowLength + 0.5 * scale, 0, 0)
+  xLabelSprite.scale.set(0.8 * scale, 0.8 * scale, 0.8 * scale)
+
+  yAxis.scale.set(1, scale, 1)
+  yAxis.position.set(0, currentAxisLength / 2, 0)
+  yArrow.scale.set(scale, scale, scale)
+  yArrow.position.set(0, currentAxisLength + arrowLength / 2, 0)
+  yLabelSprite.position.set(0, currentAxisLength + arrowLength + 0.5 * scale, 0)
+  yLabelSprite.scale.set(0.8 * scale, 0.8 * scale, 0.8 * scale)
+
+  zAxis.scale.set(1, 1, scale)
+  zAxis.position.set(0, 0, currentAxisLength / 2)
+  zArrow.scale.set(scale, scale, scale)
+  zArrow.position.set(0, 0, currentAxisLength + arrowLength / 2)
+  zLabelSprite.position.set(0, 0, currentAxisLength + arrowLength + 0.5 * scale)
+  zLabelSprite.scale.set(0.8 * scale, 0.8 * scale, 0.8 * scale)
+
+  ground.scale.set(scale, 1, scale)
+}
+
 const animate = () => {
   animationId = requestAnimationFrame(animate)
   controls.update()
+  updateAxisSize()
   renderer.render(scene, camera)
 }
 
@@ -1446,7 +1557,14 @@ const handleDxfDataReturn = (dxfData: string | undefined) => {
 
     // 使用RenderManager渲染DXF数据
     if (renderManager) {
-      renderManager.renderDxfData(parsedData)
+      // 强制启用Y轴居中，确保对象Y轴中心在原点
+      const centeringOptionsForImport = {
+        ...centeringOptions.value,
+        centerY: true
+      }
+      renderManager.setCenteringOptions(centeringOptionsForImport)
+      
+      const boundingBox = renderManager.renderDxfData(parsedData)
       // 重置DXF比例为1.0
       dxfScale.value = 1.0
       // 重置DXF翻转角度
@@ -1454,9 +1572,33 @@ const handleDxfDataReturn = (dxfData: string | undefined) => {
       dxfFlipY.value = 0
       dxfFlipZ.value = 0
       
-      // 隐藏原来的地面，上传的DXF作为新的地面信息
-      if (ground) {
-        ground.visible = false
+      // 自动调整相机位置以适应场景大小
+      if (boundingBox && camera && controls) {
+        const size = new THREE.Vector3()
+        boundingBox.getSize(size)
+        
+        // 计算场景的最大尺寸
+        const maxDimension = Math.max(size.x, size.y, size.z)
+        
+        // 计算合适的相机距离（基于场景大小）
+        const cameraDistance = maxDimension * 2
+        
+        // 更新相机的far参数以适应场景
+        camera.far = cameraDistance * 10
+        camera.updateProjectionMatrix()
+        
+        // 设置相机位置（从上方45度角观察）
+        camera.position.set(cameraDistance, cameraDistance, cameraDistance)
+        
+        // 设置控制器目标点为原点（所有对象已居中到原点）
+        controls.target.set(0, 0, 0)
+        
+        // 更新控制器
+        controls.update()
+        
+        console.log(`Camera adjusted for scene: distance=${cameraDistance}, far=${camera.far}`)
+        console.log(`Scene size: ${size.x} x ${size.y} x ${size.z}`)
+        console.log(`Objects centered at origin (0, 0, 0)`)
       }
       
       // 强制更新场景渲染
@@ -1507,6 +1649,8 @@ const applyDxfFlip = () => {
     renderManager.setFlipRotation(xRad, yRad, zRad)
     console.log(`Applied DXF flip: X=${dxfFlipX.value}°, Y=${dxfFlipY.value}°, Z=${dxfFlipZ.value}°`)
   }
+  
+  applyGLBRotation()
 }
 
 // 重置DXF翻转
@@ -1518,6 +1662,246 @@ const resetDxfFlip = () => {
     renderManager.setFlipRotation(0, 0, 0)
     console.log('Reset DXF flip to (0, 0, 0)')
   }
+  
+  resetGLBRotation()
+}
+
+// 应用GLB模型旋转（以原点为中心）
+const applyGLBRotation = () => {
+  const xRad = (dxfFlipX.value * Math.PI) / 180
+  const yRad = (dxfFlipY.value * Math.PI) / 180
+  const zRad = (dxfFlipZ.value * Math.PI) / 180
+  
+  const rotationDiff = {
+    x: xRad - glbRotation.x,
+    y: yRad - glbRotation.y,
+    z: zRad - glbRotation.z
+  }
+  
+  const glbObjects = objects.filter(obj => obj.userData.isGLB === true)
+  glbObjects.forEach(obj => {
+    obj.rotation.x += rotationDiff.x
+    obj.rotation.y += rotationDiff.y
+    obj.rotation.z += rotationDiff.z
+    
+    obj.position.applyAxisAngle(new THREE.Vector3(1, 0, 0), rotationDiff.x)
+    obj.position.applyAxisAngle(new THREE.Vector3(0, 1, 0), rotationDiff.y)
+    obj.position.applyAxisAngle(new THREE.Vector3(0, 0, 1), rotationDiff.z)
+  })
+  
+  glbRotation = { x: xRad, y: yRad, z: zRad }
+  console.log(`Applied GLB rotation: X=${dxfFlipX.value}°, Y=${dxfFlipY.value}°, Z=${dxfFlipZ.value}° around origin`)
+}
+
+// 重置GLB模型旋转
+const resetGLBRotation = () => {
+  const rotationDiff = {
+    x: 0 - glbRotation.x,
+    y: 0 - glbRotation.y,
+    z: 0 - glbRotation.z
+  }
+  
+  const glbObjects = objects.filter(obj => obj.userData.isGLB === true)
+  glbObjects.forEach(obj => {
+    obj.rotation.x += rotationDiff.x
+    obj.rotation.y += rotationDiff.y
+    obj.rotation.z += rotationDiff.z
+    
+    obj.position.applyAxisAngle(new THREE.Vector3(1, 0, 0), rotationDiff.x)
+    obj.position.applyAxisAngle(new THREE.Vector3(0, 1, 0), rotationDiff.y)
+    obj.position.applyAxisAngle(new THREE.Vector3(0, 0, 1), rotationDiff.z)
+  })
+  
+  glbRotation = { x: 0, y: 0, z: 0 }
+  console.log('Reset GLB rotation to (0, 0, 0)')
+}
+
+// 计算GLB模型的边界框
+const calculateGLBBoundingBox = () => {
+  glbBoundingBox.makeEmpty()
+  const glbObjects = objects.filter(obj => obj.userData.isGLB === true)
+  
+  if (glbObjects.length === 0) {
+    console.warn('没有找到GLB模型对象')
+    return false
+  }
+  
+  glbObjects.forEach(obj => {
+    glbBoundingBox.expandByObject(obj)
+  })
+  
+  return true
+}
+
+// 保存GLB模型的原始位置
+const saveGLBOriginalPositions = () => {
+  glbOriginalPositions.clear()
+  const glbObjects = objects.filter(obj => obj.userData.isGLB === true)
+  
+  glbObjects.forEach(obj => {
+    glbOriginalPositions.set(obj, obj.position.clone())
+  })
+  
+  console.log(`保存了 ${glbOriginalPositions.size} 个GLB对象的原始位置`)
+}
+
+// 应用GLB模型中心化
+const applyGLBCentering = () => {
+  if (!calculateGLBBoundingBox()) {
+    console.warn('无法计算GLB模型边界框')
+    return
+  }
+  
+  if (glbIsCentered) {
+    console.warn('GLB模型已经中心化')
+    return
+  }
+  
+  glbBoundingBox.getCenter(glbOriginalCenter)
+  console.log(`GLB模型原始中心: (${glbOriginalCenter.x.toFixed(2)}, ${glbOriginalCenter.y.toFixed(2)}, ${glbOriginalCenter.z.toFixed(2)})`)
+  
+  const offset = new THREE.Vector3(0, 0, 0)
+  if (centeringOptions.value.centerX) {
+    offset.x = -glbOriginalCenter.x
+  }
+  if (centeringOptions.value.centerY) {
+    offset.y = -glbOriginalCenter.y
+  }
+  if (centeringOptions.value.centerZ) {
+    offset.z = -glbOriginalCenter.z
+  }
+  
+  saveGLBOriginalPositions()
+  
+  const glbObjects = objects.filter(obj => obj.userData.isGLB === true)
+  glbObjects.forEach(obj => {
+    obj.position.add(offset)
+  })
+  
+  glbIsCentered = true
+  console.log(`GLB模型中心化完成，偏移量: (${offset.x.toFixed(2)}, ${offset.y.toFixed(2)}, ${offset.z.toFixed(2)})`)
+}
+
+// 重置GLB模型到原始位置
+const resetGLBToOriginalPosition = () => {
+  if (!glbIsCentered) {
+    console.warn('GLB模型未中心化，无需重置')
+    return
+  }
+  
+  glbOriginalPositions.forEach((originalPos, obj) => {
+    obj.position.copy(originalPos)
+  })
+  
+  glbIsCentered = false
+  console.log('GLB模型已重置到原始位置')
+}
+
+// 打印GLB模型转换信息
+const printGLBTransformInfo = () => {
+  if (!calculateGLBBoundingBox()) {
+    console.warn('无法计算GLB模型边界框')
+    return
+  }
+  
+  const currentCenter = new THREE.Vector3()
+  glbBoundingBox.getCenter(currentCenter)
+  
+  const size = new THREE.Vector3()
+  glbBoundingBox.getSize(size)
+  
+  console.log('========== GLB模型坐标转换信息 ==========')
+  console.log('原始中心:', `(${glbOriginalCenter.x.toFixed(2)}, ${glbOriginalCenter.y.toFixed(2)}, ${glbOriginalCenter.z.toFixed(2)})`)
+  console.log('当前中心:', `(${currentCenter.x.toFixed(2)}, ${currentCenter.y.toFixed(2)}, ${currentCenter.z.toFixed(2)})`)
+  console.log('边界框尺寸:', `(${size.x.toFixed(2)}, ${size.y.toFixed(2)}, ${size.z.toFixed(2)})`)
+  console.log('是否已中心化:', glbIsCentered)
+  console.log('中心化选项:', `X=${centeringOptions.value.centerX}, Y=${centeringOptions.value.centerY}, Z=${centeringOptions.value.centerZ}`)
+  console.log('=========================================')
+}
+
+// 验证GLB模型中心化
+const verifyGLBCentering = (): boolean => {
+  if (!calculateGLBBoundingBox()) {
+    console.warn('无法计算GLB模型边界框')
+    return false
+  }
+  
+  const currentCenter = new THREE.Vector3()
+  glbBoundingBox.getCenter(currentCenter)
+  
+  const tolerance = 0.001
+  const isXCentered = Math.abs(currentCenter.x) < tolerance
+  const isYCentered = Math.abs(currentCenter.y) < tolerance
+  const isZCentered = Math.abs(currentCenter.z) < tolerance
+  
+  const expectedXCentered = centeringOptions.value.centerX
+  const expectedYCentered = centeringOptions.value.centerY
+  const expectedZCentered = centeringOptions.value.centerZ
+  
+  const isValid = (isXCentered === expectedXCentered) && 
+                  (isYCentered === expectedYCentered) && 
+                  (isZCentered === expectedZCentered)
+  
+  console.log('========== GLB模型中心化验证 ==========')
+  console.log('当前中心:', `(${currentCenter.x.toFixed(6)}, ${currentCenter.y.toFixed(6)}, ${currentCenter.z.toFixed(6)})`)
+  console.log('X轴中心化:', isXCentered, '(期望:', expectedXCentered, ')')
+  console.log('Y轴中心化:', isYCentered, '(期望:', expectedYCentered, ')')
+  console.log('Z轴中心化:', isZCentered, '(期望:', expectedZCentered, ')')
+  console.log('验证结果:', isValid ? '通过' : '失败')
+  console.log('=====================================')
+  
+  return isValid
+}
+
+// 应用中心化（同时处理DXF和GLB）
+const applyCentering = () => {
+  if (renderManager) {
+    renderManager.setCenteringOptions(centeringOptions.value)
+    renderManager.applyCentering()
+    console.log('Applied DXF centering with options:', centeringOptions.value)
+  }
+  
+  applyGLBCentering()
+}
+
+// 重置到原始位置（同时处理DXF和GLB）
+const resetToOriginalPosition = () => {
+  if (renderManager) {
+    renderManager.resetToOriginalPosition()
+    console.log('Reset DXF to original position')
+  }
+  
+  resetGLBToOriginalPosition()
+}
+
+// 显示转换信息（同时处理DXF和GLB）
+const printTransformInfo = () => {
+  if (renderManager) {
+    renderManager.printTransformInfo()
+  }
+  
+  printGLBTransformInfo()
+}
+
+// 验证中心化（同时处理DXF和GLB）
+const verifyCentering = () => {
+  let dxfValid = true
+  let glbValid = true
+  
+  if (renderManager) {
+    dxfValid = renderManager.verifyCentering()
+  }
+  
+  glbValid = verifyGLBCentering()
+  
+  const isValid = dxfValid && glbValid
+  if (isValid) {
+    alert('中心化验证通过！')
+  } else {
+    alert('中心化验证失败！请查看控制台获取详细信息。')
+  }
+  
+  return isValid
 }
 
 // 从public文件夹加载GLB模型列表
@@ -1820,19 +2204,91 @@ body {
   background-color: #0b7dda;
 }
 
-.flip-reset-btn {
+.coordinate-transform-control {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px;
+  background-color: rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
+}
+
+.transform-label {
+  font-size: 14px;
+  font-weight: bold;
+  color: #333;
+  white-space: nowrap;
+}
+
+.transform-checkboxes {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.transform-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #333;
+  cursor: pointer;
+}
+
+.transform-checkbox input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.transform-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.transform-apply-btn,
+.transform-reset-btn,
+.transform-info-btn,
+.transform-verify-btn {
   padding: 6px 12px;
-  background-color: #f44336;
   color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
   transition: background-color 0.3s;
 }
 
-.flip-reset-btn:hover {
-  background-color: #d32f2f;
+.transform-apply-btn {
+  background-color: #4CAF50;
+}
+
+.transform-apply-btn:hover {
+  background-color: #45a049;
+}
+
+.transform-reset-btn {
+  background-color: #FF9800;
+}
+
+.transform-reset-btn:hover {
+  background-color: #F57C00;
+}
+
+.transform-info-btn {
+  background-color: #2196F3;
+}
+
+.transform-info-btn:hover {
+  background-color: #0b7dda;
+}
+
+.transform-verify-btn {
+  background-color: #9C27B0;
+}
+
+.transform-verify-btn:hover {
+  background-color: #7B1FA2;
 }
 
 .properties-panel {

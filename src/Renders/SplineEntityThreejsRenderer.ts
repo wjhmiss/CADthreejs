@@ -116,7 +116,7 @@ export interface SplineData {
 export class SplineEntityThreejsRenderer {
   private static readonly DEFAULT_LINE_WIDTH = 1.0;
   private static readonly DEFAULT_OPACITY = 1.0;
-  private static readonly DEFAULT_COLOR = '#FFFFFF';
+  private static readonly DEFAULT_COLOR = '#000000';
   private static readonly splineCache = new Map<string, THREE.Line>();
 
   public static render(splineData: SplineData, scene: THREE.Scene): THREE.Line | null {

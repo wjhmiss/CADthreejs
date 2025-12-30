@@ -85,7 +85,7 @@ export interface EllipseRenderResult {
 }
 
 export class EllipseEntityThreejsRenderer {
-  private static readonly DEFAULT_COLOR = new THREE.Color(0xffffff);
+  private static readonly DEFAULT_COLOR = new THREE.Color(0x000000);
   private static readonly DEFAULT_SEGMENTS = 64;
 
   public static render(ellipseData: EllipseData, scene: THREE.Scene): THREE.Object3D[] | null {

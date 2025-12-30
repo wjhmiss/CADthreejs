@@ -163,7 +163,7 @@ export class LeaderEntityThreejsRenderer {
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
 
     const material = new THREE.LineBasicMaterial({
-      color: leaderData.Color?.Hex || '#ffffff',
+      color: leaderData.Color?.Hex || '#000000',
       transparent: leaderData.Transparent || false,
       opacity: leaderData.Opacity || 1.0,
       depthTest: leaderData.DepthTest !== false,
@@ -197,7 +197,7 @@ export class LeaderEntityThreejsRenderer {
     geometry.setIndex([0, 1, 2]);
 
     const material = new THREE.MeshBasicMaterial({
-      color: leaderData.Color?.Hex || '#ffffff',
+      color: leaderData.Color?.Hex || '#000000',
       transparent: leaderData.Transparent || false,
       opacity: leaderData.Opacity || 1.0,
       side: THREE.DoubleSide,
@@ -229,7 +229,7 @@ export class LeaderEntityThreejsRenderer {
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
 
     const material = new THREE.LineBasicMaterial({
-      color: leaderData.Color?.Hex || '#ffffff',
+      color: leaderData.Color?.Hex || '#000000',
       transparent: leaderData.Transparent || false,
       opacity: leaderData.Opacity || 1.0,
       depthTest: leaderData.DepthTest !== false,

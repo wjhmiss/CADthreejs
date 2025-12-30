@@ -106,7 +106,7 @@ export interface MeshData {
 }
 
 export class MeshEntityThreejsRenderer {
-  private static readonly DEFAULT_COLOR = '#ffffff';
+  private static readonly DEFAULT_COLOR = '#000000';
   private static readonly DEFAULT_OPACITY = 1.0;
   private static readonly DEFAULT_MATERIAL = 'MeshStandardMaterial';
 

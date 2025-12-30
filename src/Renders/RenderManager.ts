@@ -64,24 +64,51 @@ export interface DxfParseData {
   DimensionAlignedDatas?: any[];
 }
 
+export interface CenteringOptions {
+  centerX: boolean;
+  centerY: boolean;
+  centerZ: boolean;
+  applyTransform: boolean;
+}
+
+export interface TransformInfo {
+  originalCenter: THREE.Vector3;
+  originalSize: THREE.Vector3;
+  newCenter: THREE.Vector3;
+  newOffset: THREE.Vector3;
+  appliedOffset: THREE.Vector3;
+  isCentered: boolean;
+}
+
 export class RenderManager {
   private scene: THREE.Scene;
   private renderedObjects: Map<string, THREE.Object3D[]> = new Map();
   private entityCount: number = 0;
   private boundingBox: THREE.Box3;
+  private originalBoundingBox: THREE.Box3;
   private scale: number = 1;
   private rotation: { x: number; y: number; z: number } = { x: 0, y: 0, z: 0 };
   private centerOffset: THREE.Vector3 = new THREE.Vector3(0, 0, 0);
+  private isCentered: boolean = false;
+  private centeringOptions: CenteringOptions = {
+    centerX: true,
+    centerY: true,
+    centerZ: true,
+    applyTransform: true
+  };
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
     this.boundingBox = new THREE.Box3();
+    this.originalBoundingBox = new THREE.Box3();
   }
 
   public renderDxfData(dxfData: DxfParseData): void {
     console.log('RenderManager.renderDxfData called with:', dxfData);
     this.clearAll();
     this.boundingBox.makeEmpty();
+    this.originalBoundingBox.makeEmpty();
+    this.isCentered = false;
 
     if (dxfData.LineDatas && dxfData.LineDatas.length > 0) {
       this.renderEntities(dxfData.LineDatas, 'Line', LineEntityThreejsRenderer);
@@ -221,7 +248,15 @@ export class RenderManager {
 
     console.log(`RenderManager: Total entities rendered: ${this.entityCount}`);
     console.log(`RenderManager: Total rendered objects: ${this.renderedObjects.size}`);
-    this.centerRenderedObjects();
+    
+    this.originalBoundingBox.copy(this.boundingBox);
+    console.log('RenderManager: Original bounding box:', this.originalBoundingBox);
+    
+    if (this.centeringOptions.applyTransform) {
+      this.centerRenderedObjects();
+    }
+    
+    return this.getBoundingBox();
   }
 
   private renderEntities<T>(
@@ -298,7 +333,37 @@ export class RenderManager {
     this.centerOffset.set(0, 0, 0);
     this.scale = 1;
     this.rotation = { x: 0, y: 0, z: 0 };
+    
+    this.clearTransformableObjects();
     console.log('RenderManager: All entities cleared');
+  }
+
+  private clearTransformableObjects(): void {
+    const objectsToRemove: THREE.Object3D[] = [];
+    
+    this.scene.traverse((obj) => {
+      if (obj.userData && obj.userData.isTransformable === true) {
+        objectsToRemove.push(obj);
+      }
+    });
+    
+    objectsToRemove.forEach((obj) => {
+      this.scene.remove(obj);
+      if (obj instanceof THREE.Mesh || obj instanceof THREE.Line) {
+        if (obj.geometry) {
+          obj.geometry.dispose();
+        }
+        if (obj.material) {
+          if (Array.isArray(obj.material)) {
+            obj.material.forEach(material => material.dispose());
+          } else {
+            obj.material.dispose();
+          }
+        }
+      }
+    });
+    
+    console.log(`RenderManager: Cleared ${objectsToRemove.length} transformable objects`);
   }
 
   public getRenderedObjects(): Map<string, THREE.Object3D[]> {
@@ -323,21 +388,41 @@ export class RenderManager {
 
   private centerRenderedObjects(): void {
     if (this.entityCount === 0) {
+      console.warn('RenderManager: No entities to center');
       return;
     }
 
     const center = new THREE.Vector3();
     this.boundingBox.getCenter(center);
 
-    this.centerOffset.set(-center.x, 0, -center.z);
+    console.log(`RenderManager: Original center: (${center.x.toFixed(2)}, ${center.y.toFixed(2)}, ${center.z.toFixed(2)})`);
+
+    const offset = new THREE.Vector3(0, 0, 0);
+    if (this.centeringOptions.centerX) {
+      offset.x = -center.x;
+    }
+    if (this.centeringOptions.centerY) {
+      offset.y = -center.y;
+    }
+    if (this.centeringOptions.centerZ) {
+      offset.z = -center.z;
+    }
+
+    this.centerOffset.copy(offset);
 
     this.renderedObjects.forEach((objects) => {
       objects.forEach((obj) => {
-        obj.position.add(this.centerOffset);
+        obj.position.add(offset);
       });
     });
 
-    console.log(`RenderManager: Objects centered at (${this.centerOffset.x}, ${this.centerOffset.y}, ${this.centerOffset.z})`);
+    this.isCentered = true;
+
+    this.boundingBox.translate(offset);
+
+    console.log(`RenderManager: Objects centered with offset: (${offset.x.toFixed(2)}, ${offset.y.toFixed(2)}, ${offset.z.toFixed(2)})`);
+    console.log(`RenderManager: New bounding box center: (${this.boundingBox.getCenter(new THREE.Vector3()).x.toFixed(2)}, ${this.boundingBox.getCenter(new THREE.Vector3()).y.toFixed(2)}, ${this.boundingBox.getCenter(new THREE.Vector3()).z.toFixed(2)})`);
+    console.log(`RenderManager: Centering options: X=${this.centeringOptions.centerX}, Y=${this.centeringOptions.centerY}, Z=${this.centeringOptions.centerZ}`);
   }
 
   public setScale(scale: number): void {
@@ -347,13 +432,16 @@ export class RenderManager {
     }
 
     const scaleRatio = scale / this.scale;
+
     this.renderedObjects.forEach((objects) => {
       objects.forEach((obj) => {
         obj.scale.multiplyScalar(scaleRatio);
+        obj.position.multiplyScalar(scaleRatio);
       });
     });
+
     this.scale = scale;
-    console.log(`RenderManager: Objects scaled to ${scale}`);
+    console.log(`RenderManager: Objects scaled to ${scale} around scene center`);
   }
 
   public getCurrentScale(): number {
@@ -420,13 +508,19 @@ export class RenderManager {
     };
     this.renderedObjects.forEach((objects) => {
       objects.forEach((obj) => {
+        const originalPosition = obj.position.clone();
+        
         obj.rotation.x += rotationDiff.x;
         obj.rotation.y += rotationDiff.y;
         obj.rotation.z += rotationDiff.z;
+        
+        obj.position.applyAxisAngle(new THREE.Vector3(1, 0, 0), rotationDiff.x);
+        obj.position.applyAxisAngle(new THREE.Vector3(0, 1, 0), rotationDiff.y);
+        obj.position.applyAxisAngle(new THREE.Vector3(0, 0, 1), rotationDiff.z);
       });
     });
     this.rotation = { x, y, z };
-    console.log(`RenderManager: Objects rotation set to (${x}, ${y}, ${z})`);
+    console.log(`RenderManager: Objects rotation set to (${x}, ${y}, ${z}) around origin`);
   }
 
   public getFlipRotation(): { x: number; y: number; z: number } {
@@ -435,5 +529,126 @@ export class RenderManager {
 
   public dispose(): void {
     this.clearAll();
+  }
+
+  public getBoundingBox(): THREE.Box3 {
+    return this.boundingBox.clone();
+  }
+
+  public getOriginalBoundingBox(): THREE.Box3 {
+    return this.originalBoundingBox.clone();
+  }
+
+  public getCenterOffset(): THREE.Vector3 {
+    return this.centerOffset.clone();
+  }
+
+  public isObjectCentered(): boolean {
+    return this.isCentered;
+  }
+
+  public setCenteringOptions(options: Partial<CenteringOptions>): void {
+    this.centeringOptions = { ...this.centeringOptions, ...options };
+    console.log('RenderManager: Centering options updated:', this.centeringOptions);
+  }
+
+  public getCenteringOptions(): CenteringOptions {
+    return { ...this.centeringOptions };
+  }
+
+  public getTransformInfo(): TransformInfo {
+    const originalCenter = new THREE.Vector3();
+    const originalSize = new THREE.Vector3();
+    const newCenter = new THREE.Vector3();
+
+    this.originalBoundingBox.getCenter(originalCenter);
+    this.originalBoundingBox.getSize(originalSize);
+    this.boundingBox.getCenter(newCenter);
+
+    return {
+      originalCenter: originalCenter.clone(),
+      originalSize: originalSize.clone(),
+      newCenter: newCenter.clone(),
+      newOffset: new THREE.Vector3(
+        this.centeringOptions.centerX ? -originalCenter.x : 0,
+        this.centeringOptions.centerY ? -originalCenter.y : 0,
+        this.centeringOptions.centerZ ? -originalCenter.z : 0
+      ),
+      appliedOffset: this.centerOffset.clone(),
+      isCentered: this.isCentered
+    };
+  }
+
+  public printTransformInfo(): void {
+    const info = this.getTransformInfo();
+    console.log('========== 坐标转换信息 ==========');
+    console.log('原始边界框中心:', `(${info.originalCenter.x.toFixed(2)}, ${info.originalCenter.y.toFixed(2)}, ${info.originalCenter.z.toFixed(2)})`);
+    console.log('原始边界框尺寸:', `(${info.originalSize.x.toFixed(2)}, ${info.originalSize.y.toFixed(2)}, ${info.originalSize.z.toFixed(2)})`);
+    console.log('新边界框中心:', `(${info.newCenter.x.toFixed(2)}, ${info.newCenter.y.toFixed(2)}, ${info.newCenter.z.toFixed(2)})`);
+    console.log('计算偏移量:', `(${info.newOffset.x.toFixed(2)}, ${info.newOffset.y.toFixed(2)}, ${info.newOffset.z.toFixed(2)})`);
+    console.log('应用偏移量:', `(${info.appliedOffset.x.toFixed(2)}, ${info.appliedOffset.y.toFixed(2)}, ${info.appliedOffset.z.toFixed(2)})`);
+    console.log('是否已中心化:', info.isCentered);
+    console.log('中心化选项:', `X=${this.centeringOptions.centerX}, Y=${this.centeringOptions.centerY}, Z=${this.centeringOptions.centerZ}`);
+    console.log('==================================');
+  }
+
+  public resetToOriginalPosition(): void {
+    if (!this.isCentered) {
+      console.warn('RenderManager: Objects are not centered, no reset needed');
+      return;
+    }
+
+    const reverseOffset = this.centerOffset.clone().negate();
+
+    this.renderedObjects.forEach((objects) => {
+      objects.forEach((obj) => {
+        obj.position.add(reverseOffset);
+      });
+    });
+
+    this.isCentered = false;
+    console.log(`RenderManager: Objects reset to original position with offset: (${reverseOffset.x.toFixed(2)}, ${reverseOffset.y.toFixed(2)}, ${reverseOffset.z.toFixed(2)})`);
+  }
+
+  public applyCentering(): void {
+    if (this.isCentered) {
+      console.warn('RenderManager: Objects are already centered');
+      return;
+    }
+
+    this.centerRenderedObjects();
+  }
+
+  public verifyCentering(): boolean {
+    if (this.entityCount === 0) {
+      console.warn('RenderManager: No entities to verify');
+      return false;
+    }
+
+    const currentCenter = new THREE.Vector3();
+    this.boundingBox.getCenter(currentCenter);
+
+    const tolerance = 0.001;
+    const isXCentered = Math.abs(currentCenter.x) < tolerance;
+    const isYCentered = Math.abs(currentCenter.y) < tolerance;
+    const isZCentered = Math.abs(currentCenter.z) < tolerance;
+
+    const expectedXCentered = this.centeringOptions.centerX;
+    const expectedYCentered = this.centeringOptions.centerY;
+    const expectedZCentered = this.centeringOptions.centerZ;
+
+    const isValid = (isXCentered === expectedXCentered) && 
+                    (isYCentered === expectedYCentered) && 
+                    (isZCentered === expectedZCentered);
+
+    console.log('========== 中心化验证 ==========');
+    console.log('当前中心:', `(${currentCenter.x.toFixed(6)}, ${currentCenter.y.toFixed(6)}, ${currentCenter.z.toFixed(6)})`);
+    console.log('X轴中心化:', isXCentered, '(期望:', expectedXCentered, ')');
+    console.log('Y轴中心化:', isYCentered, '(期望:', expectedYCentered, ')');
+    console.log('Z轴中心化:', isZCentered, '(期望:', expectedZCentered, ')');
+    console.log('验证结果:', isValid ? '通过' : '失败');
+    console.log('===============================');
+
+    return isValid;
   }
 }

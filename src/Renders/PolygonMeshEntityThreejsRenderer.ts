@@ -89,7 +89,7 @@ export interface PolygonMeshData {
 
 export class PolygonMeshEntityThreejsRenderer {
   private static readonly DEFAULT_OPACITY = 1.0;
-  private static readonly DEFAULT_COLOR = '#FFFFFF';
+  private static readonly DEFAULT_COLOR = '#000000';
   private static readonly meshCache = new Map<string, THREE.Mesh>();
   private static readonly edgeCache = new Map<string, THREE.LineSegments>();
 

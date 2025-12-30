@@ -98,7 +98,7 @@ export interface PointData {
 export class PointEntityThreejsRenderer {
   private static readonly DEFAULT_POINT_SIZE = 6.0;
   private static readonly DEFAULT_OPACITY = 1.0;
-  private static readonly DEFAULT_COLOR = '#FFFFFF';
+  private static readonly DEFAULT_COLOR = '#000000';
   private static readonly pointCache = new Map<string, THREE.Points>();
 
   public static render(pointData: PointData, scene: THREE.Scene): THREE.Points | null {

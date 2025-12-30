@@ -113,7 +113,7 @@ export interface PdfUnderlayData {
 }
 
 export class PdfUnderlayEntityThreejsRenderer {
-  private static readonly DEFAULT_COLOR = '#ffffff';
+  private static readonly DEFAULT_COLOR = '#000000';
   private static readonly DEFAULT_OPACITY = 1.0;
   private static readonly DEFAULT_CONTRAST = 50;
   private static readonly DEFAULT_FADE = 0;

@@ -78,7 +78,7 @@ export interface PolyfaceMeshData {
 
 export class PolyfaceMeshEntityThreejsRenderer {
   private static readonly DEFAULT_OPACITY = 1.0;
-  private static readonly DEFAULT_COLOR = '#FFFFFF';
+  private static readonly DEFAULT_COLOR = '#000000';
   private static readonly meshCache = new Map<string, THREE.Mesh>();
 
   public static render(polyfaceMeshData: PolyfaceMeshData, scene: THREE.Scene): THREE.Mesh | null {

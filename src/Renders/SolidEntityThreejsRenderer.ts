@@ -94,7 +94,7 @@ export interface SolidData {
 export class SolidEntityThreejsRenderer {
   private static readonly DEFAULT_THICKNESS = 0.0;
   private static readonly DEFAULT_OPACITY = 1.0;
-  private static readonly DEFAULT_COLOR = '#FFFFFF';
+  private static readonly DEFAULT_COLOR = '#000000';
 
   private static solidCache = new Map<string, THREE.Object3D[]>();
 

@@ -333,7 +333,7 @@ export interface DimensionRenderResult {
 }
 
 export class DimensionEntityThreejsRenderer {
-  private static readonly DEFAULT_COLOR = new THREE.Color(0xffffff);
+  private static readonly DEFAULT_COLOR = new THREE.Color(0x000000);
   private static readonly DEFAULT_LINE_WIDTH = 1;
   private static readonly DEFAULT_TEXT_HEIGHT = 1;
 

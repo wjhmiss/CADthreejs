@@ -138,7 +138,7 @@ export interface TextData {
 export class TextEntityThreejsRenderer {
   private static readonly DEFAULT_FONT_SIZE = 12.0;
   private static readonly DEFAULT_OPACITY = 1.0;
-  private static readonly DEFAULT_COLOR = '#FFFFFF';
+  private static readonly DEFAULT_COLOR = '#000000';
   private static readonly textCache = new Map<string, THREE.Mesh>();
 
   public static render(textData: TextData, scene: THREE.Scene): THREE.Object3D[] | null {
