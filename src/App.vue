@@ -19,6 +19,9 @@
     <button @click="exportScene">导出场景</button>
     <button @click="triggerImportInput">导入场景</button>
     <input type="file" ref="importInput" @change="handleImportScene" accept=".json" />
+    <button v-if="!isTopViewMode" @click="enterTopViewMode" class="top-view-btn">顶部视角</button>
+    <button v-if="isTopViewMode" @click="exitTopViewMode" class="exit-top-view-btn">退出顶部视角</button>
+    <button @click="toggleAxisHelper" class="axis-toggle-btn">{{ showAxisHelper ? '隐藏坐标轴' : '显示坐标轴' }}</button>
     <button v-if="transformControlsRef?.object" @click="handleExitEditMode" class="exit-edit-btn">退出编辑模式 (ESC)</button>
 
     <!-- DXF缩放控件 -->
@@ -157,6 +160,8 @@ import DxfUpload from './DxfUpload.vue'
 import { RenderManager } from './Renders/RenderManager'
 
 const showDxfUpload = ref(false)
+const isTopViewMode = ref(false)
+const showAxisHelper = ref(true)
 let renderManager: RenderManager | null = null
 
 // 响应式变量
@@ -203,6 +208,11 @@ const transformControlsRef = ref<TransformControls | null>(null)
 let raycaster: THREE.Raycaster
 let mouse: THREE.Vector2
 let animationId: number
+
+// 顶部视角相关变量
+let originalCameraPosition: THREE.Vector3
+let originalCameraTarget: THREE.Vector3
+let originalCameraZoom: number
 
 // XYZ辅助线变量
 let xAxis: THREE.Mesh
@@ -1951,6 +1961,140 @@ const handlePublicGLBSelection = () => {
   // 隐藏选择框
   publicGLBSelect.value.style.display = 'none'
 }
+
+// 进入顶部视角模式
+const enterTopViewMode = () => {
+  if (isTopViewMode.value) {
+    console.warn('已经在顶部视角模式中')
+    return
+  }
+
+  // 保存当前相机状态
+  originalCameraPosition = camera.position.clone()
+  originalCameraTarget = controls.target.clone()
+  originalCameraZoom = camera.zoom
+
+  // 计算场景中所有对象的边界框
+  const boundingBox = new THREE.Box3()
+  objects.forEach(obj => {
+    if (obj.userData.isTransformable !== false) {
+      boundingBox.expandByObject(obj)
+    }
+  })
+
+  // 如果没有对象，使用默认的边界框
+  if (boundingBox.isEmpty()) {
+    boundingBox.setFromCenterAndSize(new THREE.Vector3(0, 0, 0), new THREE.Vector3(10, 10, 10))
+  }
+
+  // 获取边界框的中心和尺寸
+  const center = new THREE.Vector3()
+  const size = new THREE.Vector3()
+  boundingBox.getCenter(center)
+  boundingBox.getSize(size)
+
+  // 计算相机位置（Y轴正上方）
+  const maxDimension = Math.max(size.x, size.y, size.z)
+  const cameraDistance = maxDimension * 1.5
+
+  // 设置相机到顶部视角位置
+  camera.position.set(center.x, center.y + cameraDistance, center.z)
+
+  // 重置相机的旋转和 up 向量，确保标准顶部视角
+  // 设置 up 向量为 (0, 0, 1)，使 Z 轴在屏幕上垂直，X 轴水平
+  camera.rotation.set(0, 0, 0)
+  camera.up.set(0, 0, 1)
+
+  // 设置相机朝向场景中心
+  camera.lookAt(center)
+
+  // 更新OrbitControls的目标点
+  controls.target.copy(center)
+
+  // 限制OrbitControls以保持顶部视角（禁用旋转，只允许平移）
+  controls.minPolarAngle = 0
+  controls.maxPolarAngle = 0
+  controls.enableRotate = false
+
+  // 允许平移但限制在水平面上
+  controls.enablePan = true
+
+  // 重新配置鼠标按键：左键用于平移，右键也用于平移
+  controls.mouseButtons = {
+    LEFT: THREE.MOUSE.PAN,
+    MIDDLE: THREE.MOUSE.DOLLY,
+    RIGHT: THREE.MOUSE.PAN
+  }
+
+  // 更新控制器
+  controls.update()
+
+  // 设置顶部视角模式标志
+  isTopViewMode.value = true
+
+  console.log('进入顶部视角模式')
+  console.log('场景中心:', center)
+  console.log('场景尺寸:', size)
+  console.log('相机位置:', camera.position)
+}
+
+// 退出顶部视角模式
+const exitTopViewMode = () => {
+  if (!isTopViewMode.value) {
+    console.warn('不在顶部视角模式中')
+    return
+  }
+
+  // 恢复之前的相机状态
+  camera.position.copy(originalCameraPosition)
+  controls.target.copy(originalCameraTarget)
+  camera.zoom = originalCameraZoom
+
+  // 恢复相机的 up 向量为默认值 (0, 1, 0)
+  camera.up.set(0, 1, 0)
+
+  // 恢复OrbitControls的默认设置
+  controls.minPolarAngle = 0
+  controls.maxPolarAngle = Math.PI
+  controls.enableRotate = true
+  controls.enablePan = true
+
+  // 恢复默认鼠标按键配置：左键旋转，中键缩放，右键平移
+  controls.mouseButtons = {
+    LEFT: THREE.MOUSE.ROTATE,
+    MIDDLE: THREE.MOUSE.DOLLY,
+    RIGHT: THREE.MOUSE.PAN
+  }
+
+  // 更新控制器
+  controls.update()
+
+  // 清除顶部视角模式标志
+  isTopViewMode.value = false
+
+  console.log('退出顶部视角模式')
+  console.log('相机位置已恢复:', camera.position)
+}
+
+// 切换XYZ辅助坐标轴的显示/隐藏
+const toggleAxisHelper = () => {
+  showAxisHelper.value = !showAxisHelper.value
+  
+  // 设置XYZ轴的可见性
+  xAxis.visible = showAxisHelper.value
+  xArrow.visible = showAxisHelper.value
+  xLabelSprite.visible = showAxisHelper.value
+  
+  yAxis.visible = showAxisHelper.value
+  yArrow.visible = showAxisHelper.value
+  yLabelSprite.visible = showAxisHelper.value
+  
+  zAxis.visible = showAxisHelper.value
+  zArrow.visible = showAxisHelper.value
+  zLabelSprite.visible = showAxisHelper.value
+  
+  console.log(showAxisHelper.value ? '显示XYZ辅助坐标轴' : '隐藏XYZ辅助坐标轴')
+}
 </script>
 
 <style>
@@ -2017,6 +2161,33 @@ body {
 
 .exit-edit-btn:hover {
   background-color: #d32f2f !important;
+}
+
+.top-view-btn {
+  background-color: #9C27B0 !important;
+  margin-top: 10px;
+}
+
+.top-view-btn:hover {
+  background-color: #7B1FA2 !important;
+}
+
+.exit-top-view-btn {
+  background-color: #FF9800 !important;
+  margin-top: 10px;
+}
+
+.exit-top-view-btn:hover {
+  background-color: #F57C00 !important;
+}
+
+.axis-toggle-btn {
+  background-color: #607D8B !important;
+  margin-top: 10px;
+}
+
+.axis-toggle-btn:hover {
+  background-color: #455A64 !important;
 }
 
 .edit-toolbar {
