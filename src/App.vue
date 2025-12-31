@@ -74,6 +74,20 @@
       </div>
     </div>
 
+    <!-- 地面颜色控件 -->
+    <div class="ground-color-control">
+      <span class="ground-color-label">地面颜色:</span>
+      <input type="color" v-model="groundColor" @input="updateGroundColor" class="ground-color-input" />
+      <span class="ground-color-value">{{ groundColor }}</span>
+    </div>
+
+    <!-- 地面透明度控件 -->
+    <div class="ground-opacity-control">
+      <span class="ground-opacity-label">地面透明度:</span>
+      <input type="range" v-model.number="groundOpacity" @input="updateGroundOpacity" min="0" max="1" step="0.1" class="ground-opacity-input" />
+      <span class="ground-opacity-value">{{ (groundOpacity * 100).toFixed(0) }}%</span>
+    </div>
+
     <!-- 编辑模式工具栏 -->
     <div v-if="transformControlsRef?.object" class="edit-toolbar">
       <h4>编辑模式</h4>
@@ -202,6 +216,9 @@ const dxfFlipX = ref(0)
 const dxfFlipY = ref(0)
 const dxfFlipZ = ref(0)
 
+const groundColor = ref('#000000')
+const groundOpacity = ref(1.0)
+
 // 坐标转换选项
 const centeringOptions = ref({
   centerX: true,
@@ -317,9 +334,11 @@ const initThreeJS = () => {
   // 创建地面
   const groundGeometry = new THREE.PlaneGeometry(10, 10)
   const groundMaterial = new THREE.MeshStandardMaterial({
-    color: 0x000000,
+    color: new THREE.Color(groundColor.value),
     roughness: 0.8,
-    metalness: 0.2
+    metalness: 0.2,
+    transparent: true,
+    opacity: groundOpacity.value
   })
   ground = new THREE.Mesh(groundGeometry, groundMaterial)
   ground.rotation.x = -Math.PI / 2
@@ -1672,6 +1691,22 @@ const resetDxfFlip = () => {
   }
   
   resetGLBRotation()
+}
+
+// 更新地面颜色
+const updateGroundColor = () => {
+  if (ground && ground.material) {
+    const material = ground.material as THREE.MeshStandardMaterial
+    material.color.set(groundColor.value)
+  }
+}
+
+// 更新地面透明度
+const updateGroundOpacity = () => {
+  if (ground && ground.material) {
+    const material = ground.material as THREE.MeshStandardMaterial
+    material.opacity = groundOpacity.value
+  }
 }
 
 // 应用GLB模型旋转（以原点为中心）

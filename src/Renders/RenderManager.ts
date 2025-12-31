@@ -8,7 +8,6 @@ import { Polyline2DEntityThreejsRenderer } from './Polyline2DEntityThreejsRender
 import { Polyline3DEntityThreejsRenderer } from './Polyline3DEntityThreejsRenderer';
 import { PointEntityThreejsRenderer } from './PointEntityThreejsRenderer';
 import { TextEntityThreejsRenderer } from './TextEntityThreejsRenderer';
-import { MTextEntityThreejsRenderer } from './MTextEntityThreejsRenderer';
 import { SolidEntityThreejsRenderer } from './SolidEntityThreejsRenderer';
 import { Face3DEntityThreejsRenderer } from './Face3DEntityThreejsRenderer';
 import { PolyfaceMeshEntityThreejsRenderer } from './PolyfaceMeshEntityThreejsRenderer';
@@ -24,7 +23,6 @@ import { MeshEntityThreejsRenderer } from './MeshEntityThreejsRenderer';
 import { MLineEntityThreejsRenderer } from './MLineEntityThreejsRenderer';
 import { LeaderEntityThreejsRenderer } from './LeaderEntityThreejsRenderer';
 import { HatchEntityThreejsRenderer } from './HatchEntityThreejsRenderer';
-import { InsertEntityThreejsRenderer } from './InsertEntityThreejsRenderer';
 import { DimensionEntityThreejsRenderer } from './DimensionEntityThreejsRenderer';
 
 export interface DxfParseData {
@@ -37,7 +35,6 @@ export interface DxfParseData {
   Polyline3DDatas?: any[];
   PointDatas?: any[];
   TextDatas?: any[];
-  MTextDatas?: any[];
   SolidDatas?: any[];
   Face3DDatas?: any[];
   PolyfaceMeshDatas?: any[];
@@ -53,7 +50,6 @@ export interface DxfParseData {
   MLineDatas?: any[];
   LeaderDatas?: any[];
   HatchDatas?: any[];
-  InsertDatas?: any[];
   DimensionDatas?: any[];
   DimensionLinearDatas?: any[];
   DimensionAngular3PtDatas?: any[];
@@ -146,10 +142,6 @@ export class RenderManager {
       this.renderEntities(dxfData.TextDatas, 'Text', TextEntityThreejsRenderer);
     }
 
-    if (dxfData.MTextDatas && dxfData.MTextDatas.length > 0) {
-      this.renderEntities(dxfData.MTextDatas, 'MText', MTextEntityThreejsRenderer);
-    }
-
     if (dxfData.SolidDatas && dxfData.SolidDatas.length > 0) {
       this.renderEntities(dxfData.SolidDatas, 'Solid', SolidEntityThreejsRenderer);
     }
@@ -208,10 +200,6 @@ export class RenderManager {
 
     if (dxfData.HatchDatas && dxfData.HatchDatas.length > 0) {
       this.renderEntities(dxfData.HatchDatas, 'Hatch', HatchEntityThreejsRenderer);
-    }
-
-    if (dxfData.InsertDatas && dxfData.InsertDatas.length > 0) {
-      this.renderEntities(dxfData.InsertDatas, 'Insert', InsertEntityThreejsRenderer);
     }
 
     if (dxfData.DimensionDatas && dxfData.DimensionDatas.length > 0) {

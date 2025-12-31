@@ -23,10 +23,8 @@ namespace DxfDwgViewer
         public List<MLineEntityRenderer.MLineData> MLineDatas { get; set; } = new List<MLineEntityRenderer.MLineData>();
         public List<RayEntityRenderer.RayData> RayDatas { get; set; } = new List<RayEntityRenderer.RayData>();
         public List<XLineEntityRenderer.XLineData> XLineDatas { get; set; } = new List<XLineEntityRenderer.XLineData>();
-        public List<InsertEntityRenderer.InsertData> InsertDatas { get; set; } = new List<InsertEntityRenderer.InsertData>();
         public List<RasterImageEntityRenderer.RasterImageData> RasterImageDatas { get; set; } = new List<RasterImageEntityRenderer.RasterImageData>();
         public List<MeshEntityRenderer.MeshData> MeshDatas { get; set; } = new List<MeshEntityRenderer.MeshData>();
-        public List<MTextEntityRenderer.MTextData> MTextDatas { get; set; } = new List<MTextEntityRenderer.MTextData>();
         public List<WipeoutEntityRenderer.WipeoutData> WipeoutDatas { get; set; } = new List<WipeoutEntityRenderer.WipeoutData>();
         public List<PolyfaceMeshEntityRenderer.PolyfaceMeshData> PolyfaceMeshDatas { get; set; } = new List<PolyfaceMeshEntityRenderer.PolyfaceMeshData>();
         public List<ShapeEntityRenderer.ShapeData> ShapeDatas { get; set; } = new List<ShapeEntityRenderer.ShapeData>();
@@ -129,11 +127,6 @@ namespace DxfDwgViewer
                         var data = XLineEntityRenderer.Render(xline);
                         cadData.XLineDatas.Add(data);
                     }
-                    else if (entity is Insert insert)
-                    {
-                        var data = InsertEntityRenderer.Render(insert);
-                        cadData.InsertDatas.Add(data);
-                    }
                     else if (entity is RasterImage rasterImage)
                     {
                         var data = RasterImageEntityRenderer.Render(rasterImage);
@@ -143,11 +136,6 @@ namespace DxfDwgViewer
                     {
                         var data = MeshEntityRenderer.Render(mesh);
                         cadData.MeshDatas.Add(data);
-                    }
-                    else if (entity is MText mtext)
-                    {
-                        var data = MTextEntityRenderer.Render(mtext);
-                        cadData.MTextDatas.Add(data);
                     }
                     else if (entity is Wipeout wipeout)
                     {
