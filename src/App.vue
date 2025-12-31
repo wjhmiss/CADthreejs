@@ -265,7 +265,7 @@ const initThreeJS = () => {
     0.1,
     10000
   )
-  camera.position.set(50, 50, 50)
+  camera.position.set(12, 12, 12)
 
   // 创建渲染器
   renderer = new THREE.WebGLRenderer({ antialias: true })
@@ -315,7 +315,7 @@ const initThreeJS = () => {
   scene.add(transformControls)
 
   // 创建地面
-  const groundGeometry = new THREE.PlaneGeometry(20, 20)
+  const groundGeometry = new THREE.PlaneGeometry(10, 10)
   const groundMaterial = new THREE.MeshStandardMaterial({
     color: 0xcccccc,
     roughness: 0.8,
@@ -329,7 +329,7 @@ const initThreeJS = () => {
   scene.add(ground)
 
   // 添加XYZ轴辅助线（带标签和箭头）
-  const baseAxisLength = 15
+  const baseAxisLength = 6
   const axisRadius = 0.01
   const arrowRadius = 0.03
   const arrowLength = 0.8
@@ -1448,10 +1448,10 @@ const updateAxisSize = () => {
   if (!camera || !xAxis || !yAxis || !zAxis || !ground) return
 
   const distance = camera.position.distanceTo(new THREE.Vector3(0, 0, 0))
-  const baseAxisLength = 15
+  const baseAxisLength = 6
   const minScale = 0.5
   const maxScale = 10
-  const referenceDistance = 50
+  const referenceDistance = 12
 
   let scale = distance / referenceDistance
   scale = Math.max(minScale, Math.min(maxScale, scale))
@@ -1481,8 +1481,30 @@ const updateAxisSize = () => {
   zArrow.position.set(0, 0, currentAxisLength + arrowLength / 2)
   zLabelSprite.position.set(0, 0, currentAxisLength + arrowLength + 0.5 * scale)
   zLabelSprite.scale.set(0.8 * scale, 0.8 * scale, 0.8 * scale)
+}
 
-  ground.scale.set(scale, 1, scale)
+const calculateAutoScaleForView = (camera: THREE.PerspectiveCamera, objectSize: THREE.Vector3): number => {
+  if (!camera) {
+    return 1.0
+  }
+
+  const maxDimension = Math.max(objectSize.x, objectSize.y, objectSize.z)
+  
+  if (maxDimension === 0) {
+    return 1.0
+  }
+
+  const fov = camera.fov * (Math.PI / 180)
+  const cameraDistance = camera.position.length()
+  
+  const visibleHeight = 2 * Math.tan(fov / 2) * cameraDistance
+  const visibleWidth = visibleHeight * camera.aspect
+  
+  const targetScale = Math.min(visibleWidth / objectSize.x, visibleHeight / objectSize.y) * 0.6
+  
+  const clampedScale = Math.max(0.1, Math.min(targetScale, 100))
+  
+  return clampedScale
 }
 
 const animate = () => {
@@ -1567,39 +1589,12 @@ const handleDxfDataReturn = (dxfData: string | undefined) => {
       const boundingBox = renderManager.renderDxfData(parsedData)
       // 重置DXF比例为1.0
       dxfScale.value = 1.0
-      // 重置DXF翻转角度
-      dxfFlipX.value = 0
+      // 设置默认翻转角度：X轴旋转90度
+      dxfFlipX.value = 90
       dxfFlipY.value = 0
       dxfFlipZ.value = 0
-      
-      // 自动调整相机位置以适应场景大小
-      if (boundingBox && camera && controls) {
-        const size = new THREE.Vector3()
-        boundingBox.getSize(size)
-        
-        // 计算场景的最大尺寸
-        const maxDimension = Math.max(size.x, size.y, size.z)
-        
-        // 计算合适的相机距离（基于场景大小）
-        const cameraDistance = maxDimension * 2
-        
-        // 更新相机的far参数以适应场景
-        camera.far = cameraDistance * 10
-        camera.updateProjectionMatrix()
-        
-        // 设置相机位置（从上方45度角观察）
-        camera.position.set(cameraDistance, cameraDistance, cameraDistance)
-        
-        // 设置控制器目标点为原点（所有对象已居中到原点）
-        controls.target.set(0, 0, 0)
-        
-        // 更新控制器
-        controls.update()
-        
-        console.log(`Camera adjusted for scene: distance=${cameraDistance}, far=${camera.far}`)
-        console.log(`Scene size: ${size.x} x ${size.y} x ${size.z}`)
-        console.log(`Objects centered at origin (0, 0, 0)`)
-      }
+      // 应用默认翻转
+      renderManager.setFlipRotation(Math.PI / 2, 0, 0)
       
       // 强制更新场景渲染
       console.log('Forcing scene update after DXF render')
