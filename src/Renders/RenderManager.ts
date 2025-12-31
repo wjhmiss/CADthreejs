@@ -441,7 +441,12 @@ export class RenderManager {
     });
 
     this.scale = scale;
+    
+    this.boundingBox.min.multiplyScalar(scaleRatio);
+    this.boundingBox.max.multiplyScalar(scaleRatio);
+    
     console.log(`RenderManager: Objects scaled to ${scale} around scene center`);
+    console.log(`RenderManager: Bounding box after scaling:`, this.boundingBox);
   }
 
   public getCurrentScale(): number {

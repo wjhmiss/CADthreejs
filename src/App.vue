@@ -317,7 +317,7 @@ const initThreeJS = () => {
   // 创建地面
   const groundGeometry = new THREE.PlaneGeometry(10, 10)
   const groundMaterial = new THREE.MeshStandardMaterial({
-    color: 0xcccccc,
+    color: 0x000000,
     roughness: 0.8,
     metalness: 0.2
   })
@@ -1494,15 +1494,12 @@ const calculateAutoScaleForView = (camera: THREE.PerspectiveCamera, objectSize: 
     return 1.0
   }
 
-  const fov = camera.fov * (Math.PI / 180)
-  const cameraDistance = camera.position.length()
+  const groundSize = 10
+  const targetScale = groundSize / maxDimension
   
-  const visibleHeight = 2 * Math.tan(fov / 2) * cameraDistance
-  const visibleWidth = visibleHeight * camera.aspect
+  const clampedScale = Math.max(0.001, Math.min(targetScale, 100))
   
-  const targetScale = Math.min(visibleWidth / objectSize.x, visibleHeight / objectSize.y) * 0.6
-  
-  const clampedScale = Math.max(0.1, Math.min(targetScale, 100))
+  console.log(`calculateAutoScaleForView: maxDimension=${maxDimension}, groundSize=${groundSize}, targetScale=${targetScale}, clampedScale=${clampedScale}`)
   
   return clampedScale
 }
@@ -1587,13 +1584,29 @@ const handleDxfDataReturn = (dxfData: string | undefined) => {
       renderManager.setCenteringOptions(centeringOptionsForImport)
       
       const boundingBox = renderManager.renderDxfData(parsedData)
-      // 重置DXF比例为1.0
-      dxfScale.value = 1.0
-      // 设置默认翻转角度：X轴旋转90度
+      console.log('Bounding box after render:', boundingBox)
+      
+      const size = new THREE.Vector3()
+      boundingBox.getSize(size)
+      console.log('Object size before scaling:', size)
+      
+      const autoScale = calculateAutoScaleForView(camera, size)
+      console.log('Auto scale calculated:', autoScale)
+      
+      if (autoScale !== 1.0) {
+        renderManager.setScale(autoScale)
+        dxfScale.value = autoScale
+        console.log(`Auto-scaled objects to ${autoScale.toFixed(4)} to fit in view`)
+        
+        const newBoundingBox = renderManager.getBoundingBox()
+        const newSize = new THREE.Vector3()
+        newBoundingBox.getSize(newSize)
+        console.log('Object size after scaling:', newSize)
+      }
+      
       dxfFlipX.value = 90
       dxfFlipY.value = 0
       dxfFlipZ.value = 0
-      // 应用默认翻转
       renderManager.setFlipRotation(Math.PI / 2, 0, 0)
       
       // 强制更新场景渲染
