@@ -24,6 +24,7 @@ import { MLineEntityThreejsRenderer } from './MLineEntityThreejsRenderer';
 import { LeaderEntityThreejsRenderer } from './LeaderEntityThreejsRenderer';
 import { HatchEntityThreejsRenderer } from './HatchEntityThreejsRenderer';
 import { DimensionEntityThreejsRenderer } from './DimensionEntityThreejsRenderer';
+import { InsertEntityThreejsRenderer } from './InsertEntityThreejsRenderer';
 
 export interface DxfParseData {
   LineDatas?: any[];
@@ -58,6 +59,7 @@ export interface DxfParseData {
   DimensionDiameterDatas?: any[];
   DimensionOrdinateDatas?: any[];
   DimensionAlignedDatas?: any[];
+  InsertDatas?: any[];
 }
 
 export interface CenteringOptions {
@@ -233,6 +235,10 @@ export class RenderManager {
 
     if (dxfData.DimensionAlignedDatas && dxfData.DimensionAlignedDatas.length > 0) {
       this.renderEntities(dxfData.DimensionAlignedDatas, 'DimensionAligned', DimensionEntityThreejsRenderer);
+    }
+
+    if (dxfData.InsertDatas && dxfData.InsertDatas.length > 0) {
+      this.renderEntities(dxfData.InsertDatas, 'Insert', InsertEntityThreejsRenderer);
     }
 
     console.log(`RenderManager: Total entities rendered: ${this.entityCount}`);
