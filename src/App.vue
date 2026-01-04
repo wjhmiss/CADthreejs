@@ -49,6 +49,20 @@
       </div>
     </div>
 
+    <!-- 场景颜色设置 -->
+    <div class="scene-color-control">
+      <div class="color-control-row">
+        <span class="color-label">背景:</span>
+        <input type="color" v-model="sceneBackgroundColor" @input="updateSceneBackgroundColor" class="color-input" />
+        <span class="color-value">{{ sceneBackgroundColor }}</span>
+      </div>
+      <div class="color-control-row">
+        <span class="color-label">DXF:</span>
+        <input type="color" v-model="dxfObjectColor" @input="updateDxfObjectColor" class="color-input" />
+        <span class="color-value">{{ dxfObjectColor }}</span>
+      </div>
+    </div>
+
     <!-- 编辑模式工具栏 -->
     <div v-if="transformControlsRef?.object" class="edit-toolbar">
       <h4>编辑模式</h4>
@@ -186,6 +200,10 @@ const centeringOptions = ref({
   applyTransform: true
 })
 
+// 场景背景颜色和DXF对象颜色
+const sceneBackgroundColor = ref('#000000')
+const dxfObjectColor = ref('#ffffff')
+
 // GLB模型坐标转换相关变量
 let glbBoundingBox: THREE.Box3 = new THREE.Box3()
 let glbOriginalCenter: THREE.Vector3 = new THREE.Vector3()
@@ -236,7 +254,7 @@ const initThreeJS = () => {
   
   // 创建场景
   scene = new THREE.Scene()
-  scene.background = new THREE.Color(0xffffff)
+  scene.background = new THREE.Color(sceneBackgroundColor.value)
 
   // 创建相机
   camera = new THREE.PerspectiveCamera(
@@ -1614,6 +1632,22 @@ const handleDxfFlipChange = () => {
   }
 }
 
+// 更新场景背景颜色
+const updateSceneBackgroundColor = () => {
+  if (scene) {
+    scene.background = new THREE.Color(sceneBackgroundColor.value)
+    console.log('Scene background color updated:', sceneBackgroundColor.value)
+  }
+}
+
+// 更新DXF对象颜色
+const updateDxfObjectColor = () => {
+  if (renderManager) {
+    renderManager.setDxfObjectColor(dxfObjectColor.value)
+    console.log('DXF object color updated:', dxfObjectColor.value)
+  }
+}
+
 // 应用DXF翻转
 const applyDxfFlip = () => {
   if (renderManager) {
@@ -2339,6 +2373,23 @@ body {
   background-color: #0b7dda;
 }
 
+.scene-color-control {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px;
+  background-color: rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
+}
+
+.scene-color-control .color-label {
+  font-size: 12px;
+  font-weight: bold;
+  color: #555;
+  min-width: 40px;
+}
+
 .coordinate-transform-control {
   display: flex;
   flex-direction: column;
@@ -2424,6 +2475,27 @@ body {
 
 .transform-verify-btn:hover {
   background-color: #7B1FA2;
+}
+
+.color-control-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 5px;
+}
+
+.color-input {
+  width: 50px;
+  height: 30px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.color-value {
+  font-size: 12px;
+  color: #666;
+  font-family: monospace;
 }
 
 .properties-panel {

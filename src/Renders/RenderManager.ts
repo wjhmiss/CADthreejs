@@ -92,6 +92,7 @@ export class RenderManager {
     centerZ: true,
     applyTransform: true
   };
+  private dxfObjectColor: string = '#ffffff';
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
@@ -243,6 +244,8 @@ export class RenderManager {
     if (this.centeringOptions.applyTransform) {
       this.centerRenderedObjects();
     }
+
+    this.setDxfObjectColor(this.dxfObjectColor);
     
     return this.getBoundingBox();
   }
@@ -643,5 +646,42 @@ export class RenderManager {
     console.log('===============================');
 
     return isValid;
+  }
+
+  public setDxfObjectColor(color: string): void {
+    this.dxfObjectColor = color;
+    console.log(`RenderManager: Setting DXF object color to ${color}`);
+
+    this.renderedObjects.forEach((objects) => {
+      objects.forEach((obj) => {
+        if (obj instanceof THREE.Line || obj instanceof THREE.Mesh) {
+          if (obj.material) {
+            if (Array.isArray(obj.material)) {
+              obj.material.forEach(material => {
+                if (material instanceof THREE.LineBasicMaterial || 
+                    material instanceof THREE.MeshBasicMaterial ||
+                    material instanceof THREE.MeshLambertMaterial ||
+                    material instanceof THREE.MeshPhongMaterial) {
+                  material.color.set(color);
+                }
+              });
+            } else {
+              if (obj.material instanceof THREE.LineBasicMaterial || 
+                  obj.material instanceof THREE.MeshBasicMaterial ||
+                  obj.material instanceof THREE.MeshLambertMaterial ||
+                  obj.material instanceof THREE.MeshPhongMaterial) {
+                obj.material.color.set(color);
+              }
+            }
+          }
+        }
+      });
+    });
+
+    console.log(`RenderManager: Updated color for ${this.entityCount} entities`);
+  }
+
+  public getDxfObjectColor(): string {
+    return this.dxfObjectColor;
   }
 }
