@@ -159,6 +159,23 @@
         <span v-else class="property-value">{{ selectedObject.scale.z.toFixed(2) }}</span>
       </div>
     </div>
+
+    <!-- 标签设置 -->
+    <div class="property-group">
+      <h4>标签设置</h4>
+      <div class="property-row">
+        <span class="property-label">大小:</span>
+        <input v-if="transformControlsRef?.object === selectedObject" type="number" step="1" min="8" max="48"
+          v-model.number="labelSize" @input="updateLabelSize" class="property-input" />
+        <span v-else class="property-value">{{ selectedObject.userData.labelSize || 16 }}px</span>
+      </div>
+      <div class="property-row">
+        <span class="property-label">颜色:</span>
+        <input v-if="transformControlsRef?.object === selectedObject" type="color" v-model="labelColor"
+          @input="updateLabelColor" class="property-color-input" />
+        <span v-else class="property-value">{{ selectedObject.userData.labelColor || '#ffffff' }}</span>
+      </div>
+    </div>
   </div>
 
   <div v-if="contextMenuVisible" class="context-menu"
@@ -1169,6 +1186,10 @@ const handleImportScene = (event: Event) => {
             }
 
             scene.add(placeholderMesh)
+            
+            // 创建标签
+            createLabel(placeholderMesh, placeholderMesh.name)
+            
             // 将占位符mesh对象添加到objects数组中
             objects.push(placeholderMesh)
           }
@@ -1524,6 +1545,8 @@ const updateObjectScale = () => {
 const updateObjectName = () => {
   if (selectedObject.value && transformControlsRef.value?.object === selectedObject.value) {
     selectedObject.value.name = objectName.value
+    // 更新标签
+    updateLabel(selectedObject.value)
   }
 }
 
@@ -1538,6 +1561,24 @@ const updateObjectColor = () => {
         material.forEach(mat => mat.color.set(objectColor.value))
       }
     }
+  }
+}
+
+// 更新标签大小
+const updateLabelSize = () => {
+  if (selectedObject.value && transformControlsRef.value?.object === selectedObject.value) {
+    selectedObject.value.userData.labelSize = labelSize.value
+    // 更新标签
+    updateLabel(selectedObject.value)
+  }
+}
+
+// 更新标签颜色
+const updateLabelColor = () => {
+  if (selectedObject.value && transformControlsRef.value?.object === selectedObject.value) {
+    selectedObject.value.userData.labelColor = labelColor.value
+    // 更新标签
+    updateLabel(selectedObject.value)
   }
 }
 
