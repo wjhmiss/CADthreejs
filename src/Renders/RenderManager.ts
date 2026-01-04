@@ -325,36 +325,7 @@ export class RenderManager {
     this.scale = 1;
     this.rotation = { x: 0, y: 0, z: 0 };
     
-    this.clearTransformableObjects();
     console.log('RenderManager: All entities cleared');
-  }
-
-  private clearTransformableObjects(): void {
-    const objectsToRemove: THREE.Object3D[] = [];
-    
-    this.scene.traverse((obj) => {
-      if (obj.userData && obj.userData.isTransformable === true) {
-        objectsToRemove.push(obj);
-      }
-    });
-    
-    objectsToRemove.forEach((obj) => {
-      this.scene.remove(obj);
-      if (obj instanceof THREE.Mesh || obj instanceof THREE.Line) {
-        if (obj.geometry) {
-          obj.geometry.dispose();
-        }
-        if (obj.material) {
-          if (Array.isArray(obj.material)) {
-            obj.material.forEach(material => material.dispose());
-          } else {
-            obj.material.dispose();
-          }
-        }
-      }
-    });
-    
-    console.log(`RenderManager: Cleared ${objectsToRemove.length} transformable objects`);
   }
 
   public getRenderedObjects(): Map<string, THREE.Object3D[]> {
