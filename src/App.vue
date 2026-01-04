@@ -22,6 +22,7 @@
     <button v-if="!isTopViewMode" @click="enterTopViewMode" class="top-view-btn">顶部视角</button>
     <button v-if="isTopViewMode" @click="exitTopViewMode" class="exit-top-view-btn">退出顶部视角</button>
     <button @click="toggleAxisHelper" class="axis-toggle-btn">{{ showAxisHelper ? '隐藏坐标轴' : '显示坐标轴' }}</button>
+    <button @click="handleGroundObjects" class="ground-btn">落地</button>
     <button v-if="transformControlsRef?.object" @click="handleExitEditMode" class="exit-edit-btn">退出编辑模式 (ESC)</button>
 
     <!-- DXF缩放控件 -->
@@ -2128,6 +2129,34 @@ const toggleAxisHelper = () => {
   zLabelSprite.visible = showAxisHelper.value
   
   console.log(showAxisHelper.value ? '显示XYZ辅助坐标轴' : '隐藏XYZ辅助坐标轴')
+}
+
+const handleGroundObjects = () => {
+  console.log('开始落地操作...')
+  
+  let groundedCount = 0
+  
+  objects.forEach((obj) => {
+    if (obj instanceof THREE.Mesh) {
+      const box = new THREE.Box3().setFromObject(obj)
+      const minY = box.min.y
+      const currentY = obj.position.y
+      
+      if (minY < 0) {
+        const yOffset = -minY
+        obj.position.y += yOffset
+        console.log(`${obj.name || '未命名物体'}: Y位置从 ${currentY.toFixed(2)} 调整到 ${obj.position.y.toFixed(2)}`)
+        groundedCount++
+      } else if (minY > 0) {
+        const yOffset = -minY
+        obj.position.y += yOffset
+        console.log(`${obj.name || '未命名物体'}: Y位置从 ${currentY.toFixed(2)} 调整到 ${obj.position.y.toFixed(2)}`)
+        groundedCount++
+      }
+    }
+  })
+  
+  console.log(`落地操作完成，共调整了 ${groundedCount} 个物体的位置`)
 }
 </script>
 
