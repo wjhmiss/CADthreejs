@@ -79,7 +79,16 @@
     <h3>物体属性</h3>
     <div class="property-item">
       <span class="property-label">名称:</span>
-      <span class="property-value">{{ selectedObject.name || '未命名' }}</span>
+      <input v-if="transformControlsRef?.object === selectedObject" type="text" v-model="objectName"
+        @input="updateObjectName" class="property-input-name" />
+      <span v-else class="property-value">{{ selectedObject.name || '未命名' }}</span>
+    </div>
+
+    <div class="property-item">
+      <span class="property-label">颜色:</span>
+      <input v-if="transformControlsRef?.object === selectedObject" type="color" v-model="objectColor"
+        @input="updateObjectColor" class="property-color-input" />
+      <span v-else class="property-value">{{ getObjectColorHex() }}</span>
     </div>
 
     <!-- 位置属性 -->
@@ -171,6 +180,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls'
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader'
+import { CSS2DRenderer, CSS2DObject } from 'three/examples/jsm/renderers/CSS2DRenderer'
 import DxfUpload from './DxfUpload.vue'
 import { RenderManager } from './Renders/RenderManager'
 
@@ -216,11 +226,18 @@ let glbRotation: { x: number; y: number; z: number } = { x: 0, y: 0, z: 0 }
 const position = ref({ x: 0, y: 0, z: 0 })
 const rotation = ref({ x: 0, y: 0, z: 0 })
 const scale = ref({ x: 1, y: 1, z: 1 })
+const objectName = ref('')
+const objectColor = ref('#ffffff')
+
+// 标签设置的响应式变量
+const labelSize = ref(16)
+const labelColor = ref('#ffffff')
 
 // Three.js 变量
 let scene: THREE.Scene
 let camera: THREE.PerspectiveCamera
 let renderer: THREE.WebGLRenderer
+let labelRenderer: CSS2DRenderer
 let controls: OrbitControls
 let transformControls: TransformControls
 const transformControlsRef = ref<TransformControls | null>(null)
@@ -273,6 +290,15 @@ const initThreeJS = () => {
   renderer.shadowMap.type = THREE.PCFSoftShadowMap
   canvasContainer.value.appendChild(renderer.domElement)
   console.log('Renderer domElement appended to canvasContainer')
+
+  // 创建CSS2D渲染器（用于标签）
+  labelRenderer = new CSS2DRenderer()
+  labelRenderer.setSize(window.innerWidth, window.innerHeight)
+  labelRenderer.domElement.style.position = 'absolute'
+  labelRenderer.domElement.style.top = '0'
+  labelRenderer.domElement.style.pointerEvents = 'none'
+  canvasContainer.value.appendChild(labelRenderer.domElement)
+  console.log('LabelRenderer domElement appended to canvasContainer')
 
   // 创建轨道控制器
   controls = new OrbitControls(camera, renderer.domElement)
@@ -481,6 +507,7 @@ const onWindowResize = () => {
   camera.aspect = window.innerWidth / window.innerHeight
   camera.updateProjectionMatrix()
   renderer.setSize(window.innerWidth, window.innerHeight)
+  labelRenderer.setSize(window.innerWidth, window.innerHeight)
 }
 
 // 鼠标点击事件
@@ -631,6 +658,15 @@ const selectObject = (object: THREE.Object3D) => {
     y: object.scale.y,
     z: object.scale.z
   }
+  // 更新对象名称
+  objectName.value = object.name || ''
+  // 更新对象颜色
+  if (object instanceof THREE.Mesh) {
+    const material = object.material
+    if (material instanceof THREE.Material && 'color' in material) {
+      objectColor.value = '#' + material.color.getHexString()
+    }
+  }
 
   // 不自动附加变换控制器，只选择对象但不进入编辑模式
   // 确保轨道控制器保持可用
@@ -664,6 +700,40 @@ const ensureExitEditMode = () => {
   if (transformControls.object) {
     exitEditMode()
     deselectObject()
+  }
+}
+
+// 创建标签函数
+const createLabel = (object: THREE.Object3D, text: string) => {
+  const div = document.createElement('div')
+  div.className = 'object-label'
+  div.textContent = text
+  div.style.color = object.userData.labelColor || '#ffffff'
+  div.style.fontSize = (object.userData.labelSize || 16) + 'px'
+  div.style.fontWeight = 'bold'
+  div.style.textShadow = '1px 1px 2px rgba(0,0,0,0.8)'
+  div.style.pointerEvents = 'none'
+  div.style.whiteSpace = 'nowrap'
+
+  const label = new CSS2DObject(div)
+  
+  // 计算标签位置（在对象上方）
+  const box = new THREE.Box3().setFromObject(object)
+  const height = box.max.y - box.min.y
+  label.position.set(0, height / 2 + 0.2, 0)
+  
+  object.add(label)
+  
+  return label
+}
+
+// 更新标签函数
+const updateLabel = (object: THREE.Object3D) => {
+  const label = object.children.find(child => child instanceof CSS2DObject)
+  if (label && label.element instanceof HTMLElement) {
+    label.element.textContent = object.name || '未命名'
+    label.element.style.color = object.userData.labelColor || '#ffffff'
+    label.element.style.fontSize = (object.userData.labelSize || 16) + 'px'
   }
 }
 
@@ -711,6 +781,9 @@ const addBasicShape = (shapeType: string) => {
   // 标记为可变换的对象
   mesh.userData.isTransformable = true
   scene.add(mesh)
+
+  // 创建标签
+  createLabel(mesh, mesh.name)
 
   // 将mesh对象添加到objects数组中
   objects.push(mesh)
@@ -1024,6 +1097,10 @@ const handleImportScene = (event: Event) => {
           mesh.userData.isTransformable = true
 
           scene.add(mesh)
+          
+          // 创建标签
+          createLabel(mesh, mesh.name)
+          
           // 将mesh对象添加到objects数组中
           objects.push(mesh)
         } else if (objData.type === 'gltf') {
@@ -1045,6 +1122,9 @@ const handleImportScene = (event: Event) => {
                   mesh.userData = { ...mesh.userData, ...objData.userData }
                   mesh.userData.isTransformable = true
                   mesh.userData.isGLB = true
+                  
+                  // 创建标签
+                  createLabel(mesh, mesh.name)
                   
                   // 将加载的GLB模型添加到objects数组中
                   objects.push(mesh)
@@ -1157,6 +1237,10 @@ const loadGLBFromPublic = (modelPath: string, fileName: string): Promise<THREE.O
 
             // 直接将mesh对象添加到场景中
             scene.add(mesh)
+            
+            // 创建标签
+            createLabel(mesh, mesh.name)
+            
             meshObjects.push(mesh)
 
             // 将mesh对象添加到objects数组中
@@ -1211,6 +1295,10 @@ const loadGLBToScene = (file: File) => {
 
           // 直接将mesh对象添加到场景中
           scene.add(mesh)
+          
+          // 创建标签
+          createLabel(mesh, mesh.name)
+          
           // 将mesh对象添加到objects数组中
           objects.push(mesh)
         }
@@ -1381,6 +1469,15 @@ const toggleTransformControls = () => {
     y: selectedObject.value.scale.y,
     z: selectedObject.value.scale.z
   }
+  // 更新对象名称
+  objectName.value = selectedObject.value.name || ''
+  // 更新对象颜色
+  if (selectedObject.value instanceof THREE.Mesh) {
+    const material = selectedObject.value.material
+    if (material instanceof THREE.Material && 'color' in material) {
+      objectColor.value = '#' + material.color.getHexString()
+    }
+  }
 }
 
 // 设置变换模式
@@ -1421,6 +1518,38 @@ const updateObjectScale = () => {
     // 触发变换控制器的更新
     transformControlsRef.value.updateMatrixWorld()
   }
+}
+
+// 更新对象名称
+const updateObjectName = () => {
+  if (selectedObject.value && transformControlsRef.value?.object === selectedObject.value) {
+    selectedObject.value.name = objectName.value
+  }
+}
+
+// 更新对象颜色
+const updateObjectColor = () => {
+  if (selectedObject.value && transformControlsRef.value?.object === selectedObject.value) {
+    if (selectedObject.value instanceof THREE.Mesh) {
+      const material = selectedObject.value.material
+      if (material instanceof THREE.Material) {
+        material.color.set(objectColor.value)
+      } else if (Array.isArray(material)) {
+        material.forEach(mat => mat.color.set(objectColor.value))
+      }
+    }
+  }
+}
+
+// 获取对象颜色的十六进制值
+const getObjectColorHex = (): string => {
+  if (selectedObject.value && selectedObject.value instanceof THREE.Mesh) {
+    const material = selectedObject.value.material
+    if (material instanceof THREE.Material && 'color' in material) {
+      return '#' + material.color.getHexString()
+    }
+  }
+  return '#ffffff'
 }
 
 // 格式化向量显示
@@ -1494,6 +1623,7 @@ const animate = () => {
   controls.update()
   updateAxisSize()
   renderer.render(scene, camera)
+  labelRenderer.render(scene, camera)
 }
 
 // 组件挂载时初始化
@@ -2587,6 +2717,29 @@ body {
   outline: none;
   border-color: #2196F3;
   box-shadow: 0 0 3px rgba(33, 150, 243, 0.3);
+}
+
+.property-input-name {
+  flex: 1;
+  padding: 3px 6px;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  font-size: 13px;
+}
+
+.property-input-name:focus {
+  outline: none;
+  border-color: #2196F3;
+  box-shadow: 0 0 3px rgba(33, 150, 243, 0.3);
+}
+
+.property-color-input {
+  width: 50px;
+  height: 30px;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  cursor: pointer;
+  padding: 0;
 }
 
 .property-label {
