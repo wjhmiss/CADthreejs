@@ -900,6 +900,22 @@ const addBasicShape = (shapeType: string) => {
   mesh.receiveShadow = true
   // 标记为可变换的对象
   mesh.userData.isTransformable = true
+  
+  // 应用保存的基础形状设置
+  const shapeSettings = JSON.parse(localStorage.getItem('shapeSettings') || '{}')
+  if (shapeSettings[mesh.name]) {
+    mesh.scale.set(
+      shapeSettings[mesh.name].scale.x,
+      shapeSettings[mesh.name].scale.y,
+      shapeSettings[mesh.name].scale.z
+    )
+    mesh.rotation.set(
+      shapeSettings[mesh.name].rotation.x,
+      shapeSettings[mesh.name].rotation.y,
+      shapeSettings[mesh.name].rotation.z
+    )
+  }
+  
   scene.add(mesh)
 
   // 创建标签
@@ -1400,6 +1416,21 @@ const loadGLBFromPublic = (modelPath: string, fileName: string): Promise<THREE.O
             // 保存public路径信息，以便导出时使用
             mesh.userData.publicPath = modelPath
 
+            // 应用保存的GLB模型设置
+            const glbSettings = JSON.parse(localStorage.getItem('glbSettings') || '{}')
+            if (glbSettings[fileName]) {
+              mesh.scale.set(
+                glbSettings[fileName].scale.x,
+                glbSettings[fileName].scale.y,
+                glbSettings[fileName].scale.z
+              )
+              mesh.rotation.set(
+                glbSettings[fileName].rotation.x,
+                glbSettings[fileName].rotation.y,
+                glbSettings[fileName].rotation.z
+              )
+            }
+
             // 直接将mesh对象添加到场景中
             scene.add(mesh)
             
@@ -1468,6 +1499,21 @@ const loadGLBToScene = (file: File) => {
           mesh.userData.originalFileName = file.name
           // 保存public路径信息，假设文件已保存到public文件夹
           mesh.userData.publicPath = `/${file.name}`
+
+          // 应用保存的GLB模型设置
+          const glbSettings = JSON.parse(localStorage.getItem('glbSettings') || '{}')
+          if (glbSettings[file.name]) {
+            mesh.scale.set(
+              glbSettings[file.name].scale.x,
+              glbSettings[file.name].scale.y,
+              glbSettings[file.name].scale.z
+            )
+            mesh.rotation.set(
+              glbSettings[file.name].rotation.x,
+              glbSettings[file.name].rotation.y,
+              glbSettings[file.name].rotation.z
+            )
+          }
 
           // 直接将mesh对象添加到场景中
           scene.add(mesh)
@@ -1620,6 +1666,43 @@ const exitEditMode = () => {
     // 在退出编辑模式前，对当前对象进行落地操作
     const currentObject = transformControls.object
     groundObject(currentObject)
+    
+    // 保存对象的缩放和旋转设置到 localStorage
+    if (currentObject.userData.isGLB) {
+      // 保存GLB模型的设置
+      const glbSettings = JSON.parse(localStorage.getItem('glbSettings') || '{}')
+      const fileName = currentObject.userData.originalFileName || 'unknown'
+      glbSettings[fileName] = {
+        scale: {
+          x: currentObject.scale.x,
+          y: currentObject.scale.y,
+          z: currentObject.scale.z
+        },
+        rotation: {
+          x: currentObject.rotation.x,
+          y: currentObject.rotation.y,
+          z: currentObject.rotation.z
+        }
+      }
+      localStorage.setItem('glbSettings', JSON.stringify(glbSettings))
+    } else {
+      // 保存基础形状的设置
+      const shapeSettings = JSON.parse(localStorage.getItem('shapeSettings') || '{}')
+      const shapeType = currentObject.name || 'unknown'
+      shapeSettings[shapeType] = {
+        scale: {
+          x: currentObject.scale.x,
+          y: currentObject.scale.y,
+          z: currentObject.scale.z
+        },
+        rotation: {
+          x: currentObject.rotation.x,
+          y: currentObject.rotation.y,
+          z: currentObject.rotation.z
+        }
+      }
+      localStorage.setItem('shapeSettings', JSON.stringify(shapeSettings))
+    }
     
     transformControls.detach()
     // 确保轨道控制器可用
