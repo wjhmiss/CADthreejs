@@ -899,6 +899,14 @@ const saveGLBToPublic = (file: File): Promise<string> => {
                 mesh.castShadow = true
                 mesh.receiveShadow = true
 
+                // 计算并调整模型几何中心到原点，使变换操作以几何中心为基准
+                mesh.geometry.computeBoundingBox()
+                const boundingBox = mesh.geometry.boundingBox
+                const center = new THREE.Vector3()
+                boundingBox.getCenter(center)
+                mesh.geometry.translate(-center.x, -center.y, -center.z)
+                mesh.position.set(0, 0, 0)
+
                 // 标记为可变换的对象
                 mesh.userData.isTransformable = true
                 // 标记为GLB模型的一部分
@@ -1247,6 +1255,14 @@ const loadGLBFromPublic = (modelPath: string, fileName: string): Promise<THREE.O
             mesh.castShadow = true
             mesh.receiveShadow = true
 
+            // 计算并调整模型几何中心到原点，使变换操作以几何中心为基准
+            mesh.geometry.computeBoundingBox()
+            const boundingBox = mesh.geometry.boundingBox
+            const center = new THREE.Vector3()
+            boundingBox.getCenter(center)
+            mesh.geometry.translate(-center.x, -center.y, -center.z)
+            mesh.position.set(0, 0, 0)
+
             // 标记为可变换的对象
             mesh.userData.isTransformable = true
             // 标记为GLB模型的一部分
@@ -1304,6 +1320,14 @@ const loadGLBToScene = (file: File) => {
           mesh.name = `${file.name.replace(/\.[^/.]+$/, "")}_${mesh.name || 'mesh'}`
           mesh.castShadow = true
           mesh.receiveShadow = true
+
+          // 计算并调整模型几何中心到原点，使变换操作以几何中心为基准
+          mesh.geometry.computeBoundingBox()
+          const boundingBox = mesh.geometry.boundingBox
+          const center = new THREE.Vector3()
+          boundingBox.getCenter(center)
+          mesh.geometry.translate(-center.x, -center.y, -center.z)
+          mesh.position.set(0, 0, 0)
 
           // 标记为可变换的对象
           mesh.userData.isTransformable = true
