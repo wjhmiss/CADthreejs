@@ -3,10 +3,18 @@
   <div v-show="!showDxfUpload">
     <div class="canvas-container" ref="canvasContainer"></div>
 
-    <div class="toolbar">
-      <h3>工具栏</h3>
-      <button @click="showDxfUpload = true" class="dxf-upload-btn">上传DXF文件</button>
-      <button @click="addBasicShape('cube')">添加方块</button>
+    <button class="toolbar-toggle-btn" @click="isToolbarCollapsed = !isToolbarCollapsed">
+      <span v-if="!isToolbarCollapsed">◀</span>
+      <span v-else>▶</span>
+    </button>
+
+    <div class="toolbar" v-show="!isToolbarCollapsed">
+      <div class="toolbar-header">
+        <h3>工具栏</h3>
+      </div>
+      <div class="toolbar-content">
+        <button @click="showDxfUpload = true" class="dxf-upload-btn">上传DXF文件</button>
+        <button @click="addBasicShape('cube')">添加方块</button>
     <button @click="addBasicShape('sphere')">添加球体</button>
     <button @click="addBasicShape('cylinder')">添加圆柱</button>
     <button @click="addBasicShape('torus')">添加环</button>
@@ -68,11 +76,12 @@
     <div v-if="transformControlsRef?.object" class="edit-toolbar">
       <h4>编辑模式</h4>
       <div class="transform-buttons">
-        <button @click="setTransformMode('translate')" :class="{ active: transformMode === 'translate' }">移动</button>
-        <button @click="setTransformMode('rotate')" :class="{ active: transformMode === 'rotate' }">旋转</button>
-        <button @click="setTransformMode('scale')" :class="{ active: transformMode === 'scale' }">缩放</button>
+        <button @click.stop="setTransformMode('translate')" :class="{ active: transformMode === 'translate' }">移动</button>
+        <button @click.stop="setTransformMode('rotate')" :class="{ active: transformMode === 'rotate' }">旋转</button>
+        <button @click.stop="setTransformMode('scale')" :class="{ active: transformMode === 'scale' }">缩放</button>
       </div>
     </div>
+      </div>
   </div>
 
   <div v-if="selectedObject" class="properties-panel">
@@ -80,14 +89,14 @@
     <div class="property-item">
       <span class="property-label">名称:</span>
       <input v-if="transformControlsRef?.object === selectedObject" type="text" v-model="objectName"
-        @input="updateObjectName" class="property-input-name" />
+        @input="updateObjectName" @click.stop class="property-input-name" />
       <span v-else class="property-value">{{ selectedObject.name || '未命名' }}</span>
     </div>
 
     <div class="property-item">
       <span class="property-label">颜色:</span>
       <input v-if="transformControlsRef?.object === selectedObject" type="color" v-model="objectColor"
-        @input="updateObjectColor" class="property-color-input" />
+        @input="updateObjectColor" @click.stop class="property-color-input" />
       <span v-else class="property-value">{{ getObjectColorHex() }}</span>
     </div>
 
@@ -97,19 +106,19 @@
       <div class="property-row">
         <span class="axis-label">X:</span>
         <input v-if="transformControlsRef?.object === selectedObject" type="number" step="0.1"
-          v-model.number="position.x" @input="updateObjectPosition" class="property-input" />
+          v-model.number="position.x" @input="updateObjectPosition" @click.stop class="property-input" />
         <span v-else class="property-value">{{ selectedObject.position.x.toFixed(2) }}</span>
       </div>
       <div class="property-row">
         <span class="axis-label">Y:</span>
         <input v-if="transformControlsRef?.object === selectedObject" type="number" step="0.1"
-          v-model.number="position.y" @input="updateObjectPosition" class="property-input" />
+          v-model.number="position.y" @input="updateObjectPosition" @click.stop class="property-input" />
         <span v-else class="property-value">{{ selectedObject.position.y.toFixed(2) }}</span>
       </div>
       <div class="property-row">
         <span class="axis-label">Z:</span>
         <input v-if="transformControlsRef?.object === selectedObject" type="number" step="0.1"
-          v-model.number="position.z" @input="updateObjectPosition" class="property-input" />
+          v-model.number="position.z" @input="updateObjectPosition" @click.stop class="property-input" />
         <span v-else class="property-value">{{ selectedObject.position.z.toFixed(2) }}</span>
       </div>
     </div>
@@ -120,19 +129,19 @@
       <div class="property-row">
         <span class="axis-label">X:</span>
         <input v-if="transformControlsRef?.object === selectedObject" type="number" step="1" v-model.number="rotation.x"
-          @input="updateObjectRotation" class="property-input" />
+          @input="updateObjectRotation" @click.stop class="property-input" />
         <span v-else class="property-value">{{ (selectedObject.rotation.x * 180 / Math.PI).toFixed(2) }}</span>
       </div>
       <div class="property-row">
         <span class="axis-label">Y:</span>
         <input v-if="transformControlsRef?.object === selectedObject" type="number" step="1" v-model.number="rotation.y"
-          @input="updateObjectRotation" class="property-input" />
+          @input="updateObjectRotation" @click.stop class="property-input" />
         <span v-else class="property-value">{{ (selectedObject.rotation.y * 180 / Math.PI).toFixed(2) }}</span>
       </div>
       <div class="property-row">
         <span class="axis-label">Z:</span>
         <input v-if="transformControlsRef?.object === selectedObject" type="number" step="1" v-model.number="rotation.z"
-          @input="updateObjectRotation" class="property-input" />
+          @input="updateObjectRotation" @click.stop class="property-input" />
         <span v-else class="property-value">{{ (selectedObject.rotation.z * 180 / Math.PI).toFixed(2) }}</span>
       </div>
     </div>
@@ -143,19 +152,19 @@
       <div class="property-row">
         <span class="axis-label">X:</span>
         <input v-if="transformControlsRef?.object === selectedObject" type="number" step="0.1" v-model.number="scale.x"
-          @input="updateObjectScale" class="property-input" />
+          @input="updateObjectScale" @click.stop class="property-input" />
         <span v-else class="property-value">{{ selectedObject.scale.x.toFixed(2) }}</span>
       </div>
       <div class="property-row">
         <span class="axis-label">Y:</span>
         <input v-if="transformControlsRef?.object === selectedObject" type="number" step="0.1" v-model.number="scale.y"
-          @input="updateObjectScale" class="property-input" />
+          @input="updateObjectScale" @click.stop class="property-input" />
         <span v-else class="property-value">{{ selectedObject.scale.y.toFixed(2) }}</span>
       </div>
       <div class="property-row">
         <span class="axis-label">Z:</span>
         <input v-if="transformControlsRef?.object === selectedObject" type="number" step="0.1" v-model.number="scale.z"
-          @input="updateObjectScale" class="property-input" />
+          @input="updateObjectScale" @click.stop class="property-input" />
         <span v-else class="property-value">{{ selectedObject.scale.z.toFixed(2) }}</span>
       </div>
     </div>
@@ -166,13 +175,13 @@
       <div class="property-row">
         <span class="property-label">大小:</span>
         <input v-if="transformControlsRef?.object === selectedObject" type="number" step="1" min="8" max="48"
-          v-model.number="labelSize" @input="updateLabelSize" class="property-input" />
+          v-model.number="labelSize" @input="updateLabelSize" @click.stop class="property-input" />
         <span v-else class="property-value">{{ selectedObject.userData.labelSize || 16 }}px</span>
       </div>
       <div class="property-row">
         <span class="property-label">颜色:</span>
         <input v-if="transformControlsRef?.object === selectedObject" type="color" v-model="labelColor"
-          @input="updateLabelColor" class="property-color-input" />
+          @input="updateLabelColor" @click.stop class="property-color-input" />
         <span v-else class="property-value">{{ selectedObject.userData.labelColor || '#ffffff' }}</span>
       </div>
     </div>
@@ -183,13 +192,13 @@
       <div class="property-row">
         <span class="property-label">颜色:</span>
         <input v-if="transformControlsRef?.object === selectedObject" type="color" v-model="emissiveColor"
-          @input="updateEmissiveColor" class="property-color-input" />
+          @input="updateEmissiveColor" @click.stop class="property-color-input" />
         <span v-else class="property-value">{{ getEmissiveColorHex() }}</span>
       </div>
       <div class="property-row">
         <span class="property-label">强度:</span>
         <input v-if="transformControlsRef?.object === selectedObject" type="number" step="0.1" min="0" max="2"
-          v-model.number="emissiveIntensity" @input="updateEmissiveIntensity" class="property-input" />
+          v-model.number="emissiveIntensity" @input="updateEmissiveIntensity" @click.stop class="property-input" />
         <span v-else class="property-value">{{ getEmissiveIntensity() }}</span>
       </div>
     </div>
@@ -224,6 +233,7 @@ import { RenderManager } from './Renders/RenderManager'
 const showDxfUpload = ref(false)
 const isTopViewMode = ref(false)
 const showAxisHelper = ref(true)
+const isToolbarCollapsed = ref(false)
 let renderManager: RenderManager | null = null
 
 // 响应式变量
@@ -2541,6 +2551,30 @@ body {
   z-index: 1;
 }
 
+.toolbar-toggle-btn {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  background-color: #607D8B;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1002;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.toolbar-toggle-btn:hover {
+  background-color: #455A64;
+}
+
 .toolbar {
   position: fixed;
   top: 10px;
@@ -2549,18 +2583,32 @@ body {
   padding: 10px;
   border-radius: 5px;
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-  z-index: 10;
+  z-index: 1000;
   display: flex;
   flex-direction: column;
   gap: 10px;
   max-width: 220px;
   max-height: calc(100vh - 20px);
   overflow-y: auto;
+  transition: all 0.3s ease;
+}
+
+.toolbar-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .toolbar h3 {
-  margin: 0 0 5px 0;
+  margin: 0;
   font-size: 16px;
+  white-space: nowrap;
+}
+
+.toolbar-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .toolbar button {
