@@ -1475,6 +1475,10 @@ const deleteSelectedObject = () => {
 // 退出编辑模式
 const exitEditMode = () => {
   if (transformControls.object) {
+    // 在退出编辑模式前，对当前对象进行落地操作
+    const currentObject = transformControls.object
+    groundObject(currentObject)
+    
     transformControls.detach()
     // 确保轨道控制器可用
     controls.enabled = true
@@ -2324,6 +2328,21 @@ const toggleAxisHelper = () => {
   zLabelSprite.visible = showAxisHelper.value
   
   console.log(showAxisHelper.value ? '显示XYZ辅助坐标轴' : '隐藏XYZ辅助坐标轴')
+}
+
+// 落地单个对象 （确保Y轴为0）
+const groundObject = (obj: THREE.Object3D) => {
+  if (obj instanceof THREE.Mesh) {
+    const box = new THREE.Box3().setFromObject(obj)
+    const minY = box.min.y
+    const currentY = obj.position.y
+    
+    if (minY !== 0) {
+      const yOffset = -minY
+      obj.position.y += yOffset
+      console.log(`${obj.name || '未命名物体'}: Y位置从 ${currentY.toFixed(2)} 调整到 ${obj.position.y.toFixed(2)}`)
+    }
+  }
 }
 
 const handleGroundObjects = () => {
