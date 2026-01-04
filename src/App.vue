@@ -176,6 +176,23 @@
         <span v-else class="property-value">{{ selectedObject.userData.labelColor || '#ffffff' }}</span>
       </div>
     </div>
+
+    <!-- 内发光设置 -->
+    <div class="property-group">
+      <h4>内发光设置</h4>
+      <div class="property-row">
+        <span class="property-label">颜色:</span>
+        <input v-if="transformControlsRef?.object === selectedObject" type="color" v-model="emissiveColor"
+          @input="updateEmissiveColor" class="property-color-input" />
+        <span v-else class="property-value">{{ getEmissiveColorHex() }}</span>
+      </div>
+      <div class="property-row">
+        <span class="property-label">强度:</span>
+        <input v-if="transformControlsRef?.object === selectedObject" type="number" step="0.1" min="0" max="2"
+          v-model.number="emissiveIntensity" @input="updateEmissiveIntensity" class="property-input" />
+        <span v-else class="property-value">{{ getEmissiveIntensity() }}</span>
+      </div>
+    </div>
   </div>
 
   <div v-if="contextMenuVisible" class="context-menu"
@@ -198,6 +215,9 @@ import { TransformControls } from 'three/examples/jsm/controls/TransformControls
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader'
 import { CSS2DRenderer, CSS2DObject } from 'three/examples/jsm/renderers/CSS2DRenderer'
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer'
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass'
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass'
 import DxfUpload from './DxfUpload.vue'
 import { RenderManager } from './Renders/RenderManager'
 
@@ -250,11 +270,16 @@ const objectColor = ref('#ffffff')
 const labelSize = ref(16)
 const labelColor = ref('#ffffff')
 
+// 内发光设置的响应式变量
+const emissiveColor = ref('#444444')
+const emissiveIntensity = ref(1.2)
+
 // Three.js 变量
 let scene: THREE.Scene
 let camera: THREE.PerspectiveCamera
 let renderer: THREE.WebGLRenderer
 let labelRenderer: CSS2DRenderer
+let composer: EffectComposer
 let controls: OrbitControls
 let transformControls: TransformControls
 const transformControlsRef = ref<TransformControls | null>(null)
@@ -307,6 +332,23 @@ const initThreeJS = () => {
   renderer.shadowMap.type = THREE.PCFSoftShadowMap
   canvasContainer.value.appendChild(renderer.domElement)
   console.log('Renderer domElement appended to canvasContainer')
+
+  // 创建后处理效果（Bloom发光效果）
+  const renderScene = new RenderPass(scene, camera)
+
+  const bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(window.innerWidth, window.innerHeight),
+    1.5,
+    0.4,
+    0.85
+  )
+  bloomPass.threshold = 1.1
+  bloomPass.strength = 1.5
+  bloomPass.radius = 0.5
+
+  composer = new EffectComposer(renderer)
+  composer.addPass(renderScene)
+  composer.addPass(bloomPass)
 
   // 创建CSS2D渲染器（用于标签）
   labelRenderer = new CSS2DRenderer()
@@ -487,20 +529,33 @@ const initThreeJS = () => {
   scene.add(zLabelSprite)
 
   // 添加环境光
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.6)
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.4)
   scene.add(ambientLight)
 
-  // 添加方向光
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8)
-  directionalLight.position.set(10, 10, 5)
+  // 添加主方向光
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 1.5)
+  directionalLight.position.set(10, 20, 10)
   directionalLight.castShadow = true
+  directionalLight.shadow.mapSize.width = 2048
+  directionalLight.shadow.mapSize.height = 2048
   directionalLight.shadow.camera.near = 0.1
-  directionalLight.shadow.camera.far = 50
-  directionalLight.shadow.camera.left = -10
-  directionalLight.shadow.camera.right = 10
-  directionalLight.shadow.camera.top = 10
-  directionalLight.shadow.camera.bottom = -10
+  directionalLight.shadow.camera.far = 100
+  directionalLight.shadow.camera.left = -20
+  directionalLight.shadow.camera.right = 20
+  directionalLight.shadow.camera.top = 20
+  directionalLight.shadow.camera.bottom = -20
+  directionalLight.shadow.bias = -0.0001
   scene.add(directionalLight)
+
+  // 添加辅助方向光（侧面补光）
+  const secondaryLight = new THREE.DirectionalLight(0xffffff, 0.5)
+  secondaryLight.position.set(-10, 10, -10)
+  scene.add(secondaryLight)
+
+  // 添加底部补光
+  const bottomLight = new THREE.DirectionalLight(0xffffff, 0.3)
+  bottomLight.position.set(0, -10, 0)
+  scene.add(bottomLight)
 
   // 创建射线投射器和鼠标向量
   raycaster = new THREE.Raycaster()
@@ -683,7 +738,16 @@ const selectObject = (object: THREE.Object3D) => {
     if (material instanceof THREE.Material && 'color' in material) {
       objectColor.value = '#' + material.color.getHexString()
     }
+    // 更新内发光颜色和强度
+    if (material instanceof THREE.MeshStandardMaterial) {
+      emissiveColor.value = '#' + material.emissive.getHexString()
+      material.emissiveIntensity = 1.2
+      emissiveIntensity.value = 1.2
+    }
   }
+  // 更新标签设置
+  labelSize.value = object.userData.labelSize || 16
+  labelColor.value = object.userData.labelColor || '#ffffff'
 
   // 不自动附加变换控制器，只选择对象但不进入编辑模式
   // 确保轨道控制器保持可用
@@ -754,16 +818,40 @@ const updateLabel = (object: THREE.Object3D) => {
   }
 }
 
+// 将材质转换为纯金属材质
+const convertToMetalMaterial = (mesh: THREE.Mesh) => {
+  if (mesh.material) {
+    if (Array.isArray(mesh.material)) {
+      mesh.material.forEach((mat) => {
+        if (mat instanceof THREE.MeshStandardMaterial) {
+          mat.roughness = 0.5
+          mat.metalness = 1.0
+          mat.emissive = new THREE.Color(0x444444)
+          mat.emissiveIntensity = 1.2
+        }
+      })
+    } else if (mesh.material instanceof THREE.MeshStandardMaterial) {
+      mesh.material.roughness = 0.5
+      mesh.material.metalness = 1.0
+      mesh.material.emissive = new THREE.Color(0x444444)
+      mesh.material.emissiveIntensity = 1.2
+    }
+  }
+}
+
 // 添加基础形状
 const addBasicShape = (shapeType: string) => {
   // 确保退出编辑模式
   ensureExitEditMode()
   
   let geometry: THREE.BufferGeometry
+  const randomColor = Math.random() * 0xffffff
   let material = new THREE.MeshStandardMaterial({
-    color: Math.random() * 0xffffff,
+    color: randomColor,
     roughness: 0.5,
-    metalness: 0.3
+    metalness: 1.0,
+    emissive: new THREE.Color(randomColor),
+    emissiveIntensity: 1.2
   })
   let mesh: THREE.Mesh
 
@@ -899,6 +987,9 @@ const saveGLBToPublic = (file: File): Promise<string> => {
                 mesh.castShadow = true
                 mesh.receiveShadow = true
 
+                // 将材质转换为纯金属材质
+                convertToMetalMaterial(mesh)
+
                 // 计算并调整模型几何中心到原点，使变换操作以几何中心为基准
                 mesh.geometry.computeBoundingBox()
                 const boundingBox = mesh.geometry.boundingBox
@@ -990,6 +1081,8 @@ const exportScene = () => {
             color: child.material.color.getHex(),
             roughness: child.material.roughness,
             metalness: child.material.metalness,
+            emissive: child.material.emissive.getHex(),
+            emissiveIntensity: child.material.emissiveIntensity,
             transparent: child.material.transparent,
             opacity: child.material.opacity
           }
@@ -1072,8 +1165,10 @@ const handleImportScene = (event: Event) => {
           if (objData.material && objData.material.type === 'MeshStandardMaterial') {
             material = new THREE.MeshStandardMaterial({
               color: objData.material.color,
-              roughness: objData.material.roughness,
-              metalness: objData.material.metalness,
+              roughness: 0.5,
+              metalness: 1.0,
+              emissive: objData.material.emissive !== undefined ? objData.material.emissive : 0x444444,
+              emissiveIntensity: objData.material.emissiveIntensity !== undefined ? objData.material.emissiveIntensity : 1.2,
               transparent: objData.material.transparent,
               opacity: objData.material.opacity
             })
@@ -1081,7 +1176,9 @@ const handleImportScene = (event: Event) => {
             // 默认材质
             material = new THREE.MeshStandardMaterial({
               roughness: 0.5,
-              metalness: 0.3
+              metalness: 1.0,
+              emissive: 0x444444,
+              emissiveIntensity: 1.2
             })
           }
 
@@ -1171,6 +1268,8 @@ const handleImportScene = (event: Event) => {
             const placeholderGeometry = new THREE.BoxGeometry(1, 1, 1)
             const placeholderMaterial = new THREE.MeshStandardMaterial({
               color: 0x00ff00,
+              roughness: 0.5,
+              metalness: 1.0,
               wireframe: true
             })
             const placeholderMesh = new THREE.Mesh(placeholderGeometry, placeholderMaterial)
@@ -1255,6 +1354,9 @@ const loadGLBFromPublic = (modelPath: string, fileName: string): Promise<THREE.O
             mesh.castShadow = true
             mesh.receiveShadow = true
 
+            // 将材质转换为纯金属材质
+            convertToMetalMaterial(mesh)
+
             // 计算并调整模型几何中心到原点，使变换操作以几何中心为基准
             mesh.geometry.computeBoundingBox()
             const boundingBox = mesh.geometry.boundingBox
@@ -1320,6 +1422,9 @@ const loadGLBToScene = (file: File) => {
           mesh.name = `${file.name.replace(/\.[^/.]+$/, "")}_${mesh.name || 'mesh'}`
           mesh.castShadow = true
           mesh.receiveShadow = true
+
+          // 将材质转换为纯金属材质
+          convertToMetalMaterial(mesh)
 
           // 计算并调整模型几何中心到原点，使变换操作以几何中心为基准
           mesh.geometry.computeBoundingBox()
@@ -1621,6 +1726,48 @@ const getObjectColorHex = (): string => {
   return '#ffffff'
 }
 
+// 更新内发光颜色
+const updateEmissiveColor = () => {
+  if (selectedObject.value && transformControlsRef.value?.object === selectedObject.value && selectedObject.value instanceof THREE.Mesh) {
+    const material = selectedObject.value.material
+    if (material instanceof THREE.MeshStandardMaterial) {
+      material.emissive = new THREE.Color(emissiveColor.value)
+    }
+  }
+}
+
+// 更新内发光强度
+const updateEmissiveIntensity = () => {
+  if (selectedObject.value && transformControlsRef.value?.object === selectedObject.value && selectedObject.value instanceof THREE.Mesh) {
+    const material = selectedObject.value.material
+    if (material instanceof THREE.MeshStandardMaterial) {
+      material.emissiveIntensity = emissiveIntensity.value
+    }
+  }
+}
+
+// 获取内发光颜色的十六进制值
+const getEmissiveColorHex = (): string => {
+  if (selectedObject.value && selectedObject.value instanceof THREE.Mesh) {
+    const material = selectedObject.value.material
+    if (material instanceof THREE.MeshStandardMaterial) {
+      return '#' + material.emissive.getHexString()
+    }
+  }
+  return '#444444'
+}
+
+// 获取内发光强度
+const getEmissiveIntensity = (): string => {
+  if (selectedObject.value && selectedObject.value instanceof THREE.Mesh) {
+    const material = selectedObject.value.material
+    if (material instanceof THREE.MeshStandardMaterial) {
+      return material.emissiveIntensity.toFixed(1)
+    }
+  }
+  return '0.5'
+}
+
 // 格式化向量显示
 const formatVector = (vector: THREE.Vector3 | THREE.Euler) => {
   return `(${vector.x.toFixed(2)}, ${vector.y.toFixed(2)}, ${vector.z.toFixed(2)})`
@@ -1691,7 +1838,7 @@ const animate = () => {
   animationId = requestAnimationFrame(animate)
   controls.update()
   updateAxisSize()
-  renderer.render(scene, camera)
+  composer.render()
   labelRenderer.render(scene, camera)
 }
 
@@ -1769,6 +1916,9 @@ const handleDxfDataReturn = (dxfData: string | undefined) => {
       
       const boundingBox = renderManager.renderDxfData(parsedData)
       console.log('Bounding box after render:', boundingBox)
+      
+      // 应用DXF对象颜色设置
+      updateDxfObjectColor()
       
       const size = new THREE.Vector3()
       boundingBox.getSize(size)

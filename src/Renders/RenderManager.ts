@@ -94,7 +94,7 @@ export class RenderManager {
     centerZ: true,
     applyTransform: true
   };
-  private dxfObjectColor: string = '#ffffff';
+  private dxfObjectColor: string = '#111111';
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
@@ -638,7 +638,8 @@ export class RenderManager {
                 if (material instanceof THREE.LineBasicMaterial || 
                     material instanceof THREE.MeshBasicMaterial ||
                     material instanceof THREE.MeshLambertMaterial ||
-                    material instanceof THREE.MeshPhongMaterial) {
+                    material instanceof THREE.MeshPhongMaterial ||
+                    material instanceof THREE.MeshStandardMaterial) {
                   material.color.set(color);
                 }
               });
@@ -646,7 +647,8 @@ export class RenderManager {
               if (obj.material instanceof THREE.LineBasicMaterial || 
                   obj.material instanceof THREE.MeshBasicMaterial ||
                   obj.material instanceof THREE.MeshLambertMaterial ||
-                  obj.material instanceof THREE.MeshPhongMaterial) {
+                  obj.material instanceof THREE.MeshPhongMaterial ||
+                  obj.material instanceof THREE.MeshStandardMaterial) {
                 obj.material.color.set(color);
               }
             }
