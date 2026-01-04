@@ -808,10 +808,15 @@ const createLabel = (object: THREE.Object3D, text: string) => {
 
   const label = new CSS2DObject(div)
   
-  // 计算标签位置（在对象上方）
-  const box = new THREE.Box3().setFromObject(object)
-  const height = box.max.y - box.min.y
-  label.position.set(0, height / 2 + 0.2, 0)
+  if (object instanceof THREE.Mesh) {
+    object.geometry.computeBoundingBox()
+    const boundingBox = object.geometry.boundingBox
+    const height = boundingBox.max.y - boundingBox.min.y
+    label.position.set(0, height / 2 + 0.2, 0)
+  } else {
+    const box = new THREE.Box3().setFromObject(object)
+    label.position.set(0, box.max.y + 0.2, 0)
+  }
   
   object.add(label)
   
@@ -1142,6 +1147,17 @@ const handleImportScene = (event: Event) => {
       })
 
       objectsToRemove.forEach(obj => {
+        // 删除对象的所有标签（CSS2DObject）
+        const labelsToRemove: THREE.Object3D[] = []
+        obj.traverse((child) => {
+          if (child instanceof CSS2DObject) {
+            labelsToRemove.push(child)
+          }
+        })
+        labelsToRemove.forEach(label => {
+          label.parent?.remove(label)
+        })
+
         scene.remove(obj)
         // 从objects数组中移除对象
         const index = objects.indexOf(obj)
@@ -1557,6 +1573,17 @@ const deleteSelectedObject = () => {
   if (transformControls.object) {
     exitEditMode()
   }
+
+  // 删除对象的所有标签（CSS2DObject）
+  const labelsToRemove: THREE.Object3D[] = []
+  selectedObject.value.traverse((child) => {
+    if (child instanceof CSS2DObject) {
+      labelsToRemove.push(child)
+    }
+  })
+  labelsToRemove.forEach(label => {
+    label.parent?.remove(label)
+  })
 
   // 释放对象的资源
   if (selectedObject.value instanceof THREE.Mesh) {
