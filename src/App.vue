@@ -231,6 +231,65 @@
         <span class="property-value">{{ breathingLightIntensity.toFixed(1) }}</span>
       </div>
     </div>
+
+    <!-- 边缘发光设置 -->
+    <div class="property-group">
+      <h4>边缘发光设置</h4>
+      <div class="property-row">
+        <span class="property-label">启用:</span>
+        <input v-if="transformControlsRef?.object === selectedObject" type="checkbox" v-model="outlineGlowEnabled"
+          @change="updateOutlineGlowEnabled" @click.stop class="property-checkbox" />
+        <span v-else class="property-value">{{ outlineGlowEnabled ? '是' : '否' }}</span>
+      </div>
+      <div v-if="outlineGlowEnabled" class="property-row">
+        <span class="property-label">可见边缘颜色:</span>
+        <input v-if="transformControlsRef?.object === selectedObject" type="color" v-model="outlineGlowVisibleColor"
+          @input="updateOutlineGlowVisibleColor" @click.stop class="property-color-input" />
+        <span v-else class="property-value">{{ outlineGlowVisibleColor }}</span>
+      </div>
+      <div v-if="outlineGlowEnabled" class="property-row">
+        <span class="property-label">隐藏边缘颜色:</span>
+        <input v-if="transformControlsRef?.object === selectedObject" type="color" v-model="outlineGlowHiddenColor"
+          @input="updateOutlineGlowHiddenColor" @click.stop class="property-color-input" />
+        <span v-else class="property-value">{{ outlineGlowHiddenColor }}</span>
+      </div>
+      <div v-if="outlineGlowEnabled" class="property-row">
+        <span class="property-label">边缘强度:</span>
+        <input v-if="transformControlsRef?.object === selectedObject" type="range" min="0.01" max="10.0" step="0.1"
+          v-model.number="outlineGlowEdgeStrength" @input="updateOutlineGlowEdgeStrength" @click.stop class="property-range" />
+        <span class="property-value">{{ outlineGlowEdgeStrength.toFixed(1) }}</span>
+      </div>
+      <div v-if="outlineGlowEnabled" class="property-row">
+        <span class="property-label">边缘发光:</span>
+        <input v-if="transformControlsRef?.object === selectedObject" type="range" min="0.0" max="1.0" step="0.1"
+          v-model.number="outlineGlowEdgeGlow" @input="updateOutlineGlowEdgeGlow" @click.stop class="property-range" />
+        <span class="property-value">{{ outlineGlowEdgeGlow.toFixed(1) }}</span>
+      </div>
+      <div v-if="outlineGlowEnabled" class="property-row">
+        <span class="property-label">边缘厚度:</span>
+        <input v-if="transformControlsRef?.object === selectedObject" type="range" min="1.0" max="4.0" step="0.1"
+          v-model.number="outlineGlowEdgeThickness" @input="updateOutlineGlowEdgeThickness" @click.stop class="property-range" />
+        <span class="property-value">{{ outlineGlowEdgeThickness.toFixed(1) }}</span>
+      </div>
+      <div v-if="outlineGlowEnabled" class="property-row">
+        <span class="property-label">脉冲周期:</span>
+        <input v-if="transformControlsRef?.object === selectedObject" type="range" min="0.0" max="5.0" step="0.1"
+          v-model.number="outlineGlowPulsePeriod" @input="updateOutlineGlowPulsePeriod" @click.stop class="property-range" />
+        <span class="property-value">{{ outlineGlowPulsePeriod.toFixed(1) }}</span>
+      </div>
+      <div v-if="outlineGlowEnabled" class="property-row">
+        <span class="property-label">闪烁频率:</span>
+        <input v-if="transformControlsRef?.object === selectedObject" type="range" min="0.0" max="5.0" step="0.1"
+          v-model.number="outlineGlowFrequency" @input="updateOutlineGlowFrequency" @click.stop class="property-range" />
+        <span class="property-value">{{ outlineGlowFrequency.toFixed(1) }} Hz</span>
+      </div>
+      <div v-if="outlineGlowEnabled" class="property-row">
+        <span class="property-label">渐变纹理:</span>
+        <input v-if="transformControlsRef?.object === selectedObject" type="checkbox" v-model="outlineGlowGradient"
+          @change="updateOutlineGlowGradient" @click.stop class="property-checkbox" />
+        <span v-else class="property-value">{{ outlineGlowGradient ? '是' : '否' }}</span>
+      </div>
+    </div>
   </div>
 
   <div v-if="contextMenuVisible" class="context-menu"
@@ -259,6 +318,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import DxfUpload from './DxfUpload.vue'
 import { RenderManager } from './Renders/RenderManager'
 import { breathingLightManager, DEFAULT_CONFIG } from './Utility/breathingLight'
+import { outlineGlowManager } from './Utility/outlineGlow'
 
 
 
@@ -322,6 +382,17 @@ const breathingLightEnabled = ref(DEFAULT_CONFIG.enabled)
 const breathingLightColor = ref(DEFAULT_CONFIG.color)
 const breathingLightFrequency = ref(DEFAULT_CONFIG.frequency)
 const breathingLightIntensity = ref(DEFAULT_CONFIG.intensity)
+
+// 边缘发光设置的响应式变量
+const outlineGlowEnabled = ref(false)
+const outlineGlowVisibleColor = ref('#ffffff')
+const outlineGlowHiddenColor = ref('#190a05')
+const outlineGlowEdgeStrength = ref(3.0)
+const outlineGlowEdgeGlow = ref(0.0)
+const outlineGlowEdgeThickness = ref(1.0)
+const outlineGlowPulsePeriod = ref(0)
+const outlineGlowFrequency = ref(1.0)
+const outlineGlowGradient = ref(false)
 
 // Three.js 变量
 let scene: THREE.Scene
@@ -401,6 +472,12 @@ const initThreeJS = () => {
   composer = new EffectComposer(renderer)
   composer.addPass(renderScene)
   composer.addPass(bloomPass)
+
+  // 设置边缘发光管理器
+  outlineGlowManager.setComposer(composer)
+  outlineGlowManager.setScene(scene)
+  outlineGlowManager.setCamera(camera)
+  outlineGlowManager.initOutlinePass()
 
   // 创建CSS2D渲染器（用于标签）
   labelRenderer = new CSS2DRenderer()
@@ -1990,6 +2067,58 @@ const updateBreathingLightIntensity = () => {
       intensity: breathingLightIntensity.value
     })
   }
+}
+
+// 更新边缘发光启用状态
+const updateOutlineGlowEnabled = () => {
+  if (selectedObject.value && transformControlsRef.value?.object === selectedObject.value) {
+    if (outlineGlowEnabled.value) {
+      outlineGlowManager.addSelectedObject(selectedObject.value)
+    } else {
+      outlineGlowManager.removeSelectedObject(selectedObject.value)
+    }
+    outlineGlowManager.setEnabled(outlineGlowEnabled.value)
+  }
+}
+
+// 更新边缘发光可见边缘颜色
+const updateOutlineGlowVisibleColor = () => {
+  outlineGlowManager.setVisibleEdgeColor(outlineGlowVisibleColor.value)
+}
+
+// 更新边缘发光隐藏边缘颜色
+const updateOutlineGlowHiddenColor = () => {
+  outlineGlowManager.setHiddenEdgeColor(outlineGlowHiddenColor.value)
+}
+
+// 更新边缘发光边缘强度
+const updateOutlineGlowEdgeStrength = () => {
+  outlineGlowManager.setEdgeStrength(outlineGlowEdgeStrength.value)
+}
+
+// 更新边缘发光边缘发光
+const updateOutlineGlowEdgeGlow = () => {
+  outlineGlowManager.setEdgeGlow(outlineGlowEdgeGlow.value)
+}
+
+// 更新边缘发光边缘厚度
+const updateOutlineGlowEdgeThickness = () => {
+  outlineGlowManager.setEdgeThickness(outlineGlowEdgeThickness.value)
+}
+
+// 更新边缘发光脉冲周期
+const updateOutlineGlowPulsePeriod = () => {
+  outlineGlowManager.setPulsePeriod(outlineGlowPulsePeriod.value)
+}
+
+// 更新边缘发光闪烁频率
+const updateOutlineGlowFrequency = () => {
+  outlineGlowManager.setFrequency(outlineGlowFrequency.value)
+}
+
+// 更新边缘发光渐变纹理
+const updateOutlineGlowGradient = () => {
+  outlineGlowManager.setGradient(outlineGlowGradient.value)
 }
 
 // 格式化向量显示
