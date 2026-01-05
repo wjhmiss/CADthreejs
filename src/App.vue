@@ -229,7 +229,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass'
 import DxfUpload from './DxfUpload.vue'
 import { RenderManager } from './Renders/RenderManager'
-import { PathGeometry, PathPointList, PathTubeGeometry } from '/path/build/three.path.module.js';
+
 
 
 

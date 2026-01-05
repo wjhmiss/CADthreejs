@@ -103,6 +103,7 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { fileApi } from './services/api'
 
 interface ParseResult {
   success: boolean
@@ -207,20 +208,13 @@ const uploadFile = async () => {
   parseResult.value = null
 
   try {
-    const formData = new FormData()
-    formData.append('file', selectedFile.value)
-
-    const response = await fetch('http://localhost:5000/api/parse/upload', {
-      method: 'POST',
-      body: formData,
+    const result = await fileApi.uploadFile({
+      file: selectedFile.value,
+      onProgress: (progress: number) => {
+        uploadProgress.value = progress
+      }
     })
-
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.error || errorData.title || '上传失败')
-    }
-
-    const result = await response.json()
+    
     parseResult.value = result
     uploadProgress.value = 100
   } catch (err) {

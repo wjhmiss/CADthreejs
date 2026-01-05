@@ -9,7 +9,7 @@ import type {
 
 // 创建axios实例
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5000',
+  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:5001',
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
@@ -41,7 +41,7 @@ api.interceptors.response.use(
 // 文件API
 export const fileApi = {
   // 上传文件
-  async uploadFile(request: UploadRequest): Promise<ApiResponse<CadFile>> {
+  async uploadFile(request: UploadRequest): Promise<any> {
     const formData = new FormData();
     formData.append('file', request.file);
     
