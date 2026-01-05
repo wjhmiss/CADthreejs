@@ -319,6 +319,8 @@ import DxfUpload from './DxfUpload.vue'
 import { RenderManager } from './Renders/RenderManager'
 import { breathingLightManager, DEFAULT_CONFIG } from './Utility/breathingLight'
 import { outlineGlowManager } from './Utility/outlineGlow'
+import { pathPanelManager } from './Utility/pathPanel'
+import { pathManager } from './Utility/path'
 
 
 
@@ -699,6 +701,13 @@ const initThreeJS = () => {
   // 添加ESC键事件监听器
   window.addEventListener('keydown', onKeyDown)
 
+  // 初始化路径面板
+  if (canvasContainer.value) {
+    pathPanelManager.initialize(canvasContainer.value)
+    pathManager.setScene(scene)
+    pathManager.setRenderer(renderer)
+  }
+
 }
 
 // 窗口大小改变时更新渲染
@@ -1062,6 +1071,9 @@ const addBasicShape = (shapeType: string) => {
     frequency: DEFAULT_CONFIG.frequency,
     intensity: DEFAULT_CONFIG.intensity
   })
+
+  // 添加到路径面板
+  pathPanelManager.addObject(mesh)
 }
 
 // 触发文件输入对话框
@@ -1761,6 +1773,9 @@ const deleteSelectedObject = () => {
 
   // 检查对象是否可以被删除
   if (selectedObject.value.userData.isTransformable === false) return
+
+  // 从路径面板移除对象
+  pathPanelManager.removeObject(selectedObject.value.uuid)
 
   // 如果当前处于编辑模式，先退出编辑模式
   if (transformControls.object) {
