@@ -385,13 +385,13 @@ const breathingLightIntensity = ref(DEFAULT_CONFIG.intensity)
 
 // 边缘发光设置的响应式变量
 const outlineGlowEnabled = ref(false)
-const outlineGlowVisibleColor = ref('#ffffff')
-const outlineGlowHiddenColor = ref('#190a05')
-const outlineGlowEdgeStrength = ref(3.0)
-const outlineGlowEdgeGlow = ref(0.0)
-const outlineGlowEdgeThickness = ref(1.0)
-const outlineGlowPulsePeriod = ref(0)
-const outlineGlowFrequency = ref(1.0)
+const outlineGlowVisibleColor = ref('#00ff00')
+const outlineGlowHiddenColor = ref('#000000')
+const outlineGlowEdgeStrength = ref(4.8)
+const outlineGlowEdgeGlow = ref(1.0)
+const outlineGlowEdgeThickness = ref(3.4)
+const outlineGlowPulsePeriod = ref(2.0)
+const outlineGlowFrequency = ref(0)
 const outlineGlowGradient = ref(false)
 
 // Three.js 变量
@@ -2074,6 +2074,13 @@ const updateOutlineGlowEnabled = () => {
   if (selectedObject.value && transformControlsRef.value?.object === selectedObject.value) {
     if (outlineGlowEnabled.value) {
       outlineGlowManager.addSelectedObject(selectedObject.value)
+      outlineGlowManager.setVisibleEdgeColor(outlineGlowVisibleColor.value)
+      outlineGlowManager.setHiddenEdgeColor(outlineGlowHiddenColor.value)
+      outlineGlowManager.setEdgeStrength(outlineGlowEdgeStrength.value)
+      outlineGlowManager.setEdgeGlow(outlineGlowEdgeGlow.value)
+      outlineGlowManager.setEdgeThickness(outlineGlowEdgeThickness.value)
+      outlineGlowManager.setPulsePeriod(outlineGlowPulsePeriod.value)
+      outlineGlowManager.setFrequency(outlineGlowFrequency.value)
     } else {
       outlineGlowManager.removeSelectedObject(selectedObject.value)
     }

@@ -16,13 +16,13 @@ export interface OutlineGlowConfig {
 
 const DEFAULT_CONFIG: OutlineGlowConfig = {
 	enabled: false,
-	visibleEdgeColor: '#ffffff',
-	hiddenEdgeColor: '#190a05',
-	edgeStrength: 3.0,
-	edgeGlow: 0.0,
-	edgeThickness: 1.0,
-	pulsePeriod: 0,
-	frequency: 1.0,
+	visibleEdgeColor: '#00ff00',
+	hiddenEdgeColor: '#000000',
+	edgeStrength: 4.8,
+	edgeGlow: 1.0,
+	edgeThickness: 3.4,
+	pulsePeriod: 2.0,
+	frequency: 0,
 	gradient: false
 }
 
