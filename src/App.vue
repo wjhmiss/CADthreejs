@@ -444,8 +444,6 @@ const initThreeJS = () => {
         y: selectedObject.value.scale.y,
         z: selectedObject.value.scale.z
       }
-      // 触发Vue的响应式更新
-      selectedObject.value = { ...selectedObject.value }
     }
   })
   scene.add(transformControls)
