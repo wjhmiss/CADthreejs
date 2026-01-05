@@ -202,6 +202,35 @@
         <span v-else class="property-value">{{ getEmissiveIntensity() }}</span>
       </div>
     </div>
+
+    <!-- 呼吸灯设置 -->
+    <div class="property-group">
+      <h4>呼吸灯设置</h4>
+      <div class="property-row">
+        <span class="property-label">启用:</span>
+        <input v-if="transformControlsRef?.object === selectedObject" type="checkbox" v-model="breathingLightEnabled"
+          @change="updateBreathingLightEnabled" @click.stop class="property-checkbox" />
+        <span v-else class="property-value">{{ breathingLightEnabled ? '是' : '否' }}</span>
+      </div>
+      <div v-if="breathingLightEnabled" class="property-row">
+        <span class="property-label">颜色:</span>
+        <input v-if="transformControlsRef?.object === selectedObject" type="color" v-model="breathingLightColor"
+          @input="updateBreathingLightColor" @click.stop class="property-color-input" />
+        <span v-else class="property-value">{{ breathingLightColor }}</span>
+      </div>
+      <div v-if="breathingLightEnabled" class="property-row">
+        <span class="property-label">频率:</span>
+        <input v-if="transformControlsRef?.object === selectedObject" type="range" min="0.1" max="5.0" step="0.1"
+          v-model.number="breathingLightFrequency" @input="updateBreathingLightFrequency" @click.stop class="property-range" />
+        <span class="property-value">{{ breathingLightFrequency.toFixed(1) }} Hz</span>
+      </div>
+      <div v-if="breathingLightEnabled" class="property-row">
+        <span class="property-label">强度:</span>
+        <input v-if="transformControlsRef?.object === selectedObject" type="range" min="0.1" max="2.0" step="0.1"
+          v-model.number="breathingLightIntensity" @input="updateBreathingLightIntensity" @click.stop class="property-range" />
+        <span class="property-value">{{ breathingLightIntensity.toFixed(1) }}</span>
+      </div>
+    </div>
   </div>
 
   <div v-if="contextMenuVisible" class="context-menu"
@@ -229,6 +258,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass'
 import DxfUpload from './DxfUpload.vue'
 import { RenderManager } from './Renders/RenderManager'
+import { breathingLightManager, DEFAULT_CONFIG } from './Utility/breathingLight'
 
 
 
@@ -287,6 +317,12 @@ const labelColor = ref('#ffffff')
 const emissiveColor = ref('#444444')
 const emissiveIntensity = ref(1.2)
 
+// 呼吸灯设置的响应式变量
+const breathingLightEnabled = ref(DEFAULT_CONFIG.enabled)
+const breathingLightColor = ref(DEFAULT_CONFIG.color)
+const breathingLightFrequency = ref(DEFAULT_CONFIG.frequency)
+const breathingLightIntensity = ref(DEFAULT_CONFIG.intensity)
+
 // Three.js 变量
 let scene: THREE.Scene
 let camera: THREE.PerspectiveCamera
@@ -328,6 +364,9 @@ const initThreeJS = () => {
   // 创建场景
   scene = new THREE.Scene()
   scene.background = new THREE.Color(sceneBackgroundColor.value)
+
+  // 设置呼吸灯管理器的场景引用
+  breathingLightManager.setScene(scene)
 
   // 创建相机
   camera = new THREE.PerspectiveCamera(
@@ -762,6 +801,20 @@ const selectObject = (object: THREE.Object3D) => {
   labelSize.value = object.userData.labelSize || 16
   labelColor.value = object.userData.labelColor || '#ffffff'
 
+  // 初始化呼吸灯配置
+  const breathingLightConfig = breathingLightManager.getBreathingLightConfig(object)
+  if (breathingLightConfig) {
+    breathingLightEnabled.value = breathingLightConfig.enabled
+    breathingLightColor.value = breathingLightConfig.color
+    breathingLightFrequency.value = breathingLightConfig.frequency
+    breathingLightIntensity.value = breathingLightConfig.intensity
+  } else {
+    breathingLightEnabled.value = DEFAULT_CONFIG.enabled
+    breathingLightColor.value = DEFAULT_CONFIG.color
+    breathingLightFrequency.value = DEFAULT_CONFIG.frequency
+    breathingLightIntensity.value = DEFAULT_CONFIG.intensity
+  }
+
   // 不自动附加变换控制器，只选择对象但不进入编辑模式
   // 确保轨道控制器保持可用
   controls.enabled = true
@@ -926,6 +979,14 @@ const addBasicShape = (shapeType: string) => {
 
   // 将mesh对象添加到objects数组中
   objects.push(mesh)
+
+  // 初始化呼吸灯
+  breathingLightManager.startBreathingLight(mesh, {
+    enabled: DEFAULT_CONFIG.enabled,
+    color: DEFAULT_CONFIG.color,
+    frequency: DEFAULT_CONFIG.frequency,
+    intensity: DEFAULT_CONFIG.intensity
+  })
 }
 
 // 触发文件输入对话框
@@ -1444,6 +1505,14 @@ const loadGLBFromPublic = (modelPath: string, fileName: string): Promise<THREE.O
 
             // 将mesh对象添加到objects数组中
             objects.push(mesh)
+
+            // 初始化呼吸灯
+            breathingLightManager.startBreathingLight(mesh, {
+              enabled: DEFAULT_CONFIG.enabled,
+              color: DEFAULT_CONFIG.color,
+              frequency: DEFAULT_CONFIG.frequency,
+              intensity: DEFAULT_CONFIG.intensity
+            })
           }
         })
         console.log(`成功加载GLB模型: ${fileName}，包含 ${meshObjects.length} 个网格对象`)
@@ -1889,6 +1958,40 @@ const getEmissiveIntensity = (): string => {
     }
   }
   return '0.5'
+}
+
+// 更新呼吸灯启用状态
+const updateBreathingLightEnabled = () => {
+  if (selectedObject.value && transformControlsRef.value?.object === selectedObject.value) {
+    breathingLightManager.setBreathingLightEnabled(selectedObject.value, breathingLightEnabled.value)
+  }
+}
+
+// 更新呼吸灯颜色
+const updateBreathingLightColor = () => {
+  if (selectedObject.value && transformControlsRef.value?.object === selectedObject.value) {
+    breathingLightManager.updateBreathingLightConfig(selectedObject.value, {
+      color: breathingLightColor.value
+    })
+  }
+}
+
+// 更新呼吸灯频率
+const updateBreathingLightFrequency = () => {
+  if (selectedObject.value && transformControlsRef.value?.object === selectedObject.value) {
+    breathingLightManager.updateBreathingLightConfig(selectedObject.value, {
+      frequency: breathingLightFrequency.value
+    })
+  }
+}
+
+// 更新呼吸灯强度
+const updateBreathingLightIntensity = () => {
+  if (selectedObject.value && transformControlsRef.value?.object === selectedObject.value) {
+    breathingLightManager.updateBreathingLightConfig(selectedObject.value, {
+      intensity: breathingLightIntensity.value
+    })
+  }
 }
 
 // 格式化向量显示
