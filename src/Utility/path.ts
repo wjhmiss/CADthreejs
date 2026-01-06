@@ -75,32 +75,32 @@ class PathManager {
 
     this.texturePresets.set('diffuse', {
       name: 'Diffuse',
-      url: '/Utility/shaderPath/examples/images/diffuse.jpg'
+      url: '/images/diffuse.jpg'
     })
 
     this.texturePresets.set('light', {
       name: 'Light',
-      url: '/Utility/shaderPath/examples/images/light.png'
+      url: '/images/light.png'
     })
 
     this.texturePresets.set('path_007_18', {
       name: 'Path 007-18',
-      url: '/Utility/shaderPath/examples/images/path_007_18.png'
+      url: '/images/path_007_18.png'
     })
 
     this.texturePresets.set('path_007_19', {
       name: 'Path 007-19',
-      url: '/Utility/shaderPath/examples/images/path_007_19.png'
+      url: '/images/path_007_19.png'
     })
 
     this.texturePresets.set('path_007_20', {
       name: 'Path 007-20',
-      url: '/Utility/shaderPath/examples/images/path_007_20.png'
+      url: '/images/path_007_20.png'
     })
 
     this.texturePresets.set('path_007_21', {
       name: 'Path 007-21',
-      url: '/Utility/shaderPath/examples/images/path_007_21.png'
+      url: '/images/path_007_21.png'
     })
   }
 
@@ -173,18 +173,24 @@ class PathManager {
   }
 
   createPath(config: PathConfig): string {
+    console.log('[PathManager] createPath() 开始执行')
+    console.log('[PathManager] 接收到的配置:', config)
+
     if (!this.scene) {
-      console.error('PathManager: scene not set')
+      console.error('[PathManager] 错误：scene 未设置')
       return ''
     }
+    console.log('[PathManager] scene 已设置')
 
     const id = this._generateId(config.points)
+    console.log('[PathManager] 生成的路径ID:', id)
 
     if (this.paths.has(id)) {
-      console.warn('PathManager: path with same points already exists, returning existing path id:', id)
+      console.warn('[PathManager] 警告：相同点的路径已存在，返回现有路径ID:', id)
       return id
     }
 
+    console.log('[PathManager] 创建 PathPointList...')
     const pathPointList = new PathPointList()
     pathPointList.set(
       config.points,
@@ -193,23 +199,33 @@ class PathManager {
       config.up || null,
       config.close || false
     )
+    console.log('[PathManager] PathPointList 创建完成')
 
     const updateParam = {
       width: config.width || 2,
       arrow: config.arrow !== undefined ? config.arrow : false,
       progress: 0
     }
+    console.log('[PathManager] 更新参数:', updateParam)
 
+    console.log('[PathManager] 创建 PathGeometry...')
     const geometry = new PathGeometry({
       pathPointList: pathPointList,
       options: updateParam
     })
+    console.log('[PathManager] PathGeometry 创建完成')
 
     const resolvedTexture = this._resolveTexture(config.texture)
+    console.log('[PathManager] 解析后的纹理:', resolvedTexture)
+    
     const material = this._createPathMaterial(config, resolvedTexture)
+    console.log('[PathManager] 材质创建完成:', material)
 
+    console.log('[PathManager] 创建 Mesh...')
     const mesh = new THREE.Mesh(geometry, material)
+    console.log('[PathManager] Mesh 创建完成，添加到场景')
     this.scene.add(mesh)
+    console.log('[PathManager] Mesh 已添加到场景')
 
     const pathMesh: PathMesh = {
       id,
@@ -224,6 +240,9 @@ class PathManager {
     }
 
     this.paths.set(id, pathMesh)
+    console.log('[PathManager] 路径已保存到 paths Map')
+    console.log('[PathManager] 当前所有路径数量:', this.paths.size)
+    console.log('[PathManager] createPath() 执行完成，返回ID:', id)
 
     return id
   }

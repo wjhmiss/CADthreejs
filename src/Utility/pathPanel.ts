@@ -26,6 +26,7 @@ class PathPanelManager {
   private config: Required<PathPanelConfig>
   private currentPathId: string = ''
   private onPathUpdateCallback: ((pathId: string) => void) | null = null
+  private pathProgress: number = 0
 
   constructor(config: PathPanelConfig = {}) {
     this.config = {
@@ -140,7 +141,34 @@ class PathPanelManager {
       flex: 1;
       overflow-y: auto;
       padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
     `
+
+    const generateButton = document.createElement('button')
+    generateButton.className = 'generate-path-btn'
+    generateButton.innerHTML = '生成路径'
+    generateButton.style.cssText = `
+      width: 100%;
+      padding: 10px;
+      background-color: #2196F3;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background-color 0.2s;
+    `
+    generateButton.addEventListener('mouseenter', () => {
+      generateButton.style.backgroundColor = '#1976D2'
+    })
+    generateButton.addEventListener('mouseleave', () => {
+      generateButton.style.backgroundColor = '#2196F3'
+    })
+    generateButton.addEventListener('click', () => {
+      this.updatePath()
+    })
 
     const objectList = document.createElement('div')
     objectList.className = 'path-object-list'
@@ -150,6 +178,7 @@ class PathPanelManager {
       gap: 8px;
     `
 
+    content.appendChild(generateButton)
     content.appendChild(objectList)
     this.panelElement.appendChild(header)
     this.panelElement.appendChild(content)
@@ -246,10 +275,16 @@ class PathPanelManager {
   }
 
   updateObject(objectId: string): void {
+    console.log('[PathPanel] updateObject() 被调用，对象ID:', objectId)
     const pathObject = this.objects.find(obj => obj.id === objectId)
     if (pathObject) {
+      console.log('[PathPanel] 找到路径对象:', pathObject.name)
+      console.log('[PathPanel] 旧的底部中心点:', pathObject.bottomCenter)
       pathObject.bottomCenter = this.calculateBottomCenter(pathObject.object)
+      console.log('[PathPanel] 新的底部中心点:', pathObject.bottomCenter)
       this.updatePath()
+    } else {
+      console.warn('[PathPanel] 未找到对象ID:', objectId)
     }
   }
 
@@ -260,10 +295,24 @@ class PathPanelManager {
   }
 
   private calculateBottomCenter(object: THREE.Object3D): THREE.Vector3 {
+    console.log('[PathPanel] calculateBottomCenter() 开始计算对象底部中心')
+    console.log('[PathPanel] 对象名称:', object.name)
+    console.log('[PathPanel] 对象位置:', object.position)
+    console.log('[PathPanel] 对象旋转:', object.rotation)
+    console.log('[PathPanel] 对象缩放:', object.scale)
+    
     const box = new THREE.Box3().setFromObject(object)
+    console.log('[PathPanel] 包围盒 min:', box.min)
+    console.log('[PathPanel] 包围盒 max:', box.max)
+    console.log('[PathPanel] 包围盒 size:', box.getSize(new THREE.Vector3()))
+    
     const center = new THREE.Vector3()
     box.getCenter(center)
+    console.log('[PathPanel] 包围盒中心:', center)
+    
     center.y = box.min.y
+    console.log('[PathPanel] 底部中心点:', center)
+    
     return center
   }
 
@@ -393,32 +442,77 @@ class PathPanelManager {
   }
 
   private updatePath(): void {
+    console.log('[PathPanel] updatePath() 开始执行')
+    console.log('[PathPanel] 当前对象数量:', this.objects.length)
+
     if (this.currentPathId) {
       pathManager.removePathById(this.currentPathId)
     }
 
     if (this.objects.length < 2) {
+      console.log('[PathPanel] 对象数量不足2个，清除路径')
       this.currentPathId = ''
       return
     }
 
+    this.pathProgress = 0
+
     const points = this.objects.map(obj => obj.bottomCenter)
+    console.log('[PathPanel] 路径点坐标:', points.map(p => ({ x: p.x, y: p.y, z: p.z })))
+    
+    console.log('[PathPanel] 开始加载纹理...')
+    const texture = pathManager.loadTextureFromPreset('path_007_19', (loadedTexture) => {
+      console.log('[PathPanel] 纹理加载成功:', loadedTexture)
+      loadedTexture.wrapS = THREE.RepeatWrapping
+      loadedTexture.wrapT = THREE.RepeatWrapping
+      loadedTexture.anisotropy = 16
+      loadedTexture.repeat.x = 1 / 24
+      loadedTexture.repeat.y = 1
+    })
+    console.log('[PathPanel] 纹理对象:', texture)
+
     const config: PathConfig = {
       points,
-      width: 0.3,
-      cornerRadius: 0.2,
-      cornerSplit: 10,
-      color: 0x2196F3,
+      width: 2,
+      cornerRadius: 0,
+      cornerSplit: 0,
+      color: 0xffffff,
       transparent: true,
-      opacity: 0.8,
-      arrow: true
+      opacity: 1,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+      arrow: false,
+      texture: texture,
+      speed: 0.48
     }
+    console.log('[PathPanel] 路径配置:', config)
 
+    console.log('[PathPanel] 开始创建路径...')
     this.currentPathId = pathManager.createPath(config)
+    console.log('[PathPanel] 路径创建完成，ID:', this.currentPathId)
+
+    const pathMesh = pathManager.findPathById(this.currentPathId)
+    console.log('[PathPanel] 查找路径mesh:', pathMesh)
+    
+    if (pathMesh) {
+      console.log('[PathPanel] 路径mesh找到，开始更新geometry')
+      pathMesh.updateParam.progress = 0
+      console.log('[PathPanel] 调用 geometry.update()')
+      pathMesh.geometry.update(pathMesh.pathPointList, pathMesh.updateParam)
+      console.log('[PathPanel] geometry.update() 完成')
+      pathMesh.geometry.computeBoundingBox()
+      pathMesh.geometry.computeBoundingSphere()
+      console.log('[PathPanel] 边界计算完成')
+    } else {
+      console.error('[PathPanel] 错误：未找到路径mesh，ID:', this.currentPathId)
+    }
 
     if (this.onPathUpdateCallback) {
+      console.log('[PathPanel] 触发路径更新回调')
       this.onPathUpdateCallback(this.currentPathId)
     }
+    
+    console.log('[PathPanel] updatePath() 执行完成')
   }
 
   private clearPath(): void {
@@ -449,6 +543,24 @@ class PathPanelManager {
   hide(): void {
     if (this.panelVisible) {
       this.togglePanel()
+    }
+  }
+
+  update(delta: number): void {
+    if (this.currentPathId && this.pathProgress < 1) {
+      this.pathProgress += 0.5 * delta
+      
+      if (this.pathProgress > 1) {
+        this.pathProgress = 1
+      }
+
+      const pathMesh = pathManager.findPathById(this.currentPathId)
+      if (pathMesh) {
+        pathMesh.updateParam.progress = this.pathProgress
+        pathMesh.geometry.update(pathMesh.pathPointList, pathMesh.updateParam)
+        pathMesh.geometry.computeBoundingBox()
+        pathMesh.geometry.computeBoundingSphere()
+      }
     }
   }
 

@@ -408,6 +408,7 @@ const transformControlsRef = ref<TransformControls | null>(null)
 let raycaster: THREE.Raycaster
 let mouse: THREE.Vector2
 let animationId: number
+let clock: THREE.Clock
 
 // 顶部视角相关变量
 let originalCameraPosition: THREE.Vector3
@@ -437,6 +438,9 @@ const initThreeJS = () => {
   // 创建场景
   scene = new THREE.Scene()
   scene.background = new THREE.Color(sceneBackgroundColor.value)
+
+  // 创建时钟
+  clock = new THREE.Clock()
 
   // 设置呼吸灯管理器的场景引用
   breathingLightManager.setScene(scene)
@@ -523,6 +527,9 @@ const initThreeJS = () => {
         y: selectedObject.value.scale.y,
         z: selectedObject.value.scale.z
       }
+      
+      // 更新路径面板中该对象的底部中心点
+      pathPanelManager.updateObject(selectedObject.value.uuid)
     }
   })
   scene.add(transformControls)
@@ -2211,8 +2218,11 @@ const calculateAutoScaleForView = (camera: THREE.PerspectiveCamera, objectSize: 
 
 const animate = () => {
   animationId = requestAnimationFrame(animate)
+  const delta = clock.getDelta()
   controls.update()
   updateAxisSize()
+  pathPanelManager.update(delta)
+  pathManager.update(delta)
   composer.render()
   labelRenderer.render(scene, camera)
 }
