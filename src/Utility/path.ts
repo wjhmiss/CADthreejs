@@ -583,6 +583,10 @@ class PathManager {
     return Array.from(this.paths.values()).find(p => p.name === name)
   }
 
+  getPathById(id: string): PathMesh | undefined {
+    return this.paths.get(id)
+  }
+
   updatePathName(id: string, name: string): boolean {
     const pathMesh = this.paths.get(id)
     if (pathMesh) {

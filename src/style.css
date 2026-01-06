@@ -502,6 +502,37 @@ body {
   cursor: pointer;
 }
 
+.property-select {
+  flex: 1;
+  padding: 3px 6px;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  font-size: 13px;
+  background-color: white;
+}
+
+.property-select:focus {
+  outline: none;
+  border-color: #2196F3;
+  box-shadow: 0 0 3px rgba(33, 150, 243, 0.3);
+}
+
+.property-button {
+  flex: 1;
+  padding: 6px 12px;
+  background-color: #4CAF50;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background-color 0.3s;
+}
+
+.property-button:hover {
+  background-color: #45a049;
+}
+
 .property-label {
   font-weight: bold;
   margin-right: 10px;

@@ -14,6 +14,7 @@
   "dependencies": {
     "@types/three": "^0.155.0",
     "axios": "^1.5.0",
+    "gsap": "^3.14.2",
     "three": "^0.155.0",
     "three-stdlib": "^2.36.1",
     "vue": "^3.3.4"

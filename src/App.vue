@@ -290,6 +290,36 @@
         <span v-else class="property-value">{{ outlineGlowGradient ? '是' : '否' }}</span>
       </div>
     </div>
+
+    <!-- 对象移动设置 -->
+    <div class="property-group">
+      <h4>对象移动</h4>
+      <div class="property-row">
+        <span class="property-label">路径:</span>
+        <select v-if="transformControlsRef?.object === selectedObject && !isObjectInPath"
+          @change="handlePathSelect" @click.stop class="property-select">
+          <option value="">选择路径</option>
+          <option v-for="path in availablePaths" :key="path.id" :value="path.id">{{ path.name }}</option>
+        </select>
+        <span v-else class="property-value">{{ selectedPathName || '无' }}</span>
+      </div>
+      <div v-if="selectedPathId" class="property-row">
+        <span class="property-label">速度:</span>
+        <input v-if="transformControlsRef?.object === selectedObject" type="number" step="0.1" min="0.1"
+          v-model.number="movementSpeed" @input="updateMovementSpeed" @click.stop class="property-input" />
+        <span v-else class="property-value">{{ movementSpeed.toFixed(1) }}</span>
+      </div>
+      <div v-if="selectedPathId" class="property-row">
+        <span class="property-label">圈数:</span>
+        <input v-if="transformControlsRef?.object === selectedObject" type="number" step="1" min="1"
+          v-model.number="movementLoops" @input="updateMovementLoops" @click.stop class="property-input" />
+        <span v-else class="property-value">{{ movementLoops }}</span>
+      </div>
+      <div v-if="selectedPathId" class="property-row">
+        <button v-if="!isMoving" @click="startMovement" @click.stop class="property-button">开始移动</button>
+        <button v-else @click="stopMovement" @click.stop class="property-button">停止移动</button>
+      </div>
+    </div>
   </div>
 
   <div v-if="contextMenuVisible" class="context-menu"
@@ -321,6 +351,7 @@ import { breathingLightManager, DEFAULT_CONFIG } from './Utility/breathingLight'
 import { outlineGlowManager } from './Utility/outlineGlow'
 import { pathPanelManager } from './Utility/pathPanel'
 import { pathManager } from './Utility/path'
+import { objectMovementManager } from './Utility/objectMovement'
 import { nameValidator } from './Utility/nameValidator'
 
 
@@ -397,6 +428,14 @@ const outlineGlowPulsePeriod = ref(2.0)
 const outlineGlowFrequency = ref(0)
 const outlineGlowGradient = ref(false)
 
+const selectedPathId = ref<string | null>(null)
+const selectedPathName = ref<string>('')
+const movementSpeed = ref<number>(1.0)
+const movementLoops = ref<number>(1)
+const isMoving = ref<boolean>(false)
+const isObjectInPath = ref<boolean>(false)
+const availablePaths = ref<any[]>([])
+
 // Three.js 变量
 let scene: THREE.Scene
 let camera: THREE.PerspectiveCamera
@@ -445,6 +484,9 @@ const initThreeJS = () => {
 
   // 设置呼吸灯管理器的场景引用
   breathingLightManager.setScene(scene)
+
+  // 设置对象移动管理器的场景引用
+  objectMovementManager.setScene(scene)
 
   // 创建相机
   camera = new THREE.PerspectiveCamera(
@@ -905,6 +947,31 @@ const selectObject = (object: THREE.Object3D) => {
     breathingLightColor.value = DEFAULT_CONFIG.color
     breathingLightFrequency.value = DEFAULT_CONFIG.frequency
     breathingLightIntensity.value = DEFAULT_CONFIG.intensity
+  }
+
+  // 更新对象移动状态
+  isObjectInPath.value = objectMovementManager.isObjectInPath(object.uuid)
+  if (isObjectInPath.value) {
+    selectedPathId.value = null
+    selectedPathName.value = '对象在路径中'
+    availablePaths.value = []
+  } else {
+    availablePaths.value = objectMovementManager.getAvailablePaths(object.uuid)
+    const movementState = objectMovementManager.getMovementState(object.uuid)
+    if (movementState) {
+      selectedPathId.value = movementState.pathId
+      const path = pathManager.getPathById(movementState.pathId)
+      selectedPathName.value = path?.name || ''
+      movementSpeed.value = movementState.speed
+      movementLoops.value = movementState.loops
+      isMoving.value = movementState.isMoving
+    } else {
+      selectedPathId.value = null
+      selectedPathName.value = ''
+      movementSpeed.value = 1.0
+      movementLoops.value = 1
+      isMoving.value = false
+    }
   }
 
   // 不自动附加变换控制器，只选择对象但不进入编辑模式
@@ -1971,6 +2038,51 @@ const updateObjectScale = () => {
     selectedObject.value.scale.set(scale.value.x, scale.value.y, scale.value.z)
     // 触发变换控制器的更新
     transformControlsRef.value.updateMatrixWorld()
+  }
+}
+
+const handlePathSelect = (event: Event) => {
+  const target = event.target as HTMLSelectElement
+  const pathId = target.value
+  if (selectedObject.value) {
+    selectedPathId.value = pathId || null
+    const path = pathManager.getPathById(pathId)
+    selectedPathName.value = path?.name || ''
+  }
+}
+
+const updateMovementSpeed = () => {
+  if (selectedObject.value && selectedPathId.value) {
+    objectMovementManager.updateMovement(selectedObject.value.uuid, {
+      speed: movementSpeed.value
+    })
+  }
+}
+
+const updateMovementLoops = () => {
+  if (selectedObject.value && selectedPathId.value) {
+    objectMovementManager.updateMovement(selectedObject.value.uuid, {
+      loops: movementLoops.value
+    })
+  }
+}
+
+const startMovement = () => {
+  if (selectedObject.value && selectedPathId.value) {
+    const success = objectMovementManager.startMovement(selectedObject.value, selectedPathId.value, {
+      speed: movementSpeed.value,
+      loops: movementLoops.value
+    })
+    if (success) {
+      isMoving.value = true
+    }
+  }
+}
+
+const stopMovement = () => {
+  if (selectedObject.value) {
+    objectMovementManager.stopMovement(selectedObject.value.uuid)
+    isMoving.value = false
   }
 }
 
