@@ -321,6 +321,7 @@ import { breathingLightManager, DEFAULT_CONFIG } from './Utility/breathingLight'
 import { outlineGlowManager } from './Utility/outlineGlow'
 import { pathPanelManager } from './Utility/pathPanel'
 import { pathManager } from './Utility/path'
+import { nameValidator } from './Utility/nameValidator'
 
 
 
@@ -1016,31 +1017,34 @@ const addBasicShape = (shapeType: string) => {
     emissiveIntensity: 1.2
   })
   let mesh: THREE.Mesh
+  let baseName: string
 
   switch (shapeType) {
     case 'cube':
       geometry = new THREE.BoxGeometry(1, 1, 1)
       mesh = new THREE.Mesh(geometry, material)
-      mesh.name = '方块'
+      baseName = '方块'
       break
     case 'sphere':
       geometry = new THREE.SphereGeometry(0.5, 32, 16)
       mesh = new THREE.Mesh(geometry, material)
-      mesh.name = '球体'
+      baseName = '球体'
       break
     case 'cylinder':
       geometry = new THREE.CylinderGeometry(0.5, 0.5, 1, 32)
       mesh = new THREE.Mesh(geometry, material)
-      mesh.name = '圆柱'
+      baseName = '圆柱'
       break
     case 'torus':
       geometry = new THREE.TorusGeometry(0.5, 0.2, 16, 100)
       mesh = new THREE.Mesh(geometry, material)
-      mesh.name = '环'
+      baseName = '环'
       break
     default:
       return
   }
+
+  mesh.name = nameValidator.generateUniqueName(baseName)
 
   mesh.position.y = 0.5
   mesh.castShadow = true
@@ -1064,6 +1068,8 @@ const addBasicShape = (shapeType: string) => {
   }
   
   scene.add(mesh)
+
+  nameValidator.registerObject(mesh)
 
   // 创建标签
   createLabel(mesh, mesh.name)
@@ -1172,7 +1178,8 @@ const saveGLBToPublic = (file: File): Promise<string> => {
               if (child instanceof THREE.Mesh) {
                 // 克隆mesh对象，以便可以独立添加到场景中
                 const mesh = child.clone()
-                mesh.name = `${file.name.replace(/\.[^/.]+$/, "")}_${mesh.name || 'mesh'}`
+                const baseName = `${file.name.replace(/\.[^/.]+$/, "")}_${mesh.name || 'mesh'}`
+                mesh.name = nameValidator.generateUniqueName(baseName)
                 mesh.castShadow = true
                 mesh.receiveShadow = true
 
@@ -1198,6 +1205,7 @@ const saveGLBToPublic = (file: File): Promise<string> => {
 
                 // 直接将mesh对象添加到场景中
                 scene.add(mesh)
+                nameValidator.registerObject(mesh)
                 meshObjects.push(mesh)
 
                 // 将mesh对象添加到objects数组中
@@ -1419,6 +1427,7 @@ const handleImportScene = (event: Event) => {
           mesh.userData.isTransformable = true
 
           scene.add(mesh)
+          nameValidator.registerObject(mesh)
           
           // 创建标签
           createLabel(mesh, mesh.name)
@@ -1550,7 +1559,8 @@ const loadGLBFromPublic = (modelPath: string, fileName: string): Promise<THREE.O
           if (child instanceof THREE.Mesh) {
             // 克隆mesh对象，以便可以独立添加到场景中
             const mesh = child.clone()
-            mesh.name = `${fileName.replace(/\.[^/.]+$/, "")}_${mesh.name || 'mesh'}`
+            const baseName = `${fileName.replace(/\.[^/.]+$/, "")}_${mesh.name || 'mesh'}`
+            mesh.name = nameValidator.generateUniqueName(baseName)
             mesh.castShadow = true
             mesh.receiveShadow = true
 
@@ -1591,6 +1601,7 @@ const loadGLBFromPublic = (modelPath: string, fileName: string): Promise<THREE.O
 
             // 直接将mesh对象添加到场景中
             scene.add(mesh)
+            nameValidator.registerObject(mesh)
             
             // 创建标签
             createLabel(mesh, mesh.name)
@@ -1966,7 +1977,17 @@ const updateObjectScale = () => {
 // 更新对象名称
 const updateObjectName = () => {
   if (selectedObject.value && transformControlsRef.value?.object === selectedObject.value) {
-    selectedObject.value.name = objectName.value
+    const oldName = selectedObject.value.name
+    const newName = objectName.value
+
+    const result = nameValidator.updateObjectName(selectedObject.value, oldName, newName)
+
+    if (!result.isValid) {
+      alert(result.errorMessage || '名称更新失败')
+      objectName.value = oldName
+      return
+    }
+
     // 更新标签
     updateLabel(selectedObject.value)
   }
