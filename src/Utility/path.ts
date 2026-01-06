@@ -10,12 +10,18 @@ export interface PathConfig {
   close?: boolean
   color?: number
   texture?: THREE.Texture | string
+  useTexture?: boolean
   transparent?: boolean
   opacity?: number
   blending?: THREE.Blending
   side?: THREE.Side
   arrow?: boolean
+  scrollUV?: boolean
+  scrollSpeed?: number
+  progress?: number
+  playSpeed?: number
   speed?: number
+  parallelToXZ?: boolean
 }
 
 export interface TubePathConfig extends PathConfig {
@@ -26,14 +32,22 @@ export interface TubePathConfig extends PathConfig {
 
 export interface PathMesh {
   id: string
+  name: string
   points: THREE.Vector3[]
+  objectIds: string[]
   geometry: THREE.BufferGeometry
   material: THREE.Material
   mesh: THREE.Mesh
   pathPointList: PathPointList
   updateParam: any
   texture?: THREE.Texture
+  useTexture?: boolean
+  scrollUV?: boolean
+  scrollSpeed?: number
+  progress?: number
+  playSpeed?: number
   speed?: number
+  parallelToXZ?: boolean
 }
 
 export interface TextureConfig {
@@ -52,6 +66,7 @@ class PathManager {
   private scene: THREE.Scene | null = null
   private renderer: THREE.WebGLRenderer | null = null
   private paths: Map<string, PathMesh> = new Map()
+  private objectToPathsMap: Map<string, Set<string>> = new Map()
   private textureCache: Map<string, THREE.Texture> = new Map()
   private texturePresets: Map<TexturePreset, TextureConfig> = new Map()
 
@@ -172,9 +187,11 @@ class PathManager {
     return undefined
   }
 
-  createPath(config: PathConfig): string {
+  createPath(config: PathConfig, name?: string, objectIds?: string[]): string {
     console.log('[PathManager] createPath() 开始执行')
     console.log('[PathManager] 接收到的配置:', config)
+    console.log('[PathManager] 路径名称:', name)
+    console.log('[PathManager] 关联对象ID:', objectIds)
 
     if (!this.scene) {
       console.error('[PathManager] 错误：scene 未设置')
@@ -190,10 +207,16 @@ class PathManager {
       return id
     }
 
+    let processedPoints = config.points
+    if (config.parallelToXZ) {
+      processedPoints = config.points.map(point => new THREE.Vector3(point.x, config.points[0].y, point.z))
+      console.log('[PathManager] 路径已调整为平行XZ平面，所有Y坐标设置为:', config.points[0].y)
+    }
+
     console.log('[PathManager] 创建 PathPointList...')
     const pathPointList = new PathPointList()
     pathPointList.set(
-      config.points,
+      processedPoints,
       config.cornerRadius || 0,
       config.cornerSplit || 0,
       config.up || null,
@@ -204,7 +227,8 @@ class PathManager {
     const updateParam = {
       width: config.width || 2,
       arrow: config.arrow !== undefined ? config.arrow : false,
-      progress: 0
+      progress: config.progress !== undefined ? config.progress : 1,
+      side: config.side || 'both'
     }
     console.log('[PathManager] 更新参数:', updateParam)
 
@@ -229,17 +253,35 @@ class PathManager {
 
     const pathMesh: PathMesh = {
       id,
-      points: config.points,
+      name: name || `路径_${this.paths.size + 1}`,
+      points: processedPoints,
+      objectIds: objectIds || [],
       geometry,
       material,
       mesh,
       pathPointList,
       updateParam,
       texture: resolvedTexture,
-      speed: config.speed !== undefined ? config.speed : 0.02
+      useTexture: config.useTexture !== undefined ? config.useTexture : false,
+      scrollUV: config.scrollUV !== undefined ? config.scrollUV : false,
+      scrollSpeed: config.scrollSpeed !== undefined ? config.scrollSpeed : 0.03,
+      progress: config.progress !== undefined ? config.progress : 1,
+      playSpeed: config.playSpeed !== undefined ? config.playSpeed : 0.14,
+      speed: config.speed !== undefined ? config.speed : 0.02,
+      parallelToXZ: config.parallelToXZ || false
     }
 
     this.paths.set(id, pathMesh)
+    
+    if (objectIds && objectIds.length > 0) {
+      objectIds.forEach(objId => {
+        if (!this.objectToPathsMap.has(objId)) {
+          this.objectToPathsMap.set(objId, new Set())
+        }
+        this.objectToPathsMap.get(objId)!.add(id)
+      })
+    }
+    
     console.log('[PathManager] 路径已保存到 paths Map')
     console.log('[PathManager] 当前所有路径数量:', this.paths.size)
     console.log('[PathManager] createPath() 执行完成，返回ID:', id)
@@ -247,15 +289,15 @@ class PathManager {
     return id
   }
 
-  createPathWithPreset(config: PathConfig, texturePreset: TexturePreset): string {
+  createPathWithPreset(config: PathConfig, texturePreset: TexturePreset, name?: string, objectIds?: string[]): string {
     const texture = this.loadTextureFromPreset(texturePreset)
     return this.createPath({
       ...config,
       texture: texture || undefined
-    })
+    }, name, objectIds)
   }
 
-  createTubePath(config: TubePathConfig): string {
+  createTubePath(config: TubePathConfig, name?: string, objectIds?: string[]): string {
     if (!this.scene) {
       console.error('PathManager: scene not set')
       return ''
@@ -278,10 +320,10 @@ class PathManager {
     )
 
     const updateParam = {
-      width: config.radius || 0.5,
+      width: config.width || 0.5,
       radialSegments: config.radialSegments || 8,
       startRad: config.startRad || 0,
-      progress: 0
+      progress: config.progress !== undefined ? config.progress : 1
     }
 
     const geometry = new PathTubeGeometry({
@@ -297,17 +339,34 @@ class PathManager {
 
     const pathMesh: PathMesh = {
       id,
+      name: name || `路径_${this.paths.size + 1}`,
       points: config.points,
+      objectIds: objectIds || [],
       geometry,
       material,
       mesh,
       pathPointList,
       updateParam,
       texture: resolvedTexture,
-      speed: config.speed !== undefined ? config.speed : 0.02
+      useTexture: config.useTexture !== undefined ? config.useTexture : false,
+      scrollUV: config.scrollUV !== undefined ? config.scrollUV : false,
+      scrollSpeed: config.scrollSpeed !== undefined ? config.scrollSpeed : 0.03,
+      progress: config.progress !== undefined ? config.progress : 1,
+      playSpeed: config.playSpeed !== undefined ? config.playSpeed : 0.14,
+      speed: config.speed !== undefined ? config.speed : 0.02,
+      parallelToXZ: config.parallelToXZ || false
     }
 
     this.paths.set(id, pathMesh)
+    
+    if (objectIds && objectIds.length > 0) {
+      objectIds.forEach(objId => {
+        if (!this.objectToPathsMap.has(objId)) {
+          this.objectToPathsMap.set(objId, new Set())
+        }
+        this.objectToPathsMap.get(objId)!.add(id)
+      })
+    }
 
     return id
   }
@@ -337,6 +396,17 @@ class PathManager {
       } else {
         pathMesh.material.dispose()
       }
+      
+      pathMesh.objectIds.forEach(objId => {
+        const pathSet = this.objectToPathsMap.get(objId)
+        if (pathSet) {
+          pathSet.delete(id)
+          if (pathSet.size === 0) {
+            this.objectToPathsMap.delete(objId)
+          }
+        }
+      })
+      
       this.paths.delete(id)
       return true
     }
@@ -413,6 +483,7 @@ class PathManager {
     const pathMesh = this.paths.get(id)
     if (pathMesh && !Array.isArray(pathMesh.material)) {
       pathMesh.material.color.setHex(color)
+      pathMesh.material.needsUpdate = true
     }
   }
 
@@ -460,14 +531,218 @@ class PathManager {
 
   update(delta: number): void {
     this.paths.forEach((pathMesh) => {
-      if (pathMesh.texture && pathMesh.speed !== undefined) {
-        pathMesh.texture.offset.x -= delta * pathMesh.speed
+      if (pathMesh.scrollUV && pathMesh.texture && pathMesh.scrollSpeed !== undefined) {
+        pathMesh.texture.offset.x -= delta * pathMesh.scrollSpeed
+      }
+
+      if (pathMesh.playSpeed !== undefined && pathMesh.progress !== undefined) {
+        pathMesh.progress += delta * pathMesh.playSpeed
+        if (pathMesh.progress > 1) {
+          pathMesh.progress = 0
+        }
+        pathMesh.updateParam.progress = pathMesh.progress
+        pathMesh.geometry.update(pathMesh.pathPointList, pathMesh.updateParam)
       }
     })
   }
 
   getAllPaths(): PathMesh[] {
     return Array.from(this.paths.values())
+  }
+
+  findPathsByObjectId(objectId: string): PathMesh[] {
+    const pathIds = this.objectToPathsMap.get(objectId)
+    if (!pathIds) {
+      return []
+    }
+    return Array.from(pathIds).map(id => this.paths.get(id)).filter((p): p is PathMesh => p !== undefined)
+  }
+
+  findPathByName(name: string): PathMesh | undefined {
+    return Array.from(this.paths.values()).find(p => p.name === name)
+  }
+
+  updatePathName(id: string, name: string): boolean {
+    const pathMesh = this.paths.get(id)
+    if (pathMesh) {
+      pathMesh.name = name
+      return true
+    }
+    return false
+  }
+
+  getPathConfig(id: string): PathConfig | undefined {
+    const pathMesh = this.paths.get(id)
+    if (!pathMesh) {
+      return undefined
+    }
+
+    const config: PathConfig = {
+      points: pathMesh.points,
+      width: pathMesh.updateParam.width,
+      cornerRadius: 0,
+      cornerSplit: 0,
+      color: !Array.isArray(pathMesh.material) && 'color' in pathMesh.material ? pathMesh.material.color.getHex() : 0xffffff,
+      texture: pathMesh.texture,
+      useTexture: pathMesh.useTexture,
+      transparent: !Array.isArray(pathMesh.material) && 'transparent' in pathMesh.material ? pathMesh.material.transparent : true,
+      opacity: !Array.isArray(pathMesh.material) && 'opacity' in pathMesh.material ? pathMesh.material.opacity : 1,
+      blending: !Array.isArray(pathMesh.material) && 'blending' in pathMesh.material ? pathMesh.material.blending : THREE.AdditiveBlending,
+      side: !Array.isArray(pathMesh.material) && 'side' in pathMesh.material ? pathMesh.material.side : THREE.DoubleSide,
+      arrow: pathMesh.updateParam.arrow,
+      scrollUV: pathMesh.scrollUV,
+      scrollSpeed: pathMesh.scrollSpeed,
+      progress: pathMesh.progress,
+      playSpeed: pathMesh.playSpeed,
+      speed: pathMesh.speed,
+      parallelToXZ: pathMesh.parallelToXZ
+    }
+
+    return config
+  }
+
+  updatePathConfig(id: string, config: Partial<PathConfig>): boolean {
+    const pathMesh = this.paths.get(id)
+    if (!pathMesh) {
+      return false
+    }
+
+    if (config.width !== undefined) {
+      this.updatePathWidthById(id, config.width)
+    }
+
+    if (config.color !== undefined) {
+      this.updatePathColorById(id, config.color)
+    }
+
+    if (config.texture !== undefined) {
+      this.updatePathTextureById(id, config.texture)
+    }
+
+    if (config.useTexture !== undefined) {
+      pathMesh.useTexture = config.useTexture
+      if (pathMesh.texture) {
+        if (!Array.isArray(pathMesh.material) && 'map' in pathMesh.material) {
+          pathMesh.material.map = config.useTexture ? pathMesh.texture : null
+          pathMesh.material.needsUpdate = true
+        }
+      }
+    }
+
+    if (config.scrollUV !== undefined) {
+      pathMesh.scrollUV = config.scrollUV
+    }
+
+    if (config.scrollSpeed !== undefined) {
+      pathMesh.scrollSpeed = config.scrollSpeed
+    }
+
+    if (config.progress !== undefined) {
+      pathMesh.progress = config.progress
+      pathMesh.updateParam.progress = config.progress
+      pathMesh.geometry.update(pathMesh.pathPointList, pathMesh.updateParam)
+    }
+
+    if (config.playSpeed !== undefined) {
+      pathMesh.playSpeed = config.playSpeed
+    }
+
+    if (config.speed !== undefined) {
+      this.setPathSpeedById(id, config.speed)
+    }
+
+    if (config.arrow !== undefined) {
+      pathMesh.updateParam.arrow = config.arrow
+      pathMesh.geometry.update(pathMesh.pathPointList, pathMesh.updateParam)
+    }
+
+    if (config.transparent !== undefined && !Array.isArray(pathMesh.material) && 'transparent' in pathMesh.material) {
+      pathMesh.material.transparent = config.transparent
+      pathMesh.material.needsUpdate = true
+    }
+
+    if (config.opacity !== undefined && !Array.isArray(pathMesh.material) && 'opacity' in pathMesh.material) {
+      pathMesh.material.opacity = config.opacity
+      pathMesh.material.needsUpdate = true
+    }
+
+    if (config.blending !== undefined && !Array.isArray(pathMesh.material) && 'blending' in pathMesh.material) {
+      pathMesh.material.blending = config.blending
+      pathMesh.material.needsUpdate = true
+    }
+
+    if (config.side !== undefined && !Array.isArray(pathMesh.material) && 'side' in pathMesh.material) {
+      pathMesh.material.side = config.side
+      pathMesh.material.needsUpdate = true
+    }
+
+    if (config.cornerRadius !== undefined || config.cornerSplit !== undefined) {
+      const cornerRadius = config.cornerRadius !== undefined ? config.cornerRadius : 0
+      const cornerSplit = config.cornerSplit !== undefined ? config.cornerSplit : 0
+      const up = pathMesh.parallelToXZ ? new THREE.Vector3(0, 1, 0) : null
+      pathMesh.pathPointList.set(
+        pathMesh.points,
+        cornerRadius,
+        cornerSplit,
+        up,
+        false
+      )
+      pathMesh.geometry.update(pathMesh.pathPointList, pathMesh.updateParam)
+    }
+
+    if (config.parallelToXZ !== undefined) {
+      pathMesh.parallelToXZ = config.parallelToXZ
+      const up = config.parallelToXZ ? new THREE.Vector3(0, 1, 0) : null
+      pathMesh.pathPointList.set(
+        pathMesh.points,
+        pathMesh.updateParam.cornerRadius || 0,
+        pathMesh.updateParam.cornerSplit || 0,
+        up,
+        false
+      )
+      pathMesh.geometry.update(pathMesh.pathPointList, pathMesh.updateParam)
+    }
+
+    return true
+  }
+
+  updatePathTextureWrap(id: string, wrapS: THREE.Wrapping | null, wrapT: THREE.Wrapping | null): void {
+    const pathMesh = this.paths.get(id)
+    if (!pathMesh || !pathMesh.texture) return
+
+    if (wrapS !== null) {
+      pathMesh.texture.wrapS = wrapS
+    }
+    if (wrapT !== null) {
+      pathMesh.texture.wrapT = wrapT
+    }
+    pathMesh.texture.needsUpdate = true
+  }
+
+  updatePathTextureRepeat(id: string, repeatX: number | null, repeatY: number | null): void {
+    const pathMesh = this.paths.get(id)
+    if (!pathMesh || !pathMesh.texture) return
+
+    if (repeatX !== null) {
+      pathMesh.texture.repeat.x = repeatX
+    }
+    if (repeatY !== null) {
+      pathMesh.texture.repeat.y = repeatY
+    }
+    pathMesh.texture.needsUpdate = true
+  }
+
+  updatePathTextureOffset(id: string, offsetX: number | null, offsetY: number | null): void {
+    const pathMesh = this.paths.get(id)
+    if (!pathMesh || !pathMesh.texture) return
+
+    if (offsetX !== null) {
+      pathMesh.texture.offset.x = offsetX
+    }
+    if (offsetY !== null) {
+      pathMesh.texture.offset.y = offsetY
+    }
+    pathMesh.texture.needsUpdate = true
   }
 
   private _createPathMaterial(config: PathConfig, texture?: THREE.Texture): THREE.Material {

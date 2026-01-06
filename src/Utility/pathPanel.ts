@@ -1,11 +1,12 @@
 import * as THREE from 'three'
-import { pathManager, type PathConfig } from './path'
+import { pathManager, type PathConfig, type PathMesh } from './path'
 
 export interface PathObject {
   id: string
   object: THREE.Object3D
   name: string
   bottomCenter: THREE.Vector3
+  selected: boolean
 }
 
 export interface PathPanelConfig {
@@ -18,23 +19,29 @@ export interface PathPanelConfig {
   itemHoverColor?: string
 }
 
+export interface PathInfo {
+  id: string
+  name: string
+  objectIds: string[]
+  config: PathConfig
+}
+
 class PathPanelManager {
   private objects: PathObject[] = []
+  private paths: PathInfo[] = []
   private panelVisible: boolean = false
   private panelElement: HTMLElement | null = null
   private toggleButton: HTMLElement | null = null
   private config: Required<PathPanelConfig>
-  private currentPathId: string = ''
+  private selectedPathId: string = ''
   private onPathUpdateCallback: ((pathId: string) => void) | null = null
-  private pathProgress: number = 0
-  private pathGenerated: boolean = false
 
   constructor(config: PathPanelConfig = {}) {
     this.config = {
-      width: config.width || 250,
-      height: config.height || 300,
+      width: config.width || 320,
+      height: config.height || 500,
       position: config.position || { x: 10, y: 10 },
-      backgroundColor: config.backgroundColor || 'rgba(255, 255, 255, 0.9)',
+      backgroundColor: config.backgroundColor || 'rgba(255, 255, 255, 0.95)',
       textColor: config.textColor || '#333',
       itemBackgroundColor: config.itemBackgroundColor || '#f5f5f5',
       itemHoverColor: config.itemHoverColor || '#e0e0e0'
@@ -120,7 +127,7 @@ class PathPanelManager {
       align-items: center;
     `
     header.innerHTML = `
-      <span>路径对象</span>
+      <span>路径管理</span>
       <button class="close-panel-btn" style="
         background: none;
         border: none;
@@ -147,29 +154,82 @@ class PathPanelManager {
       gap: 10px;
     `
 
-    const generateButton = document.createElement('button')
-    generateButton.className = 'generate-path-btn'
-    generateButton.innerHTML = '生成路径'
-    generateButton.style.cssText = `
-      width: 100%;
-      padding: 10px;
-      background-color: #2196F3;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-weight: bold;
-      transition: background-color 0.2s;
+    const tabs = document.createElement('div')
+    tabs.className = 'path-panel-tabs'
+    tabs.style.cssText = `
+      display: flex;
+      gap: 5px;
+      margin-bottom: 10px;
     `
-    generateButton.addEventListener('mouseenter', () => {
-      generateButton.style.backgroundColor = '#1976D2'
-    })
-    generateButton.addEventListener('mouseleave', () => {
-      generateButton.style.backgroundColor = '#2196F3'
-    })
-    generateButton.addEventListener('click', () => {
-      this.updatePath()
-    })
+    tabs.innerHTML = `
+      <button class="tab-btn" data-tab="objects" style="
+        flex: 1;
+        padding: 8px;
+        background-color: #2196F3;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: bold;
+      ">对象列表</button>
+      <button class="tab-btn" data-tab="paths" style="
+        flex: 1;
+        padding: 8px;
+        background-color: #9E9E9E;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: bold;
+      ">路径列表</button>
+    `
+
+    const objectsPanel = document.createElement('div')
+    objectsPanel.className = 'objects-panel'
+    objectsPanel.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    `
+
+    const objectsHeader = document.createElement('div')
+    objectsHeader.className = 'objects-header'
+    objectsHeader.style.cssText = `
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+    `
+    objectsHeader.innerHTML = `
+      <button class="select-all-btn" style="
+        padding: 6px 12px;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+      ">全选</button>
+      <button class="deselect-all-btn" style="
+        padding: 6px 12px;
+        background-color: #f44336;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+      ">取消全选</button>
+      <button class="generate-path-btn" style="
+        padding: 6px 12px;
+        background-color: #2196F3;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: bold;
+        font-size: 12px;
+      ">生成路径</button>
+    `
 
     const objectList = document.createElement('div')
     objectList.className = 'path-object-list'
@@ -177,10 +237,49 @@ class PathPanelManager {
       display: flex;
       flex-direction: column;
       gap: 8px;
+      max-height: 300px;
+      overflow-y: auto;
     `
 
-    content.appendChild(generateButton)
-    content.appendChild(objectList)
+    objectsPanel.appendChild(objectsHeader)
+    objectsPanel.appendChild(objectList)
+
+    const pathsPanel = document.createElement('div')
+    pathsPanel.className = 'paths-panel'
+    pathsPanel.style.cssText = `
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+    `
+
+    const pathList = document.createElement('div')
+    pathList.className = 'path-list'
+    pathList.style.cssText = `
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 200px;
+      overflow-y: auto;
+    `
+
+    const pathConfigPanel = document.createElement('div')
+    pathConfigPanel.className = 'path-config-panel'
+    pathConfigPanel.style.cssText = `
+      display: none;
+      flex-direction: column;
+      gap: 10px;
+      padding: 10px;
+      background-color: #f9f9f9;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+    `
+
+    pathsPanel.appendChild(pathList)
+    pathsPanel.appendChild(pathConfigPanel)
+
+    content.appendChild(tabs)
+    content.appendChild(objectsPanel)
+    content.appendChild(pathsPanel)
     this.panelElement.appendChild(header)
     this.panelElement.appendChild(content)
     container.appendChild(this.panelElement)
@@ -189,6 +288,54 @@ class PathPanelManager {
     closeBtn.addEventListener('click', () => {
       this.togglePanel()
     })
+
+    const tabButtons = tabs.querySelectorAll('.tab-btn')
+    tabButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tab = (btn as HTMLElement).dataset.tab
+        this.switchTab(tab || 'objects')
+      })
+    })
+
+    const selectAllBtn = objectsHeader.querySelector('.select-all-btn') as HTMLElement
+    selectAllBtn.addEventListener('click', () => {
+      this.selectAllObjects()
+    })
+
+    const deselectAllBtn = objectsHeader.querySelector('.deselect-all-btn') as HTMLElement
+    deselectAllBtn.addEventListener('click', () => {
+      this.deselectAllObjects()
+    })
+
+    const generatePathBtn = objectsHeader.querySelector('.generate-path-btn') as HTMLElement
+    generatePathBtn.addEventListener('click', () => {
+      this.generatePathFromSelectedObjects()
+    })
+  }
+
+  private switchTab(tab: string): void {
+    const tabButtons = this.panelElement?.querySelectorAll('.tab-btn')
+    const objectsPanel = this.panelElement?.querySelector('.objects-panel') as HTMLElement
+    const pathsPanel = this.panelElement?.querySelector('.paths-panel') as HTMLElement
+
+    tabButtons?.forEach(btn => {
+      const btnTab = (btn as HTMLElement).dataset.tab
+      if (btnTab === tab) {
+        (btn as HTMLElement).style.backgroundColor = '#2196F3'
+      } else {
+        (btn as HTMLElement).style.backgroundColor = '#9E9E9E'
+      }
+    })
+
+    if (objectsPanel && pathsPanel) {
+      if (tab === 'objects') {
+        objectsPanel.style.display = 'flex'
+        pathsPanel.style.display = 'none'
+      } else {
+        objectsPanel.style.display = 'none'
+        pathsPanel.style.display = 'flex'
+      }
+    }
   }
 
   private addEventListeners(): void {
@@ -258,72 +405,44 @@ class PathPanelManager {
       id: object.uuid,
       object,
       name: object.name || '未命名对象',
-      bottomCenter
+      bottomCenter,
+      selected: false
     }
 
     this.objects.push(pathObject)
-    this.updatePanel()
+    this.updateObjectList()
   }
 
   removeObject(objectId: string): void {
     const index = this.objects.findIndex(obj => obj.id === objectId)
     if (index !== -1) {
       this.objects.splice(index, 1)
-      this.updatePanel()
-      
-      // 如果删除对象后数量不足，清除路径并重置标志
-      if (this.objects.length < 2 && this.pathGenerated) {
-        this.clearPath()
-      }
+      this.updateObjectList()
     }
   }
 
   updateObject(objectId: string): void {
-    console.log('[PathPanel] updateObject() 被调用，对象ID:', objectId)
     const pathObject = this.objects.find(obj => obj.id === objectId)
     if (pathObject) {
-      console.log('[PathPanel] 找到路径对象:', pathObject.name)
-      console.log('[PathPanel] 旧的底部中心点:', pathObject.bottomCenter)
       pathObject.bottomCenter = this.calculateBottomCenter(pathObject.object)
-      console.log('[PathPanel] 新的底部中心点:', pathObject.bottomCenter)
       
-      // 只有在路径已经生成的情况下，才实时更新路径
-      if (this.pathGenerated) {
-        console.log('[PathPanel] 路径已生成，实时更新路径')
-        this.updatePath()
-      } else {
-        console.log('[PathPanel] 路径尚未生成，不自动更新')
-      }
-    } else {
-      console.warn('[PathPanel] 未找到对象ID:', objectId)
+      const paths = pathManager.findPathsByObjectId(objectId)
+      paths.forEach(path => {
+        this.updatePathPoints(path.id)
+      })
     }
   }
 
   clearObjects(): void {
     this.objects = []
-    this.updatePanel()
-    this.clearPath()
+    this.updateObjectList()
   }
 
   private calculateBottomCenter(object: THREE.Object3D): THREE.Vector3 {
-    console.log('[PathPanel] calculateBottomCenter() 开始计算对象底部中心')
-    console.log('[PathPanel] 对象名称:', object.name)
-    console.log('[PathPanel] 对象位置:', object.position)
-    console.log('[PathPanel] 对象旋转:', object.rotation)
-    console.log('[PathPanel] 对象缩放:', object.scale)
-    
     const box = new THREE.Box3().setFromObject(object)
-    console.log('[PathPanel] 包围盒 min:', box.min)
-    console.log('[PathPanel] 包围盒 max:', box.max)
-    console.log('[PathPanel] 包围盒 size:', box.getSize(new THREE.Vector3()))
-    
     const center = new THREE.Vector3()
     box.getCenter(center)
-    console.log('[PathPanel] 包围盒中心:', center)
-    
     center.y = box.min.y
-    console.log('[PathPanel] 底部中心点:', center)
-    
     return center
   }
 
@@ -336,11 +455,11 @@ class PathPanelManager {
     if (draggedIndex !== -1 && targetIndex !== -1) {
       const [draggedObject] = this.objects.splice(draggedIndex, 1)
       this.objects.splice(targetIndex, 0, draggedObject)
-      this.updatePanel()
+      this.updateObjectList()
     }
   }
 
-  private updatePanel(): void {
+  private updateObjectList(): void {
     const objectList = this.panelElement?.querySelector('.path-object-list') as HTMLElement
     if (!objectList) return
 
@@ -353,14 +472,29 @@ class PathPanelManager {
       item.draggable = true
       item.style.cssText = `
         padding: 10px;
-        background-color: ${this.config.itemBackgroundColor};
+        background-color: ${pathObject.selected ? '#E3F2FD' : this.config.itemBackgroundColor};
         border-radius: 4px;
         cursor: move;
         display: flex;
         align-items: center;
         gap: 10px;
         transition: background-color 0.2s;
+        border: ${pathObject.selected ? '2px solid #2196F3' : 'none'};
       `
+
+      const checkbox = document.createElement('input')
+      checkbox.type = 'checkbox'
+      checkbox.checked = pathObject.selected
+      checkbox.style.cssText = `
+        cursor: pointer;
+        width: 16px;
+        height: 16px;
+      `
+      checkbox.addEventListener('change', () => {
+        pathObject.selected = checkbox.checked
+        item.style.backgroundColor = pathObject.selected ? '#E3F2FD' : this.config.itemBackgroundColor
+        item.style.border = pathObject.selected ? '2px solid #2196F3' : 'none'
+      })
 
       const indexSpan = document.createElement('span')
       indexSpan.style.cssText = `
@@ -405,6 +539,7 @@ class PathPanelManager {
         this.moveObjectDown(pathObject.id)
       })
 
+      item.appendChild(checkbox)
       item.appendChild(indexSpan)
       item.appendChild(nameSpan)
       item.appendChild(moveUpBtn)
@@ -420,15 +555,25 @@ class PathPanelManager {
       })
 
       item.addEventListener('mouseenter', () => {
-        item.style.backgroundColor = this.config.itemHoverColor
+        item.style.backgroundColor = pathObject.selected ? '#E3F2FD' : this.config.itemHoverColor
       })
 
       item.addEventListener('mouseleave', () => {
-        item.style.backgroundColor = this.config.itemBackgroundColor
+        item.style.backgroundColor = pathObject.selected ? '#E3F2FD' : this.config.itemBackgroundColor
       })
 
       objectList.appendChild(item)
     })
+  }
+
+  private selectAllObjects(): void {
+    this.objects.forEach(obj => obj.selected = true)
+    this.updateObjectList()
+  }
+
+  private deselectAllObjects(): void {
+    this.objects.forEach(obj => obj.selected = false)
+    this.updateObjectList()
   }
 
   private moveObjectUp(objectId: string): void {
@@ -436,7 +581,7 @@ class PathPanelManager {
     if (index > 0) {
       const [object] = this.objects.splice(index, 1)
       this.objects.splice(index - 1, 0, object)
-      this.updatePanel()
+      this.updateObjectList()
     }
   }
 
@@ -445,97 +590,534 @@ class PathPanelManager {
     if (index < this.objects.length - 1) {
       const [object] = this.objects.splice(index, 1)
       this.objects.splice(index + 1, 0, object)
-      this.updatePanel()
+      this.updateObjectList()
     }
   }
 
-  private updatePath(): void {
-    console.log('[PathPanel] updatePath() 开始执行')
-    console.log('[PathPanel] 当前对象数量:', this.objects.length)
-
-    if (this.currentPathId) {
-      pathManager.removePathById(this.currentPathId)
-    }
-
-    if (this.objects.length < 2) {
-      console.log('[PathPanel] 对象数量不足2个，清除路径')
-      this.currentPathId = ''
-      this.pathGenerated = false
+  private generatePathFromSelectedObjects(): void {
+    const selectedObjects = this.objects.filter(obj => obj.selected)
+    
+    if (selectedObjects.length < 2) {
+      alert('请至少选择2个对象来生成路径')
       return
     }
 
-    this.pathProgress = 0
+    const points = selectedObjects.map(obj => obj.bottomCenter)
+    const objectIds = selectedObjects.map(obj => obj.id)
+    const defaultName = selectedObjects.map(obj => obj.name).join(' -> ')
 
-    const points = this.objects.map(obj => obj.bottomCenter)
-    console.log('[PathPanel] 路径点坐标:', points.map(p => ({ x: p.x, y: p.y, z: p.z })))
-    
-    console.log('[PathPanel] 开始加载纹理...')
-    const texture = pathManager.loadTextureFromPreset('path_007_19', (loadedTexture) => {
-      console.log('[PathPanel] 纹理加载成功:', loadedTexture)
-      loadedTexture.wrapS = THREE.RepeatWrapping
-      loadedTexture.wrapT = THREE.RepeatWrapping
-      loadedTexture.anisotropy = 16
-      loadedTexture.repeat.x = 1 / 24
-      loadedTexture.repeat.y = 1
-    })
-    console.log('[PathPanel] 纹理对象:', texture)
+    console.log('[PathPanel] 生成路径，点数:', points.length)
+    console.log('[PathPanel] 路径点:', points)
 
     const config: PathConfig = {
       points,
-      width: 2,
-      cornerRadius: 0,
-      cornerSplit: 0,
-      color: 0xffffff,
+      width: 0.2,
+      cornerRadius: 1,
+      cornerSplit: 10,
+      color: 0x58dede,
       transparent: true,
-      opacity: 1,
-      blending: THREE.AdditiveBlending,
-      side: THREE.DoubleSide,
+      opacity: 0.9,
+      blending: THREE.NormalBlending,
+      side: THREE.FrontSide,
       arrow: false,
-      texture: texture,
-      speed: 0.48
+      texture: undefined,
+      useTexture: true,
+      scrollUV: true,
+      scrollSpeed: 0.03,
+      progress: 1,
+      playSpeed: 0.14,
+      speed: 0.48,
+      parallelToXZ: true
     }
-    console.log('[PathPanel] 路径配置:', config)
 
-    console.log('[PathPanel] 开始创建路径...')
-    this.currentPathId = pathManager.createPath(config)
-    console.log('[PathPanel] 路径创建完成，ID:', this.currentPathId)
-
-    const pathMesh = pathManager.findPathById(this.currentPathId)
-    console.log('[PathPanel] 查找路径mesh:', pathMesh)
+    const pathId = pathManager.createPath(config, defaultName, objectIds)
     
-    if (pathMesh) {
-      console.log('[PathPanel] 路径mesh找到，开始更新geometry')
-      pathMesh.updateParam.progress = 0
-      console.log('[PathPanel] 调用 geometry.update()')
-      pathMesh.geometry.update(pathMesh.pathPointList, pathMesh.updateParam)
-      console.log('[PathPanel] geometry.update() 完成')
-      pathMesh.geometry.computeBoundingBox()
-      pathMesh.geometry.computeBoundingSphere()
-      console.log('[PathPanel] 边界计算完成')
+    console.log('[PathPanel] 创建的路径ID:', pathId)
+    
+    if (pathId) {
+      const pathInfo: PathInfo = {
+        id: pathId,
+        name: defaultName,
+        objectIds,
+        config
+      }
       
-      // 标记路径已生成
-      this.pathGenerated = true
-      console.log('[PathPanel] 路径已生成，后续对象移动将实时更新路径')
-    } else {
-      console.error('[PathPanel] 错误：未找到路径mesh，ID:', this.currentPathId)
-      this.pathGenerated = false
+      this.paths.push(pathInfo)
+      this.updatePathList()
+      this.switchTab('paths')
+      
+      if (this.onPathUpdateCallback) {
+        this.onPathUpdateCallback(pathId)
+      }
     }
-
-    if (this.onPathUpdateCallback) {
-      console.log('[PathPanel] 触发路径更新回调')
-      this.onPathUpdateCallback(this.currentPathId)
-    }
-    
-    console.log('[PathPanel] updatePath() 执行完成')
   }
 
-  private clearPath(): void {
-    if (this.currentPathId) {
-      pathManager.removePathById(this.currentPathId)
-      this.currentPathId = ''
-      this.pathGenerated = false
-      console.log('[PathPanel] 路径已清除，pathGenerated 重置为 false')
+  private updatePathPoints(pathId: string): void {
+    const pathInfo = this.paths.find(p => p.id === pathId)
+    if (!pathInfo) return
+
+    const points = pathInfo.objectIds.map(objId => {
+      const pathObject = this.objects.find(obj => obj.id === objId)
+      return pathObject ? pathObject.bottomCenter : new THREE.Vector3()
+    })
+
+    pathManager.removePathById(pathId)
+    pathManager.createPath({ ...pathInfo.config, points }, pathInfo.name, pathInfo.objectIds)
+  }
+
+  private updatePathList(): void {
+    const pathList = this.panelElement?.querySelector('.path-list') as HTMLElement
+    if (!pathList) return
+
+    pathList.innerHTML = ''
+
+    this.paths.forEach(pathInfo => {
+      const item = document.createElement('div')
+      item.className = 'path-list-item'
+      item.dataset.id = pathInfo.id
+      item.style.cssText = `
+        padding: 10px;
+        background-color: ${this.selectedPathId === pathInfo.id ? '#E3F2FD' : this.config.itemBackgroundColor};
+        border-radius: 4px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        transition: background-color 0.2s;
+        border: ${this.selectedPathId === pathInfo.id ? '2px solid #2196F3' : 'none'};
+      `
+
+      const nameInput = document.createElement('input')
+      nameInput.type = 'text'
+      nameInput.value = pathInfo.name
+      nameInput.style.cssText = `
+        flex: 1;
+        padding: 5px;
+        border: 1px solid #ccc;
+        border-radius: 3px;
+        font-size: 12px;
+      `
+      nameInput.addEventListener('change', () => {
+        pathInfo.name = nameInput.value
+        pathManager.updatePathName(pathInfo.id, pathInfo.name)
+      })
+      nameInput.addEventListener('click', (e) => {
+        e.stopPropagation()
+      })
+
+      const deleteBtn = document.createElement('button')
+      deleteBtn.innerHTML = '删除'
+      deleteBtn.style.cssText = `
+        padding: 5px 10px;
+        background-color: #f44336;
+        color: white;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+        font-size: 12px;
+      `
+      deleteBtn.addEventListener('click', (e) => {
+        e.stopPropagation()
+        this.deletePath(pathInfo.id)
+      })
+
+      item.appendChild(nameInput)
+      item.appendChild(deleteBtn)
+
+      item.addEventListener('click', () => {
+        this.selectPath(pathInfo.id)
+      })
+
+      item.addEventListener('mouseenter', () => {
+        item.style.backgroundColor = this.selectedPathId === pathInfo.id ? '#E3F2FD' : this.config.itemHoverColor
+      })
+
+      item.addEventListener('mouseleave', () => {
+        item.style.backgroundColor = this.selectedPathId === pathInfo.id ? '#E3F2FD' : this.config.itemBackgroundColor
+      })
+
+      pathList.appendChild(item)
+    })
+  }
+
+  private selectPath(pathId: string): void {
+    this.selectedPathId = pathId
+    this.updatePathList()
+    this.showPathConfig(pathId)
+  }
+
+  private showPathConfig(pathId: string): void {
+    const pathConfigPanel = this.panelElement?.querySelector('.path-config-panel') as HTMLElement
+    if (!pathConfigPanel) return
+
+    const pathInfo = this.paths.find(p => p.id === pathId)
+    if (!pathInfo) {
+      pathConfigPanel.style.display = 'none'
+      return
     }
+
+    pathConfigPanel.style.display = 'flex'
+
+    const config = pathInfo.config
+    const texturePresets = pathManager.getTexturePresets()
+
+    const blendingOptions = [
+      { value: THREE.NormalBlending, label: 'Normal' },
+      { value: THREE.AdditiveBlending, label: 'Additive' },
+      { value: THREE.SubtractiveBlending, label: 'Subtractive' },
+      { value: THREE.MultiplyBlending, label: 'Multiply' }
+    ]
+
+    const sideOptions = [
+      { value: THREE.FrontSide, label: 'Front' },
+      { value: THREE.BackSide, label: 'Back' },
+      { value: THREE.DoubleSide, label: 'Double' }
+    ]
+
+    const wrapOptions = [
+      { value: THREE.ClampToEdgeWrapping, label: 'Clamp' },
+      { value: THREE.RepeatWrapping, label: 'Repeat' },
+      { value: THREE.MirroredRepeatWrapping, label: 'Mirror' }
+    ]
+
+    pathConfigPanel.innerHTML = `
+      <h4 style="margin: 0 0 10px 0; font-size: 14px;">路径配置</h4>
+      
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label style="font-size: 12px; min-width: 80px;">宽度:</label>
+        <input type="number" step="0.1" min="0.1" value="${config.width}" 
+          class="config-width" style="flex: 1; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
+      </div>
+      
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label style="font-size: 12px; min-width: 80px;">圆角半径:</label>
+        <input type="number" step="0.1" min="0" value="${config.cornerRadius || 0}" 
+          class="config-cornerRadius" style="flex: 1; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
+      </div>
+      
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label style="font-size: 12px; min-width: 80px;">圆角分段:</label>
+        <input type="number" step="1" min="0" value="${config.cornerSplit || 0}" 
+          class="config-cornerSplit" style="flex: 1; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
+      </div>
+      
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label style="font-size: 12px; min-width: 80px;">颜色:</label>
+        <input type="color" value="#${config.color?.toString(16).padStart(6, '0') || 'ffffff'}" 
+          class="config-color" style="width: 50px; height: 30px; border: 1px solid #ccc; border-radius: 3px;">
+      </div>
+      
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label style="font-size: 12px; min-width: 80px;">透明:</label>
+        <input type="checkbox" ${config.transparent ? 'checked' : ''} class="config-transparent" style="width: 16px; height: 16px;">
+      </div>
+      
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label style="font-size: 12px; min-width: 80px;">透明度:</label>
+        <input type="range" min="0" max="1" step="0.1" value="${config.opacity || 1}" 
+          class="config-opacity" style="flex: 1;">
+        <span class="opacity-value" style="font-size: 12px; min-width: 30px;">${(config.opacity || 1).toFixed(1)}</span>
+      </div>
+      
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label style="font-size: 12px; min-width: 80px;">混合模式:</label>
+        <select class="config-blending" style="flex: 1; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
+          ${blendingOptions.map(opt => `<option value="${opt.value}" ${config.blending === opt.value ? 'selected' : ''}>${opt.label}</option>`).join('')}
+        </select>
+      </div>
+      
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label style="font-size: 12px; min-width: 80px;">渲染面:</label>
+        <select class="config-side" style="flex: 1; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
+          ${sideOptions.map(opt => `<option value="${opt.value}" ${config.side === opt.value ? 'selected' : ''}>${opt.label}</option>`).join('')}
+        </select>
+      </div>
+      
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label style="font-size: 12px; min-width: 80px;">速度:</label>
+        <input type="range" min="0" max="2" step="0.01" value="${config.speed || 0.02}" 
+          class="config-speed" style="flex: 1;">
+        <span class="speed-value" style="font-size: 12px; min-width: 30px;">${(config.speed || 0.02).toFixed(2)}</span>
+      </div>
+      
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label style="font-size: 12px; min-width: 80px;">箭头:</label>
+        <input type="checkbox" ${config.arrow ? 'checked' : ''} class="config-arrow" style="width: 16px; height: 16px;">
+      </div>
+      
+      <hr style="margin: 10px 0; border: none; border-top: 1px solid #ddd;">
+      
+      <h4 style="margin: 0 0 10px 0; font-size: 14px;">纹理配置</h4>
+      
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label style="font-size: 12px; min-width: 80px;">使用纹理:</label>
+        <input type="checkbox" ${config.useTexture ? 'checked' : ''} class="config-useTexture" style="width: 16px; height: 16px;">
+      </div>
+      
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label style="font-size: 12px; min-width: 80px;">滚动UV:</label>
+        <input type="checkbox" ${config.scrollUV ? 'checked' : ''} class="config-scrollUV" style="width: 16px; height: 16px;">
+      </div>
+      
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label style="font-size: 12px; min-width: 80px;">滚动速度:</label>
+        <input type="range" min="-0.1" max="0.1" step="0.001" value="${config.scrollSpeed || 0.03}" 
+          class="config-scrollSpeed" style="flex: 1;">
+        <span class="scrollSpeed-value" style="font-size: 12px; min-width: 30px;">${(config.scrollSpeed || 0.03).toFixed(3)}</span>
+      </div>
+      
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label style="font-size: 12px; min-width: 80px;">进度:</label>
+        <input type="range" min="0" max="1" step="0.01" value="${config.progress || 1}" 
+          class="config-progress" style="flex: 1;">
+        <span class="progress-value" style="font-size: 12px; min-width: 30px;">${(config.progress || 1).toFixed(2)}</span>
+      </div>
+      
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label style="font-size: 12px; min-width: 80px;">播放速度:</label>
+        <input type="range" min="0.01" max="0.2" step="0.01" value="${config.playSpeed || 0.14}" 
+          class="config-playSpeed" style="flex: 1;">
+        <span class="playSpeed-value" style="font-size: 12px; min-width: 30px;">${(config.playSpeed || 0.14).toFixed(2)}</span>
+      </div>
+      
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label style="font-size: 12px; min-width: 80px;">平行XZ平面:</label>
+        <input type="checkbox" ${config.parallelToXZ ? 'checked' : ''} class="config-parallelToXZ" style="width: 16px; height: 16px;">
+      </div>
+      
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label style="font-size: 12px; min-width: 80px;">纹理:</label>
+        <select class="config-texture" style="flex: 1; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
+          <option value="none">无纹理</option>
+          ${Array.from(texturePresets.entries())
+            .filter(([key]) => key !== 'none')
+            .map(([key, value]) => `<option value="${key}">${value.name}</option>`)
+            .join('')}
+        </select>
+      </div>
+      
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label style="font-size: 12px; min-width: 80px;">S轴包裹:</label>
+        <select class="config-wrapS" style="flex: 1; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
+          ${wrapOptions.map(opt => `<option value="${opt.value}">${opt.label}</option>`).join('')}
+        </select>
+      </div>
+      
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label style="font-size: 12px; min-width: 80px;">T轴包裹:</label>
+        <select class="config-wrapT" style="flex: 1; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
+          ${wrapOptions.map(opt => `<option value="${opt.value}">${opt.label}</option>`).join('')}
+        </select>
+      </div>
+      
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label style="font-size: 12px; min-width: 80px;">X重复:</label>
+        <input type="number" step="0.1" min="0.1" value="1" 
+          class="config-repeatX" style="flex: 1; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
+      </div>
+      
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label style="font-size: 12px; min-width: 80px;">Y重复:</label>
+        <input type="number" step="0.1" min="0.1" value="1" 
+          class="config-repeatY" style="flex: 1; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
+      </div>
+      
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label style="font-size: 12px; min-width: 80px;">X偏移:</label>
+        <input type="number" step="0.1" value="0" 
+          class="config-offsetX" style="flex: 1; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
+      </div>
+      
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label style="font-size: 12px; min-width: 80px;">Y偏移:</label>
+        <input type="number" step="0.1" value="0" 
+          class="config-offsetY" style="flex: 1; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
+      </div>
+    `
+
+    const widthInput = pathConfigPanel.querySelector('.config-width') as HTMLInputElement
+    widthInput.addEventListener('change', () => {
+      const width = parseFloat(widthInput.value)
+      pathInfo.config.width = width
+      pathManager.updatePathWidthById(pathId, width)
+    })
+
+    const cornerRadiusInput = pathConfigPanel.querySelector('.config-cornerRadius') as HTMLInputElement
+    cornerRadiusInput.addEventListener('change', () => {
+      const cornerRadius = parseFloat(cornerRadiusInput.value)
+      pathInfo.config.cornerRadius = cornerRadius
+      pathManager.updatePathConfig(pathId, { cornerRadius })
+    })
+
+    const cornerSplitInput = pathConfigPanel.querySelector('.config-cornerSplit') as HTMLInputElement
+    cornerSplitInput.addEventListener('change', () => {
+      const cornerSplit = parseFloat(cornerSplitInput.value)
+      pathInfo.config.cornerSplit = cornerSplit
+      pathManager.updatePathConfig(pathId, { cornerSplit })
+    })
+
+    const colorInput = pathConfigPanel.querySelector('.config-color') as HTMLInputElement
+    colorInput.addEventListener('change', () => {
+      const color = parseInt(colorInput.value.replace('#', ''), 16)
+      pathInfo.config.color = color
+      pathManager.updatePathColorById(pathId, color)
+    })
+
+    const transparentInput = pathConfigPanel.querySelector('.config-transparent') as HTMLInputElement
+    transparentInput.addEventListener('change', () => {
+      const transparent = transparentInput.checked
+      pathInfo.config.transparent = transparent
+      pathManager.updatePathConfig(pathId, { transparent })
+    })
+
+    const opacityInput = pathConfigPanel.querySelector('.config-opacity') as HTMLInputElement
+    const opacityValue = pathConfigPanel.querySelector('.opacity-value') as HTMLElement
+    opacityInput.addEventListener('input', () => {
+      const opacity = parseFloat(opacityInput.value)
+      opacityValue.textContent = opacity.toFixed(1)
+      pathInfo.config.opacity = opacity
+      pathManager.updatePathConfig(pathId, { opacity })
+    })
+
+    const blendingInput = pathConfigPanel.querySelector('.config-blending') as HTMLSelectElement
+    blendingInput.addEventListener('change', () => {
+      const blending = parseInt(blendingInput.value) as THREE.Blending
+      pathInfo.config.blending = blending
+      pathManager.updatePathConfig(pathId, { blending })
+    })
+
+    const sideInput = pathConfigPanel.querySelector('.config-side') as HTMLSelectElement
+    sideInput.addEventListener('change', () => {
+      const side = parseInt(sideInput.value) as THREE.Side
+      pathInfo.config.side = side
+      pathManager.updatePathConfig(pathId, { side })
+    })
+
+    const speedInput = pathConfigPanel.querySelector('.config-speed') as HTMLInputElement
+    const speedValue = pathConfigPanel.querySelector('.speed-value') as HTMLElement
+    speedInput.addEventListener('input', () => {
+      const speed = parseFloat(speedInput.value)
+      speedValue.textContent = speed.toFixed(2)
+      pathInfo.config.speed = speed
+      pathManager.setPathSpeedById(pathId, speed)
+    })
+
+    const arrowInput = pathConfigPanel.querySelector('.config-arrow') as HTMLInputElement
+    arrowInput.addEventListener('change', () => {
+      const arrow = arrowInput.checked
+      pathInfo.config.arrow = arrow
+      pathManager.updatePathConfig(pathId, { arrow })
+    })
+
+    const textureInput = pathConfigPanel.querySelector('.config-texture') as HTMLSelectElement
+    textureInput.addEventListener('change', () => {
+      const preset = textureInput.value as any
+      const texture = pathManager.loadTextureFromPreset(preset)
+      pathInfo.config.texture = texture || undefined
+      pathManager.updatePathConfig(pathId, { texture: texture || undefined })
+    })
+
+    const useTextureInput = pathConfigPanel.querySelector('.config-useTexture') as HTMLInputElement
+    useTextureInput.addEventListener('change', () => {
+      const useTexture = useTextureInput.checked
+      pathInfo.config.useTexture = useTexture
+      pathManager.updatePathConfig(pathId, { useTexture })
+    })
+
+    const scrollUVInput = pathConfigPanel.querySelector('.config-scrollUV') as HTMLInputElement
+    scrollUVInput.addEventListener('change', () => {
+      const scrollUV = scrollUVInput.checked
+      pathInfo.config.scrollUV = scrollUV
+      pathManager.updatePathConfig(pathId, { scrollUV })
+    })
+
+    const scrollSpeedInput = pathConfigPanel.querySelector('.config-scrollSpeed') as HTMLInputElement
+    const scrollSpeedValue = pathConfigPanel.querySelector('.scrollSpeed-value') as HTMLElement
+    scrollSpeedInput.addEventListener('input', () => {
+      const scrollSpeed = parseFloat(scrollSpeedInput.value)
+      scrollSpeedValue.textContent = scrollSpeed.toFixed(3)
+      pathInfo.config.scrollSpeed = scrollSpeed
+      pathManager.updatePathConfig(pathId, { scrollSpeed })
+    })
+
+    const progressInput = pathConfigPanel.querySelector('.config-progress') as HTMLInputElement
+    const progressValue = pathConfigPanel.querySelector('.progress-value') as HTMLElement
+    progressInput.addEventListener('input', () => {
+      const progress = parseFloat(progressInput.value)
+      progressValue.textContent = progress.toFixed(2)
+      pathInfo.config.progress = progress
+      pathManager.updatePathConfig(pathId, { progress })
+    })
+
+    const playSpeedInput = pathConfigPanel.querySelector('.config-playSpeed') as HTMLInputElement
+    const playSpeedValue = pathConfigPanel.querySelector('.playSpeed-value') as HTMLElement
+    playSpeedInput.addEventListener('input', () => {
+      const playSpeed = parseFloat(playSpeedInput.value)
+      playSpeedValue.textContent = playSpeed.toFixed(2)
+      pathInfo.config.playSpeed = playSpeed
+      pathManager.updatePathConfig(pathId, { playSpeed })
+    })
+
+    const parallelToXZInput = pathConfigPanel.querySelector('.config-parallelToXZ') as HTMLInputElement
+    parallelToXZInput.addEventListener('change', () => {
+      const parallelToXZ = parallelToXZInput.checked
+      pathInfo.config.parallelToXZ = parallelToXZ
+      pathManager.updatePathConfig(pathId, { parallelToXZ })
+    })
+
+    const wrapSInput = pathConfigPanel.querySelector('.config-wrapS') as HTMLSelectElement
+    wrapSInput.addEventListener('change', () => {
+      const wrapS = parseInt(wrapSInput.value) as THREE.Wrapping
+      pathManager.updatePathTextureWrap(pathId, wrapS, null)
+    })
+
+    const wrapTInput = pathConfigPanel.querySelector('.config-wrapT') as HTMLSelectElement
+    wrapTInput.addEventListener('change', () => {
+      const wrapT = parseInt(wrapTInput.value) as THREE.Wrapping
+      pathManager.updatePathTextureWrap(pathId, null, wrapT)
+    })
+
+    const repeatXInput = pathConfigPanel.querySelector('.config-repeatX') as HTMLInputElement
+    repeatXInput.addEventListener('change', () => {
+      const repeatX = parseFloat(repeatXInput.value)
+      pathManager.updatePathTextureRepeat(pathId, repeatX, null)
+    })
+
+    const repeatYInput = pathConfigPanel.querySelector('.config-repeatY') as HTMLInputElement
+    repeatYInput.addEventListener('change', () => {
+      const repeatY = parseFloat(repeatYInput.value)
+      pathManager.updatePathTextureRepeat(pathId, null, repeatY)
+    })
+
+    const offsetXInput = pathConfigPanel.querySelector('.config-offsetX') as HTMLInputElement
+    offsetXInput.addEventListener('change', () => {
+      const offsetX = parseFloat(offsetXInput.value)
+      pathManager.updatePathTextureOffset(pathId, offsetX, null)
+    })
+
+    const offsetYInput = pathConfigPanel.querySelector('.config-offsetY') as HTMLInputElement
+    offsetYInput.addEventListener('change', () => {
+      const offsetY = parseFloat(offsetYInput.value)
+      pathManager.updatePathTextureOffset(pathId, null, offsetY)
+    })
+  }
+
+  private deletePath(pathId: string): void {
+    pathManager.removePathById(pathId)
+    const index = this.paths.findIndex(p => p.id === pathId)
+    if (index !== -1) {
+      this.paths.splice(index, 1)
+    }
+    
+    if (this.selectedPathId === pathId) {
+      this.selectedPathId = ''
+      const pathConfigPanel = this.panelElement?.querySelector('.path-config-panel') as HTMLElement
+      if (pathConfigPanel) {
+        pathConfigPanel.style.display = 'none'
+      }
+    }
+    
+    this.updatePathList()
   }
 
   onPathUpdate(callback: (pathId: string) => void): void {
@@ -544,6 +1126,10 @@ class PathPanelManager {
 
   getObjects(): PathObject[] {
     return [...this.objects]
+  }
+
+  getPaths(): PathInfo[] {
+    return [...this.paths]
   }
 
   isVisible(): boolean {
@@ -563,25 +1149,15 @@ class PathPanelManager {
   }
 
   update(delta: number): void {
-    if (this.currentPathId && this.pathProgress < 1) {
-      this.pathProgress += 0.5 * delta
-      
-      if (this.pathProgress > 1) {
-        this.pathProgress = 1
-      }
-
-      const pathMesh = pathManager.findPathById(this.currentPathId)
-      if (pathMesh) {
-        pathMesh.updateParam.progress = this.pathProgress
-        pathMesh.geometry.update(pathMesh.pathPointList, pathMesh.updateParam)
-        pathMesh.geometry.computeBoundingBox()
-        pathMesh.geometry.computeBoundingSphere()
-      }
-    }
+    pathManager.update(delta)
   }
 
   dispose(): void {
-    this.clearPath()
+    this.paths.forEach(pathInfo => {
+      pathManager.removePathById(pathInfo.id)
+    })
+    this.paths = []
+    
     if (this.panelElement && this.panelElement.parentNode) {
       this.panelElement.parentNode.removeChild(this.panelElement)
     }
@@ -595,4 +1171,4 @@ class PathPanelManager {
 const pathPanelManager = new PathPanelManager()
 
 export { PathPanelManager, pathPanelManager }
-export type { PathObject, PathPanelConfig }
+export type { PathObject, PathPanelConfig, PathInfo }
