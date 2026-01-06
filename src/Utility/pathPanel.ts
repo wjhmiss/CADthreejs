@@ -400,10 +400,6 @@ class PathPanelManager {
   }
 
   addObject(object: THREE.Object3D): void {
-    if (object.userData.isGLB) {
-      return
-    }
-
     const bottomCenter = this.calculateBottomCenter(object)
     const pathObject: PathObject = {
       id: object.uuid,
