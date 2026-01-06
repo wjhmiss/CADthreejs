@@ -487,6 +487,24 @@ class PathManager {
     }
   }
 
+  updatePathPointsById(id: string, points: THREE.Vector3[]): void {
+    const pathMesh = this.paths.get(id)
+    if (pathMesh) {
+      pathMesh.points = points
+      const up = pathMesh.parallelToXZ ? new THREE.Vector3(0, 1, 0) : null
+      pathMesh.pathPointList.set(
+        points,
+        pathMesh.updateParam.cornerRadius || 0,
+        pathMesh.updateParam.cornerSplit || 0,
+        up,
+        false
+      )
+      pathMesh.geometry.update(pathMesh.pathPointList, pathMesh.updateParam)
+      pathMesh.geometry.computeBoundingBox()
+      pathMesh.geometry.computeBoundingSphere()
+    }
+  }
+
   updatePathTexture(points: THREE.Vector3[], texture: THREE.Texture | string): void {
     const id = this._generateId(points)
     this.updatePathTextureById(id, texture)

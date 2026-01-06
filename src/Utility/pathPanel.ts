@@ -661,8 +661,7 @@ class PathPanelManager {
       return pathObject ? pathObject.bottomCenter : new THREE.Vector3()
     })
 
-    pathManager.removePathById(pathId)
-    pathManager.createPath({ ...pathInfo.config, points }, pathInfo.name, pathInfo.objectIds)
+    pathManager.updatePathPointsById(pathId, points)
   }
 
   private updatePathList(): void {
