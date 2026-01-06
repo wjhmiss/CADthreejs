@@ -22,6 +22,7 @@ export interface PathConfig {
   playSpeed?: number
   speed?: number
   parallelToXZ?: boolean
+  loopProgress?: boolean
 }
 
 export interface TubePathConfig extends PathConfig {
@@ -48,6 +49,7 @@ export interface PathMesh {
   playSpeed?: number
   speed?: number
   parallelToXZ?: boolean
+  loopProgress?: boolean
 }
 
 export interface TextureConfig {
@@ -268,7 +270,8 @@ class PathManager {
       progress: config.progress !== undefined ? config.progress : 1,
       playSpeed: config.playSpeed !== undefined ? config.playSpeed : 0.14,
       speed: config.speed !== undefined ? config.speed : 0.02,
-      parallelToXZ: config.parallelToXZ || false
+      parallelToXZ: config.parallelToXZ || false,
+      loopProgress: config.loopProgress !== undefined ? config.loopProgress : false
     }
 
     this.paths.set(id, pathMesh)
@@ -555,7 +558,7 @@ class PathManager {
 
       if (pathMesh.playSpeed !== undefined && pathMesh.progress !== undefined) {
         pathMesh.progress += delta * pathMesh.playSpeed
-        if (pathMesh.progress > 1) {
+        if (pathMesh.loopProgress && pathMesh.progress > 1) {
           pathMesh.progress = 0
         }
         pathMesh.updateParam.progress = pathMesh.progress
@@ -719,6 +722,10 @@ class PathManager {
         false
       )
       pathMesh.geometry.update(pathMesh.pathPointList, pathMesh.updateParam)
+    }
+
+    if (config.loopProgress !== undefined) {
+      pathMesh.loopProgress = config.loopProgress
     }
 
     return true

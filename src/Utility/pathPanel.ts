@@ -400,6 +400,10 @@ class PathPanelManager {
   }
 
   addObject(object: THREE.Object3D): void {
+    if (object.userData.isGLB) {
+      return
+    }
+
     const bottomCenter = this.calculateBottomCenter(object)
     const pathObject: PathObject = {
       id: object.uuid,
@@ -627,7 +631,8 @@ class PathPanelManager {
       progress: 1,
       playSpeed: 0.14,
       speed: 0.48,
-      parallelToXZ: true
+      parallelToXZ: true,
+      loopProgress: false
     }
 
     const pathId = pathManager.createPath(config, defaultName, objectIds)
@@ -860,9 +865,8 @@ class PathPanelManager {
       
       <div style="display: flex; align-items: center; gap: 10px;">
         <label style="font-size: 12px; min-width: 80px;">滚动速度:</label>
-        <input type="range" min="-0.1" max="0.1" step="0.001" value="${config.scrollSpeed || 0.03}" 
-          class="config-scrollSpeed" style="flex: 1;">
-        <span class="scrollSpeed-value" style="font-size: 12px; min-width: 30px;">${(config.scrollSpeed || 0.03).toFixed(3)}</span>
+        <input type="number" step="0.001" value="${config.scrollSpeed || 0.03}" 
+          class="config-scrollSpeed" style="flex: 1; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
       </div>
       
       <div style="display: flex; align-items: center; gap: 10px;">
@@ -877,6 +881,11 @@ class PathPanelManager {
         <input type="range" min="0.01" max="0.2" step="0.01" value="${config.playSpeed || 0.14}" 
           class="config-playSpeed" style="flex: 1;">
         <span class="playSpeed-value" style="font-size: 12px; min-width: 30px;">${(config.playSpeed || 0.14).toFixed(2)}</span>
+      </div>
+      
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <label style="font-size: 12px; min-width: 80px;">循环进度:</label>
+        <input type="checkbox" ${config.loopProgress ? 'checked' : ''} class="config-loopProgress" style="width: 16px; height: 16px;">
       </div>
       
       <div style="display: flex; align-items: center; gap: 10px;">
@@ -1031,10 +1040,8 @@ class PathPanelManager {
     })
 
     const scrollSpeedInput = pathConfigPanel.querySelector('.config-scrollSpeed') as HTMLInputElement
-    const scrollSpeedValue = pathConfigPanel.querySelector('.scrollSpeed-value') as HTMLElement
     scrollSpeedInput.addEventListener('input', () => {
       const scrollSpeed = parseFloat(scrollSpeedInput.value)
-      scrollSpeedValue.textContent = scrollSpeed.toFixed(3)
       pathInfo.config.scrollSpeed = scrollSpeed
       pathManager.updatePathConfig(pathId, { scrollSpeed })
     })
@@ -1055,6 +1062,13 @@ class PathPanelManager {
       playSpeedValue.textContent = playSpeed.toFixed(2)
       pathInfo.config.playSpeed = playSpeed
       pathManager.updatePathConfig(pathId, { playSpeed })
+    })
+
+    const loopProgressInput = pathConfigPanel.querySelector('.config-loopProgress') as HTMLInputElement
+    loopProgressInput.addEventListener('change', () => {
+      const loopProgress = loopProgressInput.checked
+      pathInfo.config.loopProgress = loopProgress
+      pathManager.updatePathConfig(pathId, { loopProgress })
     })
 
     const parallelToXZInput = pathConfigPanel.querySelector('.config-parallelToXZ') as HTMLInputElement
