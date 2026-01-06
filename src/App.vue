@@ -2877,6 +2877,9 @@ const groundObject = (obj: THREE.Object3D) => {
       obj.position.y += yOffset
       console.log(`${obj.name || '未命名物体'}: Y位置从 ${currentY.toFixed(2)} 调整到 ${obj.position.y.toFixed(2)}`)
     }
+    
+    // 更新路径面板中该对象的底部中心点
+    pathPanelManager.updateObject(obj.uuid)
   }
 }
 
@@ -2902,6 +2905,9 @@ const handleGroundObjects = () => {
         console.log(`${obj.name || '未命名物体'}: Y位置从 ${currentY.toFixed(2)} 调整到 ${obj.position.y.toFixed(2)}`)
         groundedCount++
       }
+      
+      // 更新路径面板中该对象的底部中心点
+      pathPanelManager.updateObject(obj.uuid)
     }
   })
   

@@ -27,6 +27,7 @@ class PathPanelManager {
   private currentPathId: string = ''
   private onPathUpdateCallback: ((pathId: string) => void) | null = null
   private pathProgress: number = 0
+  private pathGenerated: boolean = false
 
   constructor(config: PathPanelConfig = {}) {
     this.config = {
@@ -262,7 +263,6 @@ class PathPanelManager {
 
     this.objects.push(pathObject)
     this.updatePanel()
-    this.updatePath()
   }
 
   removeObject(objectId: string): void {
@@ -270,7 +270,11 @@ class PathPanelManager {
     if (index !== -1) {
       this.objects.splice(index, 1)
       this.updatePanel()
-      this.updatePath()
+      
+      // 如果删除对象后数量不足，清除路径并重置标志
+      if (this.objects.length < 2 && this.pathGenerated) {
+        this.clearPath()
+      }
     }
   }
 
@@ -282,7 +286,14 @@ class PathPanelManager {
       console.log('[PathPanel] 旧的底部中心点:', pathObject.bottomCenter)
       pathObject.bottomCenter = this.calculateBottomCenter(pathObject.object)
       console.log('[PathPanel] 新的底部中心点:', pathObject.bottomCenter)
-      this.updatePath()
+      
+      // 只有在路径已经生成的情况下，才实时更新路径
+      if (this.pathGenerated) {
+        console.log('[PathPanel] 路径已生成，实时更新路径')
+        this.updatePath()
+      } else {
+        console.log('[PathPanel] 路径尚未生成，不自动更新')
+      }
     } else {
       console.warn('[PathPanel] 未找到对象ID:', objectId)
     }
@@ -326,7 +337,6 @@ class PathPanelManager {
       const [draggedObject] = this.objects.splice(draggedIndex, 1)
       this.objects.splice(targetIndex, 0, draggedObject)
       this.updatePanel()
-      this.updatePath()
     }
   }
 
@@ -427,7 +437,6 @@ class PathPanelManager {
       const [object] = this.objects.splice(index, 1)
       this.objects.splice(index - 1, 0, object)
       this.updatePanel()
-      this.updatePath()
     }
   }
 
@@ -437,7 +446,6 @@ class PathPanelManager {
       const [object] = this.objects.splice(index, 1)
       this.objects.splice(index + 1, 0, object)
       this.updatePanel()
-      this.updatePath()
     }
   }
 
@@ -452,6 +460,7 @@ class PathPanelManager {
     if (this.objects.length < 2) {
       console.log('[PathPanel] 对象数量不足2个，清除路径')
       this.currentPathId = ''
+      this.pathGenerated = false
       return
     }
 
@@ -503,8 +512,13 @@ class PathPanelManager {
       pathMesh.geometry.computeBoundingBox()
       pathMesh.geometry.computeBoundingSphere()
       console.log('[PathPanel] 边界计算完成')
+      
+      // 标记路径已生成
+      this.pathGenerated = true
+      console.log('[PathPanel] 路径已生成，后续对象移动将实时更新路径')
     } else {
       console.error('[PathPanel] 错误：未找到路径mesh，ID:', this.currentPathId)
+      this.pathGenerated = false
     }
 
     if (this.onPathUpdateCallback) {
@@ -519,6 +533,8 @@ class PathPanelManager {
     if (this.currentPathId) {
       pathManager.removePathById(this.currentPathId)
       this.currentPathId = ''
+      this.pathGenerated = false
+      console.log('[PathPanel] 路径已清除，pathGenerated 重置为 false')
     }
   }
 
