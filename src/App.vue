@@ -1407,6 +1407,15 @@ const exportScene = () => {
     console.log('Exported DXF data with complete transform info:', sceneData.dxf)
   }
 
+  // 导出路径信息
+  if (pathManager) {
+    const pathsData = pathManager.serializePaths()
+    if (pathsData.length > 0) {
+      sceneData.paths = pathsData
+      console.log('Exported paths data:', pathsData.length, 'paths')
+    }
+  }
+
   const dataStr = JSON.stringify(sceneData, null, 2)
   const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr)
 
@@ -1471,6 +1480,12 @@ const handleImportScene = (event: Event) => {
       // 清除现有的DXF对象
       if (renderManager) {
         renderManager.clearAll()
+      }
+
+      // 清除现有的路径
+      if (pathManager) {
+        pathManager.clearAllPaths()
+        console.log('已清除所有现有路径')
       }
 
       // 导入DXF对象
@@ -1717,6 +1732,19 @@ const handleImportScene = (event: Event) => {
         if (failedGLBModels.length > 0) {
           const modelList = failedGLBModels.join(', ')
           alert(`以下GLB模型未找到，请手动添加到public文件夹中：\n${modelList}`)
+        }
+
+        // 恢复路径信息（在所有对象加载完成后）
+        if (sceneData.paths && sceneData.paths.length > 0 && pathManager) {
+          console.log('开始恢复路径信息，路径数量:', sceneData.paths.length)
+          pathManager.deserializePaths(sceneData.paths)
+          console.log('路径信息恢复完成')
+          
+          // 同步路径到路径面板
+          if (pathPanelManager) {
+            pathPanelManager.syncPathsFromManager()
+            console.log('路径已同步到路径面板')
+          }
         }
       }, 1000)
     } catch (error) {

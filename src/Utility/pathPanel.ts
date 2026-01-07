@@ -1157,6 +1157,29 @@ class PathPanelManager {
     return [...this.paths]
   }
 
+  syncPathsFromManager(): void {
+    const allPaths = pathManager.getAllPaths()
+    const currentPathIds = new Set(this.paths.map(p => p.id))
+    
+    allPaths.forEach(pathMesh => {
+      if (!currentPathIds.has(pathMesh.id)) {
+        const pathConfig = pathManager.getPathConfig(pathMesh.id)
+        if (pathConfig) {
+          const pathInfo: PathInfo = {
+            id: pathMesh.id,
+            name: pathMesh.name,
+            objectIds: pathMesh.objectIds,
+            config: pathConfig
+          }
+          this.paths.push(pathInfo)
+          console.log('[PathPanel] 同步路径:', pathMesh.name, 'ID:', pathMesh.id)
+        }
+      }
+    })
+    
+    this.updatePathList()
+  }
+
   isVisible(): boolean {
     return this.panelVisible
   }

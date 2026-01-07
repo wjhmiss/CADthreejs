@@ -873,6 +873,61 @@ class PathManager {
     return material
   }
 
+  serializePaths(): any[] {
+    const pathsData: any[] = []
+    this.paths.forEach((pathMesh, id) => {
+      const pathData = {
+        id: pathMesh.id,
+        name: pathMesh.name,
+        points: pathMesh.points.map(p => ({ x: p.x, y: p.y, z: p.z })),
+        objectIds: pathMesh.objectIds,
+        config: {
+          points: pathMesh.points.map(p => ({ x: p.x, y: p.y, z: p.z })),
+          width: pathMesh.updateParam.width,
+          cornerRadius: pathMesh.updateParam.cornerRadius || 0,
+          cornerSplit: pathMesh.updateParam.cornerSplit || 0,
+          color: !Array.isArray(pathMesh.material) && 'color' in pathMesh.material ? pathMesh.material.color.getHex() : 0xffffff,
+          texture: pathMesh.texture ? (typeof pathMesh.texture === 'string' ? pathMesh.texture : pathMesh.texture.image?.src) : undefined,
+          useTexture: pathMesh.useTexture,
+          transparent: !Array.isArray(pathMesh.material) && 'transparent' in pathMesh.material ? pathMesh.material.transparent : true,
+          opacity: !Array.isArray(pathMesh.material) && 'opacity' in pathMesh.material ? pathMesh.material.opacity : 1,
+          blending: !Array.isArray(pathMesh.material) && 'blending' in pathMesh.material ? pathMesh.material.blending : THREE.AdditiveBlending,
+          side: !Array.isArray(pathMesh.material) && 'side' in pathMesh.material ? pathMesh.material.side : THREE.DoubleSide,
+          arrow: pathMesh.updateParam.arrow,
+          scrollUV: pathMesh.scrollUV,
+          scrollSpeed: pathMesh.scrollSpeed,
+          progress: pathMesh.progress,
+          playSpeed: pathMesh.playSpeed,
+          speed: pathMesh.speed,
+          parallelToXZ: pathMesh.parallelToXZ,
+          loopProgress: pathMesh.loopProgress,
+          textureWrapS: pathMesh.textureWrapS,
+          textureWrapT: pathMesh.textureWrapT,
+          textureRepeatX: pathMesh.textureRepeatX,
+          textureRepeatY: pathMesh.textureRepeatY,
+          textureOffsetX: pathMesh.textureOffsetX,
+          textureOffsetY: pathMesh.textureOffsetY
+        }
+      }
+      pathsData.push(pathData)
+    })
+    return pathsData
+  }
+
+  deserializePaths(pathsData: any[]): void {
+    if (!pathsData || pathsData.length === 0) return
+
+    pathsData.forEach(pathData => {
+      const points = pathData.config.points.map((p: any) => new THREE.Vector3(p.x, p.y, p.z))
+      const config: PathConfig = {
+        ...pathData.config,
+        points: points
+      }
+      const id = this.createPath(config, pathData.name, pathData.objectIds)
+      console.log('[PathManager] 反序列化路径:', pathData.name, 'ID:', id)
+    })
+  }
+
   dispose(): void {
     this.clearAllPaths()
     this.clearTextureCache()
