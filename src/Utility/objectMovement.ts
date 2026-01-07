@@ -16,6 +16,7 @@ export interface ObjectMovementState {
   isMoving: boolean
   tween: gsap.core.Tween | null
   facingDirection?: 'none' | 'front' | 'back' | 'left' | 'right'
+  bottomOffset?: THREE.Vector3
 }
 
 class ObjectMovementManager {
@@ -67,6 +68,8 @@ class ObjectMovementManager {
       this.stopMovement(object.uuid)
     }
 
+    const bottomOffset = this.calculateBottomOffset(object)
+
     const state: ObjectMovementState = {
       pathId,
       speed: config.speed,
@@ -74,7 +77,8 @@ class ObjectMovementManager {
       currentLoop: 0,
       isMoving: true,
       tween: null,
-      facingDirection: config.facingDirection || 'none'
+      facingDirection: config.facingDirection || 'none',
+      bottomOffset
     }
 
     this.movements.set(object.uuid, state)
@@ -89,6 +93,11 @@ class ObjectMovementManager {
       onUpdate: () => {
         const normalizedProgress = progress.value % 1
         const position = this.getPositionOnPath(pathPoints, normalizedProgress)
+        
+        if (state.bottomOffset) {
+          position.add(state.bottomOffset)
+        }
+        
         object.position.copy(position)
         
         if (state.facingDirection && state.facingDirection !== 'none') {
@@ -260,6 +269,18 @@ class ObjectMovementManager {
 
     quaternion.setFromUnitVectors(targetDirection, direction)
     object.quaternion.copy(quaternion)
+  }
+
+  private calculateBottomOffset(object: THREE.Object3D): THREE.Vector3 {
+    const box = new THREE.Box3().setFromObject(object)
+    const center = new THREE.Vector3()
+    box.getCenter(center)
+    
+    const bottom = new THREE.Vector3(center.x, box.min.y, center.z)
+    
+    const offset = new THREE.Vector3().subVectors(center, bottom)
+    
+    return offset
   }
 
   clearPathCache(): void {
