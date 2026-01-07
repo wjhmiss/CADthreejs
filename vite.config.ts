@@ -164,7 +164,7 @@ export default defineConfig({
     setupFiles: [],
   },
   server: {
-    port: 5173,
+    port: 5273,
     proxy: {
       '/api': {
         target: 'http://localhost:5001',
@@ -174,6 +174,6 @@ export default defineConfig({
     }
   },
   preview: {
-    port: 5173
+    port: 5273
   }
 })

@@ -1514,6 +1514,9 @@ const handleImportScene = (event: Event) => {
           
           // 将mesh对象添加到objects数组中
           objects.push(mesh)
+          
+          // 将mesh对象添加到路径管理面板
+          pathPanelManager.addObject(mesh)
         } else if (objData.type === 'gltf') {
           // 对于GLB模型，首先尝试从public文件夹自动加载
           if (objData.modelPath && objData.originalFileName) {
@@ -1539,6 +1542,9 @@ const handleImportScene = (event: Event) => {
                   
                   // 将加载的GLB模型添加到objects数组中
                   objects.push(mesh)
+                  
+                  // 将mesh对象添加到路径管理面板
+                  pathPanelManager.addObject(mesh)
                 })
 
                 successfullyLoadedGLBCount++
@@ -1588,6 +1594,9 @@ const handleImportScene = (event: Event) => {
             
             // 将占位符mesh对象添加到objects数组中
             objects.push(placeholderMesh)
+            
+            // 将占位符mesh对象添加到路径管理面板
+            pathPanelManager.addObject(placeholderMesh)
           }
         }
       })
