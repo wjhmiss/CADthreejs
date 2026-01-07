@@ -628,7 +628,13 @@ class PathPanelManager {
       playSpeed: 0.14,
       speed: 0.48,
       parallelToXZ: true,
-      loopProgress: false
+      loopProgress: false,
+      textureWrapS: THREE.RepeatWrapping,
+      textureWrapT: THREE.RepeatWrapping,
+      textureRepeatX: 1,
+      textureRepeatY: 1,
+      textureOffsetX: 0,
+      textureOffsetY: 0
     }
 
     const pathId = pathManager.createPath(config, defaultName, objectIds)
@@ -835,9 +841,9 @@ class PathPanelManager {
       
       <div style="display: flex; align-items: center; gap: 10px;">
         <label style="font-size: 12px; min-width: 80px;">速度:</label>
-        <input type="range" min="0" max="2" step="0.01" value="${config.speed || 0.02}" 
+        <input type="range" min="0" max="2" step="0.01" value="${config.speed || 0.48}" 
           class="config-speed" style="flex: 1;">
-        <span class="speed-value" style="font-size: 12px; min-width: 30px;">${(config.speed || 0.02).toFixed(2)}</span>
+        <span class="speed-value" style="font-size: 12px; min-width: 30px;">${(config.speed || 0.48).toFixed(2)}</span>
       </div>
       
       <div style="display: flex; align-items: center; gap: 10px;">
@@ -861,7 +867,7 @@ class PathPanelManager {
       
       <div style="display: flex; align-items: center; gap: 10px;">
         <label style="font-size: 12px; min-width: 80px;">滚动速度:</label>
-        <input type="number" step="0.001" value="${config.scrollSpeed || 0.03}" 
+        <input type="number" step="0.001" value="${config.scrollSpeed || 0.8}" 
           class="config-scrollSpeed" style="flex: 1; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
       </div>
       
@@ -892,10 +898,10 @@ class PathPanelManager {
       <div style="display: flex; align-items: center; gap: 10px;">
         <label style="font-size: 12px; min-width: 80px;">纹理:</label>
         <select class="config-texture" style="flex: 1; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
-          <option value="none">无纹理</option>
+          <option value="none" ${!config.texture || config.texture === 'none' ? 'selected' : ''}>无纹理</option>
           ${Array.from(texturePresets.entries())
             .filter(([key]) => key !== 'none')
-            .map(([key, value]) => `<option value="${key}">${value.name}</option>`)
+            .map(([key, value]) => `<option value="${key}" ${config.texture === value.url ? 'selected' : ''}>${value.name}</option>`)
             .join('')}
         </select>
       </div>
@@ -903,38 +909,38 @@ class PathPanelManager {
       <div style="display: flex; align-items: center; gap: 10px;">
         <label style="font-size: 12px; min-width: 80px;">S轴包裹:</label>
         <select class="config-wrapS" style="flex: 1; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
-          ${wrapOptions.map(opt => `<option value="${opt.value}">${opt.label}</option>`).join('')}
+          ${wrapOptions.map(opt => `<option value="${opt.value}" ${config.textureWrapS === opt.value ? 'selected' : ''}>${opt.label}</option>`).join('')}
         </select>
       </div>
       
       <div style="display: flex; align-items: center; gap: 10px;">
         <label style="font-size: 12px; min-width: 80px;">T轴包裹:</label>
         <select class="config-wrapT" style="flex: 1; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
-          ${wrapOptions.map(opt => `<option value="${opt.value}">${opt.label}</option>`).join('')}
+          ${wrapOptions.map(opt => `<option value="${opt.value}" ${config.textureWrapT === opt.value ? 'selected' : ''}>${opt.label}</option>`).join('')}
         </select>
       </div>
       
       <div style="display: flex; align-items: center; gap: 10px;">
         <label style="font-size: 12px; min-width: 80px;">X重复:</label>
-        <input type="number" step="0.1" min="0.1" value="1" 
+        <input type="number" step="0.1" min="0.1" value="${config.textureRepeatX || 1}" 
           class="config-repeatX" style="flex: 1; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
       </div>
       
       <div style="display: flex; align-items: center; gap: 10px;">
         <label style="font-size: 12px; min-width: 80px;">Y重复:</label>
-        <input type="number" step="0.1" min="0.1" value="1" 
+        <input type="number" step="0.1" min="0.1" value="${config.textureRepeatY || 1}" 
           class="config-repeatY" style="flex: 1; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
       </div>
       
       <div style="display: flex; align-items: center; gap: 10px;">
         <label style="font-size: 12px; min-width: 80px;">X偏移:</label>
-        <input type="number" step="0.1" value="0" 
+        <input type="number" step="0.1" value="${config.textureOffsetX || 0}" 
           class="config-offsetX" style="flex: 1; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
       </div>
       
       <div style="display: flex; align-items: center; gap: 10px;">
         <label style="font-size: 12px; min-width: 80px;">Y偏移:</label>
-        <input type="number" step="0.1" value="0" 
+        <input type="number" step="0.1" value="${config.textureOffsetY || 0}" 
           class="config-offsetY" style="flex: 1; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
       </div>
     `
@@ -1077,36 +1083,42 @@ class PathPanelManager {
     const wrapSInput = pathConfigPanel.querySelector('.config-wrapS') as HTMLSelectElement
     wrapSInput.addEventListener('change', () => {
       const wrapS = parseInt(wrapSInput.value) as THREE.Wrapping
+      pathInfo.config.textureWrapS = wrapS
       pathManager.updatePathTextureWrap(pathId, wrapS, null)
     })
 
     const wrapTInput = pathConfigPanel.querySelector('.config-wrapT') as HTMLSelectElement
     wrapTInput.addEventListener('change', () => {
       const wrapT = parseInt(wrapTInput.value) as THREE.Wrapping
+      pathInfo.config.textureWrapT = wrapT
       pathManager.updatePathTextureWrap(pathId, null, wrapT)
     })
 
     const repeatXInput = pathConfigPanel.querySelector('.config-repeatX') as HTMLInputElement
     repeatXInput.addEventListener('change', () => {
       const repeatX = parseFloat(repeatXInput.value)
+      pathInfo.config.textureRepeatX = repeatX
       pathManager.updatePathTextureRepeat(pathId, repeatX, null)
     })
 
     const repeatYInput = pathConfigPanel.querySelector('.config-repeatY') as HTMLInputElement
     repeatYInput.addEventListener('change', () => {
       const repeatY = parseFloat(repeatYInput.value)
+      pathInfo.config.textureRepeatY = repeatY
       pathManager.updatePathTextureRepeat(pathId, null, repeatY)
     })
 
     const offsetXInput = pathConfigPanel.querySelector('.config-offsetX') as HTMLInputElement
     offsetXInput.addEventListener('change', () => {
       const offsetX = parseFloat(offsetXInput.value)
+      pathInfo.config.textureOffsetX = offsetX
       pathManager.updatePathTextureOffset(pathId, offsetX, null)
     })
 
     const offsetYInput = pathConfigPanel.querySelector('.config-offsetY') as HTMLInputElement
     offsetYInput.addEventListener('change', () => {
       const offsetY = parseFloat(offsetYInput.value)
+      pathInfo.config.textureOffsetY = offsetY
       pathManager.updatePathTextureOffset(pathId, null, offsetY)
     })
   }

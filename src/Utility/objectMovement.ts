@@ -5,6 +5,7 @@ import { pathManager, type PathMesh } from './path'
 export interface ObjectMovementConfig {
   speed: number
   loops: number
+  facingDirection?: 'none' | 'front' | 'back' | 'left' | 'right'
 }
 
 export interface ObjectMovementState {
@@ -14,6 +15,7 @@ export interface ObjectMovementState {
   currentLoop: number
   isMoving: boolean
   tween: gsap.core.Tween | null
+  facingDirection?: 'none' | 'front' | 'back' | 'left' | 'right'
 }
 
 class ObjectMovementManager {
@@ -71,7 +73,8 @@ class ObjectMovementManager {
       loops: config.loops,
       currentLoop: 0,
       isMoving: true,
-      tween: null
+      tween: null,
+      facingDirection: config.facingDirection || 'none'
     }
 
     this.movements.set(object.uuid, state)
@@ -87,6 +90,10 @@ class ObjectMovementManager {
         const normalizedProgress = progress.value % 1
         const position = this.getPositionOnPath(pathPoints, normalizedProgress)
         object.position.copy(position)
+        
+        if (state.facingDirection && state.facingDirection !== 'none') {
+          this.updateObjectFacing(object, pathPoints, normalizedProgress, state.facingDirection)
+        }
       },
       onComplete: () => {
         state.isMoving = false
@@ -123,13 +130,18 @@ class ObjectMovementManager {
       state.loops = config.loops
     }
 
+    if (config.facingDirection !== undefined) {
+      state.facingDirection = config.facingDirection
+    }
+
     if (state.isMoving && state.pathId) {
       const object = this.findObjectById(objectId)
       if (object) {
         this.stopMovement(objectId)
         this.startMovement(object, state.pathId, {
           speed: state.speed,
-          loops: state.loops
+          loops: state.loops,
+          facingDirection: state.facingDirection
         })
       }
     }
@@ -199,6 +211,55 @@ class ObjectMovementManager {
     })
 
     return foundObject
+  }
+
+  private updateObjectFacing(object: THREE.Object3D, pathPoints: THREE.Vector3[], progress: number, facingDirection: 'front' | 'back' | 'left' | 'right'): void {
+    const totalSegments = pathPoints.length - 1
+    const segmentProgress = progress * totalSegments
+    const segmentIndex = Math.floor(segmentProgress)
+    const localProgress = segmentProgress - segmentIndex
+
+    let currentPoint: THREE.Vector3
+    let nextPoint: THREE.Vector3
+
+    if (segmentIndex >= totalSegments - 1) {
+      currentPoint = pathPoints[pathPoints.length - 2]
+      nextPoint = pathPoints[pathPoints.length - 1]
+    } else {
+      currentPoint = pathPoints[segmentIndex]
+      nextPoint = pathPoints[segmentIndex + 1]
+    }
+
+    const direction = new THREE.Vector3().subVectors(nextPoint, currentPoint).normalize()
+    const up = new THREE.Vector3(0, 1, 0)
+    const quaternion = new THREE.Quaternion()
+
+    const forward = new THREE.Vector3(0, 0, -1)
+    const back = new THREE.Vector3(0, 0, 1)
+    const left = new THREE.Vector3(-1, 0, 0)
+    const right = new THREE.Vector3(1, 0, 0)
+
+    let targetDirection: THREE.Vector3
+
+    switch (facingDirection) {
+      case 'front':
+        targetDirection = forward
+        break
+      case 'back':
+        targetDirection = back
+        break
+      case 'left':
+        targetDirection = left
+        break
+      case 'right':
+        targetDirection = right
+        break
+      default:
+        targetDirection = forward
+    }
+
+    quaternion.setFromUnitVectors(targetDirection, direction)
+    object.quaternion.copy(quaternion)
   }
 
   clearPathCache(): void {

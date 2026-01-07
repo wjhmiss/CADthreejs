@@ -316,6 +316,17 @@
         <span v-else class="property-value">{{ movementLoops }}</span>
       </div>
       <div v-if="selectedPathId" class="property-row">
+        <span class="property-label">朝向:</span>
+        <select v-if="transformControlsRef?.object === selectedObject" v-model="facingDirection" @change="handleFacingDirectionChange" @click.stop class="property-select">
+          <option value="none">无</option>
+          <option value="front">前</option>
+          <option value="back">后</option>
+          <option value="left">左</option>
+          <option value="right">右</option>
+        </select>
+        <span v-else class="property-value">{{ getFacingDirectionText() }}</span>
+      </div>
+      <div v-if="selectedPathId" class="property-row">
         <button v-if="!isMoving" @click="startMovement" @click.stop class="property-button">开始移动</button>
         <button v-else @click="stopMovement" @click.stop class="property-button">停止移动</button>
       </div>
@@ -432,6 +443,7 @@ const selectedPathId = ref<string | null>(null)
 const selectedPathName = ref<string>('')
 const movementSpeed = ref<number>(1.0)
 const movementLoops = ref<number>(1)
+const facingDirection = ref<'none' | 'front' | 'back' | 'left' | 'right'>('none')
 const isMoving = ref<boolean>(false)
 const isObjectInPath = ref<boolean>(false)
 const availablePaths = ref<any[]>([])
@@ -964,6 +976,7 @@ const selectObject = (object: THREE.Object3D) => {
       selectedPathName.value = path?.name || ''
       movementSpeed.value = movementState.speed
       movementLoops.value = movementState.loops
+      facingDirection.value = movementState.facingDirection || 'none'
       isMoving.value = movementState.isMoving
     } else {
       selectedPathId.value = null
@@ -2067,11 +2080,31 @@ const updateMovementLoops = () => {
   }
 }
 
+const handleFacingDirectionChange = () => {
+  if (selectedObject.value && selectedPathId.value) {
+    objectMovementManager.updateMovement(selectedObject.value.uuid, {
+      facingDirection: facingDirection.value
+    })
+  }
+}
+
+const getFacingDirectionText = () => {
+  const directionMap: Record<string, string> = {
+    'none': '无',
+    'front': '前',
+    'back': '后',
+    'left': '左',
+    'right': '右'
+  }
+  return directionMap[facingDirection.value] || '无'
+}
+
 const startMovement = () => {
   if (selectedObject.value && selectedPathId.value) {
     const success = objectMovementManager.startMovement(selectedObject.value, selectedPathId.value, {
       speed: movementSpeed.value,
-      loops: movementLoops.value
+      loops: movementLoops.value,
+      facingDirection: facingDirection.value
     })
     if (success) {
       isMoving.value = true

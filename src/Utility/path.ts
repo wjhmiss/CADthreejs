@@ -23,6 +23,12 @@ export interface PathConfig {
   speed?: number
   parallelToXZ?: boolean
   loopProgress?: boolean
+  textureWrapS?: THREE.Wrapping
+  textureWrapT?: THREE.Wrapping
+  textureRepeatX?: number
+  textureRepeatY?: number
+  textureOffsetX?: number
+  textureOffsetY?: number
 }
 
 export interface TubePathConfig extends PathConfig {
@@ -50,6 +56,12 @@ export interface PathMesh {
   speed?: number
   parallelToXZ?: boolean
   loopProgress?: boolean
+  textureWrapS?: THREE.Wrapping
+  textureWrapT?: THREE.Wrapping
+  textureRepeatX?: number
+  textureRepeatY?: number
+  textureOffsetX?: number
+  textureOffsetY?: number
 }
 
 export interface TextureConfig {
@@ -227,10 +239,12 @@ class PathManager {
     console.log('[PathManager] PathPointList 创建完成')
 
     const updateParam = {
-      width: config.width || 2,
+      width: config.width || 1,
       arrow: config.arrow !== undefined ? config.arrow : false,
       progress: config.progress !== undefined ? config.progress : 1,
-      side: config.side || 'both'
+      side: config.side || 'both',
+      cornerRadius: config.cornerRadius || 0,
+      cornerSplit: config.cornerSplit || 0
     }
     console.log('[PathManager] 更新参数:', updateParam)
 
@@ -266,12 +280,18 @@ class PathManager {
       texture: resolvedTexture,
       useTexture: config.useTexture !== undefined ? config.useTexture : false,
       scrollUV: config.scrollUV !== undefined ? config.scrollUV : false,
-      scrollSpeed: config.scrollSpeed !== undefined ? config.scrollSpeed : 0.03,
+      scrollSpeed: config.scrollSpeed !== undefined ? config.scrollSpeed : 0.8,
       progress: config.progress !== undefined ? config.progress : 1,
       playSpeed: config.playSpeed !== undefined ? config.playSpeed : 0.14,
-      speed: config.speed !== undefined ? config.speed : 0.02,
+      speed: config.speed !== undefined ? config.speed : 0.48,
       parallelToXZ: config.parallelToXZ || false,
-      loopProgress: config.loopProgress !== undefined ? config.loopProgress : false
+      loopProgress: config.loopProgress !== undefined ? config.loopProgress : false,
+      textureWrapS: config.textureWrapS !== undefined ? config.textureWrapS : THREE.RepeatWrapping,
+      textureWrapT: config.textureWrapT !== undefined ? config.textureWrapT : THREE.RepeatWrapping,
+      textureRepeatX: config.textureRepeatX !== undefined ? config.textureRepeatX : 1,
+      textureRepeatY: config.textureRepeatY !== undefined ? config.textureRepeatY : 1,
+      textureOffsetX: config.textureOffsetX !== undefined ? config.textureOffsetX : 0,
+      textureOffsetY: config.textureOffsetY !== undefined ? config.textureOffsetY : 0
     }
 
     this.paths.set(id, pathMesh)
@@ -705,6 +725,8 @@ class PathManager {
       const cornerRadius = config.cornerRadius !== undefined ? config.cornerRadius : 0
       const cornerSplit = config.cornerSplit !== undefined ? config.cornerSplit : 0
       const up = pathMesh.parallelToXZ ? new THREE.Vector3(0, 1, 0) : null
+      pathMesh.updateParam.cornerRadius = cornerRadius
+      pathMesh.updateParam.cornerSplit = cornerSplit
       pathMesh.pathPointList.set(
         pathMesh.points,
         cornerRadius,
@@ -730,6 +752,42 @@ class PathManager {
 
     if (config.loopProgress !== undefined) {
       pathMesh.loopProgress = config.loopProgress
+    }
+
+    if (config.textureWrapS !== undefined && pathMesh.texture) {
+      pathMesh.textureWrapS = config.textureWrapS
+      pathMesh.texture.wrapS = config.textureWrapS
+      pathMesh.texture.needsUpdate = true
+    }
+
+    if (config.textureWrapT !== undefined && pathMesh.texture) {
+      pathMesh.textureWrapT = config.textureWrapT
+      pathMesh.texture.wrapT = config.textureWrapT
+      pathMesh.texture.needsUpdate = true
+    }
+
+    if (config.textureRepeatX !== undefined && pathMesh.texture) {
+      pathMesh.textureRepeatX = config.textureRepeatX
+      pathMesh.texture.repeat.x = config.textureRepeatX
+      pathMesh.texture.needsUpdate = true
+    }
+
+    if (config.textureRepeatY !== undefined && pathMesh.texture) {
+      pathMesh.textureRepeatY = config.textureRepeatY
+      pathMesh.texture.repeat.y = config.textureRepeatY
+      pathMesh.texture.needsUpdate = true
+    }
+
+    if (config.textureOffsetX !== undefined && pathMesh.texture) {
+      pathMesh.textureOffsetX = config.textureOffsetX
+      pathMesh.texture.offset.x = config.textureOffsetX
+      pathMesh.texture.needsUpdate = true
+    }
+
+    if (config.textureOffsetY !== undefined && pathMesh.texture) {
+      pathMesh.textureOffsetY = config.textureOffsetY
+      pathMesh.texture.offset.y = config.textureOffsetY
+      pathMesh.texture.needsUpdate = true
     }
 
     return true
@@ -785,6 +843,16 @@ class PathManager {
       side: config.side || THREE.DoubleSide,
       map: texture
     })
+    
+    if (texture) {
+      texture.wrapS = config.textureWrapS !== undefined ? config.textureWrapS : THREE.RepeatWrapping
+      texture.wrapT = config.textureWrapT !== undefined ? config.textureWrapT : THREE.RepeatWrapping
+      texture.repeat.x = config.textureRepeatX !== undefined ? config.textureRepeatX : 1
+      texture.repeat.y = config.textureRepeatY !== undefined ? config.textureRepeatY : 1
+      texture.offset.x = config.textureOffsetX !== undefined ? config.textureOffsetX : 0
+      texture.offset.y = config.textureOffsetY !== undefined ? config.textureOffsetY : 0
+    }
+    
     return material
   }
 
