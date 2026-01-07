@@ -563,7 +563,6 @@ const initThreeJS = () => {
   transformControls = new TransformControls(camera, renderer.domElement)
   transformControlsRef.value = transformControls
   transformControls.addEventListener('dragging-changed', (event) => {
-    // 当开始拖拽时禁用轨道控制器，结束时启用
     controls.enabled = !event.value
   })
   transformControls.addEventListener('objectChange', () => {
@@ -1064,23 +1063,36 @@ const updateLabel = (object: THREE.Object3D) => {
   }
 }
 
+// 生成明亮的随机颜色
+const generateBrightRandomColor = (): number => {
+  const hue = Math.random() * 360
+  const saturation = 70 + Math.random() * 30
+  const lightness = 50 + Math.random() * 30
+  const color = new THREE.Color()
+  color.setHSL(hue / 360, saturation / 100, lightness / 100)
+  return color.getHex()
+}
+
 // 将材质转换为纯金属材质
 const convertToMetalMaterial = (mesh: THREE.Mesh) => {
+  const randomColor = generateBrightRandomColor()
   if (mesh.material) {
     if (Array.isArray(mesh.material)) {
       mesh.material.forEach((mat) => {
         if (mat instanceof THREE.MeshStandardMaterial) {
-          mat.roughness = 0.5
-          mat.metalness = 1.0
-          mat.emissive = new THREE.Color(0x444444)
-          mat.emissiveIntensity = 1.2
+          mat.color.setHex(randomColor)
+          mat.roughness = 0.8
+          mat.metalness = 0.3
+          mat.emissive = new THREE.Color(randomColor)
+          mat.emissiveIntensity = 0.3
         }
       })
     } else if (mesh.material instanceof THREE.MeshStandardMaterial) {
-      mesh.material.roughness = 0.5
-      mesh.material.metalness = 1.0
-      mesh.material.emissive = new THREE.Color(0x444444)
-      mesh.material.emissiveIntensity = 1.2
+      mesh.material.color.setHex(randomColor)
+      mesh.material.roughness = 0.8
+      mesh.material.metalness = 0.3
+      mesh.material.emissive = new THREE.Color(randomColor)
+      mesh.material.emissiveIntensity = 0.3
     }
   }
 }
@@ -1091,13 +1103,13 @@ const addBasicShape = (shapeType: string) => {
   ensureExitEditMode()
   
   let geometry: THREE.BufferGeometry
-  const randomColor = Math.random() * 0xffffff
+  const randomColor = generateBrightRandomColor()
   let material = new THREE.MeshStandardMaterial({
     color: randomColor,
-    roughness: 0.5,
-    metalness: 1.0,
+    roughness: 0.8,
+    metalness: 0.3,
     emissive: new THREE.Color(randomColor),
-    emissiveIntensity: 1.2
+    emissiveIntensity: 0.3
   })
   let mesh: THREE.Mesh
   let baseName: string
@@ -1289,6 +1301,7 @@ const saveGLBToPublic = (file: File): Promise<string> => {
                 // 直接将mesh对象添加到场景中
                 scene.add(mesh)
                 nameValidator.registerObject(mesh)
+
                 meshObjects.push(mesh)
 
                 // 将mesh对象添加到objects数组中
@@ -1553,20 +1566,22 @@ const handleImportScene = (event: Event) => {
           if (objData.material && objData.material.type === 'MeshStandardMaterial') {
             material = new THREE.MeshStandardMaterial({
               color: objData.material.color,
-              roughness: 0.5,
-              metalness: 1.0,
+              roughness: objData.material.roughness !== undefined ? objData.material.roughness : 0.8,
+              metalness: objData.material.metalness !== undefined ? objData.material.metalness : 0.3,
               emissive: objData.material.emissive !== undefined ? objData.material.emissive : 0x444444,
-              emissiveIntensity: objData.material.emissiveIntensity !== undefined ? objData.material.emissiveIntensity : 1.2,
+              emissiveIntensity: objData.material.emissiveIntensity !== undefined ? objData.material.emissiveIntensity : 0.3,
               transparent: objData.material.transparent,
               opacity: objData.material.opacity
             })
           } else {
-            // 默认材质
+            // 默认材质 - 使用明亮的随机颜色
+            const defaultColor = generateBrightRandomColor()
             material = new THREE.MeshStandardMaterial({
-              roughness: 0.5,
-              metalness: 1.0,
-              emissive: 0x444444,
-              emissiveIntensity: 1.2
+              color: defaultColor,
+              roughness: 0.8,
+              metalness: 0.3,
+              emissive: new THREE.Color(defaultColor),
+              emissiveIntensity: 0.3
             })
           }
 
@@ -1592,10 +1607,6 @@ const handleImportScene = (event: Event) => {
           const mesh = new THREE.Mesh(geometry, material)
           mesh.name = objData.name
           mesh.position.fromArray(objData.position)
-          // 确保基础几何体位于地面上方
-          if (mesh.position.y <= 0) {
-            mesh.position.y = 0.5
-          }
           mesh.rotation.fromArray(objData.rotation)
           mesh.scale.fromArray(objData.scale)
           mesh.visible = objData.visible !== undefined ? objData.visible : true
@@ -1608,7 +1619,7 @@ const handleImportScene = (event: Event) => {
 
           scene.add(mesh)
           nameValidator.registerObject(mesh)
-          
+
           // 创建标签
           createLabel(mesh, mesh.name)
           
@@ -1663,8 +1674,8 @@ const handleImportScene = (event: Event) => {
             const placeholderGeometry = new THREE.BoxGeometry(1, 1, 1)
             const placeholderMaterial = new THREE.MeshStandardMaterial({
               color: 0x00ff00,
-              roughness: 0.5,
-              metalness: 1.0,
+              roughness: 0.8,
+              metalness: 0.3,
               wireframe: true
             })
             const placeholderMesh = new THREE.Mesh(placeholderGeometry, placeholderMaterial)
@@ -1791,7 +1802,7 @@ const loadGLBFromPublic = (modelPath: string, fileName: string): Promise<THREE.O
             // 直接将mesh对象添加到场景中
             scene.add(mesh)
             nameValidator.registerObject(mesh)
-            
+
             // 创建标签
             createLabel(mesh, mesh.name)
             
@@ -2087,6 +2098,11 @@ const exitEditMode = () => {
 const toggleTransformControls = () => {
   if (!selectedObject.value || selectedObject.value.userData.isTransformable !== true) {
     return
+  }
+
+  // 如果当前有对象正在被编辑，先对其进行落地操作
+  if (transformControls.object && transformControls.object !== selectedObject.value) {
+    groundObject(transformControls.object)
   }
 
   // 进入编辑模式
