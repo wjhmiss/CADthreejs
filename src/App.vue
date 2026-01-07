@@ -1382,6 +1382,19 @@ const exportScene = () => {
         }
       }
 
+      // 保存对象的路径移动信息
+      const movementState = objectMovementManager.getMovementState(child.uuid)
+      if (movementState && movementState.pathId) {
+        objectData.movement = {
+          pathId: movementState.pathId,
+          speed: movementState.speed,
+          loops: movementState.loops,
+          facingDirection: movementState.facingDirection || 'none',
+          isMoving: movementState.isMoving
+        }
+        console.log('Exported movement state for object:', child.name, objectData.movement)
+      }
+
       sceneData.objects.push(objectData)
     }
   })
@@ -1677,6 +1690,17 @@ const handleImportScene = (event: Event) => {
 
                 successfullyLoadedGLBCount++
                 console.log(`成功从public文件夹加载GLB模型: ${objData.originalFileName}，包含 ${meshes.length} 个网格对象`)
+
+                // 恢复第一个mesh的路径移动状态
+                if (objData.movement && objData.movement.pathId && meshes.length > 0) {
+                  const firstMesh = meshes[0]
+                  console.log('恢复GLB模型路径移动状态:', objData.name, objData.movement)
+                  objectMovementManager.startMovement(firstMesh, objData.movement.pathId, {
+                    speed: objData.movement.speed,
+                    loops: objData.movement.loops,
+                    facingDirection: objData.movement.facingDirection
+                  })
+                }
               })
               .catch(error => {
                 console.warn(`无法从public文件夹加载GLB模型: ${objData.originalFileName}`, error)
@@ -1726,6 +1750,16 @@ const handleImportScene = (event: Event) => {
             
             // 将占位符mesh对象添加到路径管理面板
             pathPanelManager.addObject(placeholderMesh)
+
+            // 恢复占位符的路径移动状态
+            if (objData.movement && objData.movement.pathId) {
+              console.log('恢复占位符路径移动状态:', objData.name, objData.movement)
+              objectMovementManager.startMovement(placeholderMesh, objData.movement.pathId, {
+                speed: objData.movement.speed,
+                loops: objData.movement.loops,
+                facingDirection: objData.movement.facingDirection
+              })
+            }
           }
         }
       })
@@ -1750,6 +1784,21 @@ const handleImportScene = (event: Event) => {
             console.log('路径已同步到路径面板')
           }
         }
+
+        // 恢复基础对象的路径移动状态
+        sceneData.objects.forEach((objData: any) => {
+          if (objData.movement && objData.movement.pathId && objData.type === 'basic') {
+            const object = objects.find(obj => obj.uuid === objData.uuid)
+            if (object) {
+              console.log('恢复基础对象路径移动状态:', objData.name, objData.movement)
+              objectMovementManager.startMovement(object, objData.movement.pathId, {
+                speed: objData.movement.speed,
+                loops: objData.movement.loops,
+                facingDirection: objData.movement.facingDirection
+              })
+            }
+          }
+        })
       }, 1000)
     } catch (error) {
       console.error('导入场景时出错:', error)
