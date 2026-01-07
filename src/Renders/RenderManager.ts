@@ -516,8 +516,18 @@ export class RenderManager {
     return this.centerOffset.clone();
   }
 
+  public setCenterOffset(offset: THREE.Vector3): void {
+    this.centerOffset.copy(offset);
+    console.log('RenderManager: Center offset set to:', this.centerOffset);
+  }
+
   public isObjectCentered(): boolean {
     return this.isCentered;
+  }
+
+  public setIsCentered(centered: boolean): void {
+    this.isCentered = centered;
+    console.log('RenderManager: isCentered set to:', this.isCentered);
   }
 
   public setCenteringOptions(options: Partial<CenteringOptions>): void {

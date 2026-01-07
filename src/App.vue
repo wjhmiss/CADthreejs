@@ -374,6 +374,9 @@ const showAxisHelper = ref(true)
 const isToolbarCollapsed = ref(false)
 let renderManager: RenderManager | null = null
 
+// DXF数据存储
+let dxfData: any = null
+
 // 响应式变量
 const canvasContainer = ref<HTMLElement | null>(null)
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -1370,6 +1373,28 @@ const exportScene = () => {
     }
   })
 
+  // 导出DXF对象信息
+  if (dxfData && renderManager) {
+    const transformInfo = renderManager.getTransformInfo()
+    sceneData.dxf = {
+      data: dxfData,
+      scale: renderManager.getCurrentScale(),
+      flip: renderManager.getFlipRotation(),
+      centeringOptions: renderManager.getCenteringOptions(),
+      centerOffset: renderManager.getCenterOffset().toArray(),
+      isCentered: renderManager.isObjectCentered(),
+      objectColor: dxfObjectColor.value,
+      transformInfo: {
+        originalCenter: transformInfo.originalCenter.toArray(),
+        originalSize: transformInfo.originalSize.toArray(),
+        newCenter: transformInfo.newCenter.toArray(),
+        newOffset: transformInfo.newOffset.toArray(),
+        appliedOffset: transformInfo.appliedOffset.toArray()
+      }
+    }
+    console.log('Exported DXF data with complete transform info:', sceneData.dxf)
+  }
+
   const dataStr = JSON.stringify(sceneData, null, 2)
   const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr)
 
@@ -1430,6 +1455,81 @@ const handleImportScene = (event: Event) => {
 
       // 清空objects数组
       objects.length = 0
+
+      // 清除现有的DXF对象
+      if (renderManager) {
+        renderManager.clearAll()
+      }
+
+      // 导入DXF对象
+      if (sceneData.dxf && sceneData.dxf.data && renderManager) {
+        console.log('Importing DXF data with complete transform info:', sceneData.dxf)
+        
+        // 保存DXF数据
+        dxfData = sceneData.dxf.data
+        
+        // 设置中心化选项（禁用自动中心化，手动应用保存的偏移量）
+        if (sceneData.dxf.centeringOptions) {
+          const importCenteringOptions = {
+            ...sceneData.dxf.centeringOptions,
+            applyTransform: false  // 禁用自动中心化
+          }
+          renderManager.setCenteringOptions(importCenteringOptions)
+        }
+        
+        // 渲染DXF数据（不会自动中心化）
+        const boundingBox = renderManager.renderDxfData(sceneData.dxf.data)
+        console.log('DXF rendered, bounding box:', boundingBox)
+        
+        // 恢复中心化偏移量（必须在缩放之前应用，使用原始偏移量）
+        if (sceneData.dxf.centerOffset && Array.isArray(sceneData.dxf.centerOffset) && sceneData.dxf.centerOffset.length === 3) {
+          const centerOffset = new THREE.Vector3(
+            sceneData.dxf.centerOffset[0],
+            sceneData.dxf.centerOffset[1],
+            sceneData.dxf.centerOffset[2]
+          )
+          
+          // 应用保存的原始偏移量
+          const renderedObjects = renderManager.getRenderedObjects()
+          renderedObjects.forEach((objects) => {
+            objects.forEach((obj) => {
+              obj.position.add(centerOffset)
+            })
+          })
+          console.log('Applied saved center offset (original):', centerOffset)
+          
+          // 更新RenderManager的中心化状态
+          renderManager.setCenterOffset(centerOffset)
+          if (sceneData.dxf.isCentered) {
+            renderManager.setIsCentered(true)
+          }
+        }
+        
+        // 恢复缩放（在应用偏移量之后，缩放会同时缩放位置）
+        if (sceneData.dxf.scale) {
+          renderManager.setScale(sceneData.dxf.scale)
+          dxfScale.value = sceneData.dxf.scale
+          console.log('Restored scale:', sceneData.dxf.scale)
+        }
+        
+        // 恢复翻转旋转（在缩放之后应用）
+        if (sceneData.dxf.flip) {
+          renderManager.setFlipRotation(sceneData.dxf.flip.x, sceneData.dxf.flip.y, sceneData.dxf.flip.z)
+          dxfFlipX.value = (sceneData.dxf.flip.x * 180) / Math.PI
+          dxfFlipY.value = (sceneData.dxf.flip.y * 180) / Math.PI
+          dxfFlipZ.value = (sceneData.dxf.flip.z * 180) / Math.PI
+          console.log('Restored flip rotation:', sceneData.dxf.flip)
+        }
+        
+        // 恢复DXF对象颜色
+        if (sceneData.dxf.objectColor) {
+          dxfObjectColor.value = sceneData.dxf.objectColor
+          renderManager.setDxfObjectColor(sceneData.dxf.objectColor)
+          console.log('Restored DXF object color:', sceneData.dxf.objectColor)
+        }
+        
+        console.log('DXF data imported successfully with all states restored')
+      }
 
       // 记录需要加载的GLB模型数量
       const glbModelsToLoad = sceneData.objects.filter((obj: any) =>
@@ -2434,7 +2534,7 @@ onBeforeUnmount(() => {
 })
 
 // 处理DXF数据返回
-const handleDxfDataReturn = (dxfData: string | undefined) => {
+const handleDxfDataReturn = (data: string | undefined) => {
   showDxfUpload.value = false
   
   // 强制更新渲染器大小，确保场景正常显示
@@ -2447,15 +2547,18 @@ const handleDxfDataReturn = (dxfData: string | undefined) => {
     }
   })
   
-  if (!dxfData) {
+  if (!data) {
     console.warn('No DXF data received')
     return
   }
 
   try {
-    const parsedData = JSON.parse(dxfData)
+    const parsedData = JSON.parse(data)
     console.log('Received DXF data:', parsedData)
     console.log('DXF data keys:', Object.keys(parsedData))
+    
+    // 保存DXF数据用于导出
+    dxfData = parsedData
     
     // 检查数据格式
     Object.keys(parsedData).forEach(key => {
