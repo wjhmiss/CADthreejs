@@ -953,17 +953,21 @@ class PathPanelManager {
     })
 
     const cornerRadiusInput = pathConfigPanel.querySelector('.config-cornerRadius') as HTMLInputElement
-    cornerRadiusInput.addEventListener('change', () => {
+    cornerRadiusInput.addEventListener('input', () => {
       const cornerRadius = parseFloat(cornerRadiusInput.value)
+      console.log('[PathPanel] 圆角半径变化:', cornerRadius)
       pathInfo.config.cornerRadius = cornerRadius
-      pathManager.updatePathConfig(pathId, { cornerRadius })
+      const result = pathManager.updatePathConfig(pathId, { cornerRadius })
+      console.log('[PathPanel] 更新结果:', result)
     })
 
     const cornerSplitInput = pathConfigPanel.querySelector('.config-cornerSplit') as HTMLInputElement
-    cornerSplitInput.addEventListener('change', () => {
+    cornerSplitInput.addEventListener('input', () => {
       const cornerSplit = parseFloat(cornerSplitInput.value)
+      console.log('[PathPanel] 圆角分段变化:', cornerSplit)
       pathInfo.config.cornerSplit = cornerSplit
-      pathManager.updatePathConfig(pathId, { cornerSplit })
+      const result = pathManager.updatePathConfig(pathId, { cornerSplit })
+      console.log('[PathPanel] 更新结果:', result)
     })
 
     const colorInput = pathConfigPanel.querySelector('.config-color') as HTMLInputElement

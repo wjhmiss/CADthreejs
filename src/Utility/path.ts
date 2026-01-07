@@ -625,8 +625,8 @@ class PathManager {
     const config: PathConfig = {
       points: pathMesh.points,
       width: pathMesh.updateParam.width,
-      cornerRadius: 0,
-      cornerSplit: 0,
+      cornerRadius: pathMesh.updateParam.cornerRadius || 0,
+      cornerSplit: pathMesh.updateParam.cornerSplit || 0,
       color: !Array.isArray(pathMesh.material) && 'color' in pathMesh.material ? pathMesh.material.color.getHex() : 0xffffff,
       texture: pathMesh.texture,
       useTexture: pathMesh.useTexture,
@@ -722,9 +722,11 @@ class PathManager {
     }
 
     if (config.cornerRadius !== undefined || config.cornerSplit !== undefined) {
-      const cornerRadius = config.cornerRadius !== undefined ? config.cornerRadius : 0
-      const cornerSplit = config.cornerSplit !== undefined ? config.cornerSplit : 0
+      const cornerRadius = config.cornerRadius !== undefined ? config.cornerRadius : (pathMesh.updateParam.cornerRadius || 0)
+      const cornerSplit = config.cornerSplit !== undefined ? config.cornerSplit : (pathMesh.updateParam.cornerSplit || 0)
       const up = pathMesh.parallelToXZ ? new THREE.Vector3(0, 1, 0) : null
+      console.log('[PathManager] 更新圆角参数 - cornerRadius:', cornerRadius, 'cornerSplit:', cornerSplit)
+      console.log('[PathManager] pathMesh.updateParam.cornerRadius:', pathMesh.updateParam.cornerRadius, 'cornerSplit:', pathMesh.updateParam.cornerSplit)
       pathMesh.updateParam.cornerRadius = cornerRadius
       pathMesh.updateParam.cornerSplit = cornerSplit
       pathMesh.pathPointList.set(
@@ -735,6 +737,10 @@ class PathManager {
         false
       )
       pathMesh.geometry.update(pathMesh.pathPointList, pathMesh.updateParam)
+      pathMesh.geometry.computeBoundingBox()
+      pathMesh.geometry.computeBoundingSphere()
+      pathMesh.geometry.attributes.position.needsUpdate = true
+      console.log('[PathManager] 圆角参数更新完成')
     }
 
     if (config.parallelToXZ !== undefined) {

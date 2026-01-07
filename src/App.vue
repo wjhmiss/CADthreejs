@@ -941,8 +941,7 @@ const selectObject = (object: THREE.Object3D) => {
     // 更新内发光颜色和强度
     if (material instanceof THREE.MeshStandardMaterial) {
       emissiveColor.value = '#' + material.emissive.getHexString()
-      material.emissiveIntensity = 1.2
-      emissiveIntensity.value = 1.2
+      emissiveIntensity.value = material.emissiveIntensity
     }
   }
   // 更新标签设置
