@@ -1335,6 +1335,7 @@ const exportScene = () => {
     // 只导出可变换的对象（不包括地面和网格辅助线）
     if (child.userData.isTransformable === true) {
       let objectData: any = {
+        uuid: child.uuid,
         name: child.name || '未命名对象',
         position: child.position.toArray(),
         rotation: child.rotation.toArray(),
@@ -1620,6 +1621,7 @@ const handleImportScene = (event: Event) => {
 
           const mesh = new THREE.Mesh(geometry, material)
           mesh.name = objData.name
+          mesh.uuid = objData.uuid
           mesh.position.fromArray(objData.position)
           mesh.rotation.fromArray(objData.rotation)
           mesh.scale.fromArray(objData.scale)
@@ -1649,7 +1651,8 @@ const handleImportScene = (event: Event) => {
             loadGLBFromPublic(objData.modelPath, objData.originalFileName)
               .then(meshes => {
                 // 设置每个mesh对象的位置、旋转和缩放
-                meshes.forEach(mesh => {
+                meshes.forEach((mesh, index) => {
+                  mesh.uuid = objData.uuid + (index > 0 ? `_${index}` : '')
                   mesh.position.fromArray(objData.position)
                   mesh.rotation.fromArray(objData.rotation)
                   mesh.scale.fromArray(objData.scale)
@@ -1694,6 +1697,7 @@ const handleImportScene = (event: Event) => {
             })
             const placeholderMesh = new THREE.Mesh(placeholderGeometry, placeholderMaterial)
             placeholderMesh.name = objData.name || 'GLB占位符'
+            placeholderMesh.uuid = objData.uuid
             placeholderMesh.position.fromArray(objData.position)
             placeholderMesh.rotation.fromArray(objData.rotation)
             placeholderMesh.scale.fromArray(objData.scale)
