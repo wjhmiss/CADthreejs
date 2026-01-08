@@ -208,23 +208,41 @@ class ObjectMovementManager {
   }
 
   private getPositionOnPath(pathPoints: THREE.Vector3[], progress: number): THREE.Vector3 {
-    const totalSegments = pathPoints.length - 1
-    const segmentProgress = progress * totalSegments
-    const segmentIndex = Math.floor(segmentProgress)
-    const localProgress = segmentProgress - segmentIndex
-
-    if (segmentIndex >= totalSegments) {
-      return pathPoints[pathPoints.length - 1].clone()
+    if (pathPoints.length < 2) {
+      return pathPoints[0].clone()
     }
 
-    const startPoint = pathPoints[segmentIndex]
-    const endPoint = pathPoints[segmentIndex + 1]
+    const totalDistance = this.calculateTotalDistance(pathPoints)
+    const targetDistance = progress * totalDistance
 
-    return new THREE.Vector3(
-      startPoint.x + (endPoint.x - startPoint.x) * localProgress,
-      startPoint.y + (endPoint.y - startPoint.y) * localProgress,
-      startPoint.z + (endPoint.z - startPoint.z) * localProgress
-    )
+    let accumulatedDistance = 0
+    for (let i = 0; i < pathPoints.length - 1; i++) {
+      const segmentDistance = pathPoints[i + 1].distanceTo(pathPoints[i])
+      
+      if (accumulatedDistance + segmentDistance >= targetDistance) {
+        const localProgress = (targetDistance - accumulatedDistance) / segmentDistance
+        const startPoint = pathPoints[i]
+        const endPoint = pathPoints[i + 1]
+
+        return new THREE.Vector3(
+          startPoint.x + (endPoint.x - startPoint.x) * localProgress,
+          startPoint.y + (endPoint.y - startPoint.y) * localProgress,
+          startPoint.z + (endPoint.z - startPoint.z) * localProgress
+        )
+      }
+      
+      accumulatedDistance += segmentDistance
+    }
+
+    return pathPoints[pathPoints.length - 1].clone()
+  }
+
+  private calculateTotalDistance(pathPoints: THREE.Vector3[]): number {
+    let totalDistance = 0
+    for (let i = 1; i < pathPoints.length; i++) {
+      totalDistance += pathPoints[i].distanceTo(pathPoints[i - 1])
+    }
+    return totalDistance
   }
 
   private findObjectById(objectId: string): THREE.Object3D | null {
@@ -243,20 +261,32 @@ class ObjectMovementManager {
   }
 
   private updateObjectFacing(object: THREE.Object3D, pathPoints: THREE.Vector3[], progress: number, facingDirection: 'front' | 'back' | 'left' | 'right'): void {
-    const totalSegments = pathPoints.length - 1
-    const segmentProgress = progress * totalSegments
-    const segmentIndex = Math.floor(segmentProgress)
-    const localProgress = segmentProgress - segmentIndex
+    if (pathPoints.length < 2) {
+      return
+    }
 
+    const totalDistance = this.calculateTotalDistance(pathPoints)
+    const targetDistance = progress * totalDistance
+
+    let accumulatedDistance = 0
     let currentPoint: THREE.Vector3
     let nextPoint: THREE.Vector3
 
-    if (segmentIndex >= totalSegments - 1) {
+    for (let i = 0; i < pathPoints.length - 1; i++) {
+      const segmentDistance = pathPoints[i + 1].distanceTo(pathPoints[i])
+      
+      if (accumulatedDistance + segmentDistance >= targetDistance) {
+        currentPoint = pathPoints[i]
+        nextPoint = pathPoints[i + 1]
+        break
+      }
+      
+      accumulatedDistance += segmentDistance
+    }
+
+    if (!currentPoint || !nextPoint) {
       currentPoint = pathPoints[pathPoints.length - 2]
       nextPoint = pathPoints[pathPoints.length - 1]
-    } else {
-      currentPoint = pathPoints[segmentIndex]
-      nextPoint = pathPoints[segmentIndex + 1]
     }
 
     const direction = new THREE.Vector3().subVectors(nextPoint, currentPoint).normalize()
