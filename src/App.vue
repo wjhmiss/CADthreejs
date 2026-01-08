@@ -790,9 +790,9 @@ const onMouseClick = (event: MouseEvent) => {
     mouse.y = -(event.clientY / window.innerHeight) * 2 + 1
 
     raycaster.setFromCamera(mouse, camera)
-    // 使用objects数组进行射线检测
+    // 使用objects数组进行射线检测（不递归检测子对象）
     console.log(objects);
-    const intersects = raycaster.intersectObjects(objects,false)
+    const intersects = raycaster.intersectObjects(objects, false)
     if (intersects.length > 0) {
       // 找到第一个可变换的相交对象
       let targetObject: THREE.Object3D | null = null
@@ -833,15 +833,32 @@ const onRightClick = (event: MouseEvent) => {
   raycaster.setFromCamera(mouse, camera)
   // 使用objects数组进行射线检测
   const intersects = raycaster.intersectObjects(objects)
+  
+  console.log('右键点击射线检测结果:', intersects.length, '个对象')
+  console.log('当前 objects 数组长度:', objects.length)
+  console.log('当前 selectedObject:', selectedObject.value ? selectedObject.value.name + ' ' + selectedObject.value.uuid : 'null')
+  console.log('当前 transformControls.object:', transformControls.object ? transformControls.object.name + ' ' + transformControls.object.uuid : 'null')
+  
+  if (intersects.length > 0) {
+    console.log('第一个相交对象:', intersects[0].object.name, intersects[0].object.uuid)
+    console.log('第一个相交对象 isTransformable:', intersects[0].object.userData.isTransformable)
+    console.log('第一个相交对象是否在场景中:', scene.children.includes(intersects[0].object))
+  }
 
   if (intersects.length > 0) {
     // 获取第一个相交的对象
     const intersectedObject = intersects[0].object
 
+    console.log('射线检测到的对象:', intersectedObject.name, intersectedObject.uuid)
+    console.log('射线检测到的对象类型:', intersectedObject.type)
+    console.log('射线检测到的对象的父对象:', intersectedObject.parent ? intersectedObject.parent.name + ' ' + intersectedObject.parent.uuid : 'null')
+    console.log('射线检测到的对象的子对象数量:', intersectedObject.children.length)
+
     // 找到最顶层的可变换对象
     let targetObject: THREE.Object3D | null = intersectedObject
 
-    if (targetObject) {
+    // 只选择可变换的对象
+    if (targetObject && targetObject.userData.isTransformable === true) {
       // 选中对象
       selectedObject.value = targetObject
 
@@ -865,7 +882,9 @@ const onRightClick = (event: MouseEvent) => {
 
       // 显示右键菜单
       showContextMenu(event.clientX, event.clientY)
-
+    } else {
+      // 点击了不可变换的对象，取消选择
+      deselectObject()
     }
   } else {
     // 点击了空白区域，取消选择
@@ -2075,8 +2094,22 @@ const deleteSelectedObject = () => {
   // 从路径面板移除对象
   pathPanelManager.removeObject(selectedObject.value.uuid)
 
+  // 停止对象移动
+  objectMovementManager.stopMovement(selectedObject.value.uuid)
+
+  // 停止呼吸灯效果
+  breathingLightManager.stopBreathingLight(selectedObject.value)
+
+  // 从名称验证器中注销对象
+  nameValidator.unregisterObject(selectedObject.value)
+
   // 如果当前处于编辑模式，先退出编辑模式
   if (transformControls.object) {
+    // 如果 transformControls 附加的是当前要删除的对象，先 detach
+    if (transformControls.object === selectedObject.value) {
+      transformControls.detach()
+      controls.enabled = true
+    }
     exitEditMode()
   }
 
@@ -2091,16 +2124,59 @@ const deleteSelectedObject = () => {
     label.parent?.remove(label)
   })
 
-  // 释放对象的资源
-  if (selectedObject.value instanceof THREE.Mesh) {
-    // 如果是网格对象，释放其资源
-    selectedObject.value.geometry.dispose()
-    if (selectedObject.value.material instanceof THREE.Material) {
-      selectedObject.value.material.dispose()
-    } else if (Array.isArray(selectedObject.value.material)) {
-      selectedObject.value.material.forEach(material => material.dispose())
+  // 递归释放所有子对象的资源
+  selectedObject.value.traverse((child) => {
+    if (child instanceof THREE.Mesh) {
+      if (child.geometry) {
+        child.geometry.dispose()
+      }
+      if (child.material) {
+        if (Array.isArray(child.material)) {
+          child.material.forEach(material => material.dispose())
+        } else {
+          child.material.dispose()
+        }
+      }
     }
+  })
+
+  // 从objects数组中移除对象及其所有子对象
+  const objectsToRemove: THREE.Object3D[] = []
+  
+  console.log('开始删除对象:', selectedObject.value.name, selectedObject.value.uuid)
+  console.log('删除前 objects 数组长度:', objects.length)
+  console.log('删除前 objects 数组内容:')
+  objects.forEach((obj, index) => {
+    console.log(`  [${index}] name: ${obj.name}, uuid: ${obj.uuid}, type: ${obj.type}, parent: ${obj.parent ? obj.parent.uuid : 'null'}, isTransformable: ${obj.userData.isTransformable}`)
+  })
+  console.log('选中对象的类型:', selectedObject.value.type)
+  console.log('选中对象的父对象:', selectedObject.value.parent ? selectedObject.value.parent.name + ' ' + selectedObject.value.parent.uuid : 'null')
+  console.log('选中对象的子对象数量:', selectedObject.value.children.length)
+  
+  // 检查父对象是否在 objects 数组中
+  if (selectedObject.value.parent) {
+    const parentIndex = objects.indexOf(selectedObject.value.parent)
+    console.log('父对象是否在 objects 数组中:', parentIndex !== -1 ? `是，索引: ${parentIndex}` : '否')
+    console.log('父对象的类型:', selectedObject.value.parent.type)
+    console.log('父对象的子对象数量:', selectedObject.value.parent.children.length)
+    console.log('父对象的子对象列表:')
+    selectedObject.value.parent.children.forEach((child, index) => {
+      console.log(`  [${index}] name: ${child.name}, uuid: ${child.uuid}, type: ${child.type}`)
+    })
   }
+  
+  selectedObject.value.traverse((child) => {
+    const index = objects.findIndex(obj => obj.uuid === child.uuid)
+    if (index !== -1) {
+      const objToRemove = objects[index]
+      objects.splice(index, 1)
+      objectsToRemove.push(objToRemove)
+      console.log('从 objects 数组中移除对象:', child.name, child.uuid)
+    }
+  })
+  
+  console.log('删除后 objects 数组长度:', objects.length)
+  console.log('删除的对象:', selectedObject.value.name, selectedObject.value.uuid)
 
   // 从场景中移除对象
   scene.remove(selectedObject.value)
@@ -2110,14 +2186,17 @@ const deleteSelectedObject = () => {
     selectedObject.value.parent.remove(selectedObject.value)
   }
 
-  // 从objects数组中移除对象
-  const index = objects.indexOf(selectedObject.value)
-  if (index !== -1) {
-    objects.splice(index, 1)
+  // 清空对象的children
+  while (selectedObject.value.children.length > 0) {
+    selectedObject.value.remove(selectedObject.value.children[0])
   }
 
   // 取消选择
   deselectObject()
+  
+  console.log('删除完成，当前 objects 数组长度:', objects.length)
+  console.log('删除完成，当前 selectedObject:', selectedObject.value)
+  console.log('删除完成，当前 transformControls.object:', transformControls.object)
 }
 
 // 退出编辑模式
