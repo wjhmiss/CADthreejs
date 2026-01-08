@@ -179,6 +179,16 @@
           <button @click="batchSetCells" class="property-button">批量设置</button>
         </div>
       </div>
+
+      <div class="property-group">
+        <h4>地图整理</h4>
+        <div class="property-row">
+          <button @click="organizeMap" class="property-button">地图整理</button>
+        </div>
+        <div class="property-row">
+          <button @click="resetMapColors" class="property-button">重置颜色</button>
+        </div>
+      </div>
     </div>
       </div>
   </div>
@@ -464,6 +474,7 @@ import { pathManager } from './Utility/path'
 import { objectMovementManager } from './Utility/objectMovement'
 import { nameValidator } from './Utility/nameValidator'
 import { GridFloor } from './Utility/gridFloor'
+import { MapOrganizer } from './Utility/mapOrganizer'
 
 
 
@@ -553,6 +564,7 @@ const availablePaths = ref<any[]>([])
 
 // 网格地面相关变量
 let gridFloor: GridFloor | null = null
+let mapOrganizer: MapOrganizer | null = null
 const showGridFloor = ref(true)
 const gridFloorSize = ref(20)
 const gridFloorCellSize = ref(1)
@@ -3609,6 +3621,7 @@ const initGridFloor = () => {
     defaultFillColor: gridFloorDefaultFillColor.value,
     opacity: gridFloorOpacity.value
   })
+  mapOrganizer = new MapOrganizer(gridFloor)
 }
 
 const toggleGridFloor = () => {
@@ -3738,4 +3751,38 @@ const handleGroundObjects = () => {
   
   console.log(`落地操作完成，共调整了 ${groundedCount} 个物体的位置`)
 }
+
+const organizeMap = () => {
+  if (!mapOrganizer) {
+    console.log('地图整理器未初始化')
+    return
+  }
+
+  const allObjects: THREE.Object3D[] = []
+
+  objects.forEach((obj) => {
+    allObjects.push(obj)
+  })
+
+  if (renderManager) {
+    const renderedObjects = renderManager.getRenderedObjects()
+    renderedObjects.forEach((objArray) => {
+      objArray.forEach((obj) => {
+        allObjects.push(obj)
+      })
+    })
+  }
+
+  mapOrganizer.organize(allObjects)
+}
+
+const resetMapColors = () => {
+  if (!mapOrganizer) {
+    console.log('地图整理器未初始化')
+    return
+  }
+
+  mapOrganizer.resetColors()
+}
+
 </script>
