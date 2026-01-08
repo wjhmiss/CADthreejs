@@ -17,6 +17,7 @@ export interface ObjectMovementState {
   tween: gsap.core.Tween | null
   facingDirection?: 'none' | 'front' | 'back' | 'left' | 'right'
   bottomOffset?: THREE.Vector3
+  currentProgress?: number
 }
 
 class ObjectMovementManager {
@@ -68,8 +69,16 @@ class ObjectMovementManager {
 
     const existingState = this.movements.get(object.uuid)
     console.log('[ObjectMovementManager] 现有状态:', existingState)
-    if (existingState && existingState.isMoving) {
-      this.stopMovement(object.uuid)
+    
+    let startProgress = 0
+    if (existingState) {
+      if (existingState.isMoving) {
+        this.stopMovement(object.uuid)
+      }
+      if (existingState.currentProgress !== undefined) {
+        startProgress = existingState.currentProgress
+        console.log('[ObjectMovementManager] 从保存的进度继续:', startProgress)
+      }
     }
 
     const bottomOffset = this.calculateBottomOffset(object)
@@ -82,13 +91,14 @@ class ObjectMovementManager {
       isMoving: true,
       tween: null,
       facingDirection: config.facingDirection || 'none',
-      bottomOffset
+      bottomOffset,
+      currentProgress: startProgress
     }
 
     this.movements.set(object.uuid, state)
 
     const duration = this.calculateDuration(pathPoints, config.speed, config.loops)
-    const progress = { value: 0 }
+    const progress = { value: startProgress }
 
     state.tween = gsap.to(progress, {
       value: config.loops,
@@ -111,11 +121,12 @@ class ObjectMovementManager {
       onComplete: () => {
         state.isMoving = false
         state.tween = null
+        state.currentProgress = 0
         console.log('[ObjectMovementManager] 对象移动完成:', object.name)
       }
     })
 
-    console.log('[ObjectMovementManager] 开始移动对象:', object.name, '路径:', pathId, '速度:', config.speed, '圈数:', config.loops)
+    console.log('[ObjectMovementManager] 开始移动对象:', object.name, '路径:', pathId, '速度:', config.speed, '圈数:', config.loops, '起始进度:', startProgress)
     return true
   }
 
@@ -125,11 +136,12 @@ class ObjectMovementManager {
     console.log('[ObjectMovementManager] 找到的状态:', state)
     if (state) {
       if (state.tween) {
+        state.currentProgress = (state.tween as any).targets()[0].value
         state.tween.kill()
         state.tween = null
       }
       state.isMoving = false
-      console.log('[ObjectMovementManager] 停止移动对象:', objectId)
+      console.log('[ObjectMovementManager] 停止移动对象:', objectId, '保存进度:', state.currentProgress)
     }
   }
 
