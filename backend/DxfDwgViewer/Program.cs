@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using DxfDwgViewer;
+using DxfDwgViewer.CalcPath;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -30,6 +31,11 @@ builder.Services.AddCors(options =>
               .AllowAnyMethod()
               .AllowAnyHeader();
     });
+});
+
+builder.Services.AddSingleton<PathFindingService>(sp =>
+{
+    return new PathFindingService(100, 100, true);
 });
 
 var app = builder.Build();
@@ -192,11 +198,139 @@ app.MapGet("/api/parse/drawing1", (ILogger<Program> logger) =>
 })
 .WithName("ParseDrawing1");
 
+app.MapPost("/api/pathfinding/find", (PathFindingRequest request, PathFindingService pathFindingService, ILogger<Program> logger) =>
+{
+    try
+    {
+        logger.LogInformation($"收到路径规划请求: 起点({request.StartX}, {request.StartY}), 终点({request.EndX}, {request.EndY})");
+        
+        if (request.Obstacles != null && request.Obstacles.Count > 0)
+        {
+            pathFindingService.SetObstacles(request.Obstacles);
+        }
+
+        var result = pathFindingService.FindPath(request.StartX, request.StartY, request.EndX, request.EndY);
+        
+        logger.LogInformation($"路径规划完成: 成功={result.Success}, 节点数={result.NodesExplored}, 耗时={result.ExecutionTimeMs}ms");
+        
+        return Results.Ok(result);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "路径规划时发生错误");
+        return Results.Problem(
+            detail: ex.Message,
+            statusCode: 500,
+            title: "路径规划时发生错误"
+        );
+    }
+})
+.WithName("FindPath");
+
+app.MapPost("/api/pathfinding/find-with-obstacles", (PathFindingWithObstaclesRequest request, PathFindingService pathFindingService, ILogger<Program> logger) =>
+{
+    try
+    {
+        logger.LogInformation($"收到带障碍物的路径规划请求: 起点({request.StartX}, {request.StartY}), 终点({request.EndX}, {request.EndY}), 障碍物数量={request.Obstacles?.Count ?? 0}");
+        
+        var result = pathFindingService.FindPathWithObstacles(
+            request.StartX, 
+            request.StartY, 
+            request.EndX, 
+            request.EndY, 
+            request.Obstacles ?? new List<(int, int)>());
+        
+        logger.LogInformation($"路径规划完成: 成功={result.Success}, 节点数={result.NodesExplored}, 耗时={result.ExecutionTimeMs}ms");
+        
+        return Results.Ok(result);
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "路径规划时发生错误");
+        return Results.Problem(
+            detail: ex.Message,
+            statusCode: 500,
+            title: "路径规划时发生错误"
+        );
+    }
+})
+.WithName("FindPathWithObstacles");
+
+app.MapPost("/api/pathfinding/set-obstacles", (SetObstaclesRequest request, PathFindingService pathFindingService, ILogger<Program> logger) =>
+{
+    try
+    {
+        logger.LogInformation($"设置障碍物: 数量={request.Obstacles?.Count ?? 0}");
+        
+        if (request.ClearExisting)
+        {
+            pathFindingService.ClearObstacles();
+        }
+        
+        if (request.Obstacles != null && request.Obstacles.Count > 0)
+        {
+            pathFindingService.SetObstacles(request.Obstacles);
+        }
+        
+        return Results.Ok(new 
+        { 
+            success = true,
+            message = $"成功设置 {request.Obstacles?.Count ?? 0} 个障碍物",
+            gridSize = new { width = pathFindingService.GridWidth, height = pathFindingService.GridHeight }
+        });
+    }
+    catch (Exception ex)
+    {
+        logger.LogError(ex, "设置障碍物时发生错误");
+        return Results.Problem(
+            detail: ex.Message,
+            statusCode: 500,
+            title: "设置障碍物时发生错误"
+        );
+    }
+})
+.WithName("SetObstacles");
+
+app.MapGet("/api/pathfinding/grid-info", (PathFindingService pathFindingService) =>
+{
+    return Results.Ok(new 
+    { 
+        width = pathFindingService.GridWidth,
+        height = pathFindingService.GridHeight,
+        message = "网格信息获取成功"
+    });
+})
+.WithName("GetGridInfo");
+
 app.Run();
 
 public class ParseRequest
 {
     public string FilePath { get; set; } = string.Empty;
+}
+
+public class PathFindingRequest
+{
+    public int StartX { get; set; }
+    public int StartY { get; set; }
+    public int EndX { get; set; }
+    public int EndY { get; set; }
+    public List<(int X, int Y)>? Obstacles { get; set; }
+}
+
+public class PathFindingWithObstaclesRequest
+{
+    public int StartX { get; set; }
+    public int StartY { get; set; }
+    public int EndX { get; set; }
+    public int EndY { get; set; }
+    public List<(int X, int Y)>? Obstacles { get; set; }
+}
+
+public class SetObstaclesRequest
+{
+    public List<(int X, int Y)>? Obstacles { get; set; }
+    public bool ClearExisting { get; set; } = false;
 }
 
 public class FileUploadOperationFilter : IOperationFilter
