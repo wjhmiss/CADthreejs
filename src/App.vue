@@ -101,15 +101,6 @@
         <span class="property-label">默认边线颜色:</span>
         <input type="color" v-model="gridFloorDefaultEdgeColor" @input="updateGridFloorDefaultEdgeColor" class="property-color-input" />
       </div>
-      <div class="property-row">
-        <span class="property-label">默认方块颜色:</span>
-        <input type="color" v-model="gridFloorDefaultFillColor" @input="updateGridFloorDefaultFillColor" class="property-color-input" />
-      </div>
-      <div class="property-row">
-        <span class="property-label">透明度:</span>
-        <input type="range" v-model.number="gridFloorOpacity" @input="updateGridFloorOpacity" min="0" max="1" step="0.1" class="property-range" />
-        <span class="property-value">{{ gridFloorOpacity.toFixed(1) }}</span>
-      </div>
 
       <!-- 网格方块设置 -->
       <div v-if="selectedGridCell" class="property-group">
@@ -121,10 +112,6 @@
         <div class="property-row">
           <span class="property-label">显示:</span>
           <input type="checkbox" v-model="gridCellVisible" @change="updateGridCellVisible" class="property-checkbox" />
-        </div>
-        <div class="property-row">
-          <span class="property-label">方块颜色:</span>
-          <input type="color" v-model="gridCellFillColor" @input="updateGridCellFillColor" class="property-color-input" />
         </div>
         <div class="property-row">
           <span class="property-label">边线颜色:</span>
@@ -166,10 +153,6 @@
         <div class="property-row">
           <span class="property-label">结束列:</span>
           <input type="number" v-model.number="batchEndCol" min="0" :max="gridFloorSize - 1" class="property-input" />
-        </div>
-        <div class="property-row">
-          <span class="property-label">方块颜色:</span>
-          <input type="color" v-model="batchFillColor" class="property-color-input" />
         </div>
         <div class="property-row">
           <span class="property-label">边线颜色:</span>
@@ -569,10 +552,7 @@ const showGridFloor = ref(true)
 const gridFloorSize = ref(20)
 const gridFloorCellSize = ref(1)
 const gridFloorDefaultEdgeColor = ref('#808080')
-const gridFloorDefaultFillColor = ref('transparent')
-const gridFloorOpacity = ref(0)
 const selectedGridCell = ref<{ row: number; col: number } | null>(null)
-const gridCellFillColor = ref('#ffffff')
 const gridCellEdgeColor = ref('#808080')
 const gridCellVisible = ref(false)
 const gridCellRow = ref(0)
@@ -581,7 +561,6 @@ const batchStartRow = ref(0)
 const batchEndRow = ref(0)
 const batchStartCol = ref(0)
 const batchEndCol = ref(0)
-const batchFillColor = ref('#ffffff')
 const batchEdgeColor = ref('#808080')
 
 // Three.js 变量
@@ -941,16 +920,16 @@ const onMouseClick = (event: MouseEvent) => {
     // 检测网格地面的方块
     let gridIntersect: THREE.Intersection | null = null
     if (gridFloor && gridFloor.getGroup().visible) {
-      const gridMeshes: THREE.Mesh[] = []
+      const gridLines: THREE.Line[] = []
       const cells = gridFloor.getCells()
       for (let i = 0; i < cells.length; i++) {
         for (let j = 0; j < cells[i].length; j++) {
-          if (cells[i][j].mesh) {
-            gridMeshes.push(cells[i][j].mesh)
+          if (cells[i][j].line) {
+            gridLines.push(cells[i][j].line)
           }
         }
       }
-      const gridIntersects = raycaster.intersectObjects(gridMeshes, false)
+      const gridIntersects = raycaster.intersectObjects(gridLines, false)
       if (gridIntersects.length > 0) {
         gridIntersect = gridIntersects[0]
       }
@@ -973,9 +952,9 @@ const onMouseClick = (event: MouseEvent) => {
       }
     } else if (gridIntersect) {
       // 点击了网格地面的方块
-      const mesh = gridIntersect.object as THREE.Mesh
-      const row = mesh.userData.row
-      const col = mesh.userData.col
+      const line = gridIntersect.object as THREE.Line
+      const row = line.userData.row
+      const col = line.userData.col
       
       if (row !== undefined && col !== undefined) {
         selectedGridCell.value = { row, col }
@@ -984,7 +963,6 @@ const onMouseClick = (event: MouseEvent) => {
         const cell = gridFloor!.getCell(row, col)
         if (cell) {
           gridCellVisible.value = cell.visible
-          gridCellFillColor.value = cell.fillColor
           gridCellEdgeColor.value = cell.edgeColor
         }
         
@@ -3617,9 +3595,7 @@ const initGridFloor = () => {
   gridFloor = new GridFloor(scene, {
     gridSize: gridFloorSize.value,
     cellSize: gridFloorCellSize.value,
-    defaultEdgeColor: gridFloorDefaultEdgeColor.value,
-    defaultFillColor: gridFloorDefaultFillColor.value,
-    opacity: gridFloorOpacity.value
+    defaultEdgeColor: gridFloorDefaultEdgeColor.value
   })
   mapOrganizer = new MapOrganizer(gridFloor)
 }
@@ -3648,34 +3624,9 @@ const updateGridFloorDefaultEdgeColor = () => {
   }
 }
 
-const updateGridFloorDefaultFillColor = () => {
-  if (gridFloor) {
-    gridFloor.setAllCellsFillColor(gridFloorDefaultFillColor.value)
-  }
-}
-
-const updateGridFloorOpacity = () => {
-  if (gridFloor) {
-    const cells = gridFloor.getCells()
-    for (let i = 0; i < cells.length; i++) {
-      for (let j = 0; j < cells[i].length; j++) {
-        if (cells[i][j].mesh) {
-          cells[i][j].mesh.material.opacity = gridFloorOpacity.value
-        }
-      }
-    }
-  }
-}
-
 const updateGridCellVisible = () => {
   if (gridFloor && selectedGridCell.value) {
     gridFloor.setCellVisible(selectedGridCell.value.row, selectedGridCell.value.col, gridCellVisible.value)
-  }
-}
-
-const updateGridCellFillColor = () => {
-  if (gridFloor && selectedGridCell.value) {
-    gridFloor.setCellFillColor(selectedGridCell.value.row, selectedGridCell.value.col, gridCellFillColor.value)
   }
 }
 
@@ -3696,7 +3647,6 @@ const selectGridCellByIndex = () => {
       const cell = gridFloor.getCell(row, col)
       if (cell) {
         gridCellVisible.value = cell.visible
-        gridCellFillColor.value = cell.fillColor
         gridCellEdgeColor.value = cell.edgeColor
       }
       
@@ -3714,7 +3664,7 @@ const batchSetCells = () => {
     const startCol = Math.min(batchStartCol.value, batchEndCol.value)
     const endCol = Math.max(batchStartCol.value, batchEndCol.value)
     
-    gridFloor.setCellsRange(startRow, endRow, startCol, endCol, batchFillColor.value, batchEdgeColor.value)
+    gridFloor.setCellsRange(startRow, endRow, startCol, endCol, batchEdgeColor.value)
     
     const count = (endRow - startRow + 1) * (endCol - startCol + 1)
     console.log(`已批量设置 ${count} 个方块的颜色`)

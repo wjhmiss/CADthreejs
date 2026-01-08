@@ -2,7 +2,6 @@ import * as THREE from 'three'
 import { GridFloor } from './gridFloor'
 
 export interface MapOrganizerConfig {
-  intersectedFillColor: string
   intersectedEdgeColor: string
 }
 
@@ -13,7 +12,6 @@ export class MapOrganizer {
   constructor(gridFloor: GridFloor, config: Partial<MapOrganizerConfig> = {}) {
     this.gridFloor = gridFloor
     this.config = {
-      intersectedFillColor: '#ff0000',
       intersectedEdgeColor: '#ff0000',
       ...config
     }
@@ -25,7 +23,7 @@ export class MapOrganizer {
       return { intersectedCount: 0 }
     }
 
-    console.log('开始地图整理，检测DXF对象与地板方格的相交情况...')
+    console.log('开始地图整理，检测DXF对象与网格边框线条的相交情况...')
 
     const floorConfig = this.gridFloor.getConfig()
     const cellSize = floorConfig.cellSize
@@ -66,17 +64,47 @@ export class MapOrganizer {
           const zOverlap = !(cellMaxZ < minZ || cellMinZ > maxZ)
 
           if (xOverlap && zOverlap) {
-            this.gridFloor.setCellFillColor(row, col, this.config.intersectedFillColor)
-            this.gridFloor.setCellEdgeColor(row, col, this.config.intersectedEdgeColor)
-            this.gridFloor.setCellVisible(row, col, true)
-            intersectedCount++
+            if (this.checkEdgeIntersection(obj, cellMinX, cellMaxX, cellMinZ, cellMaxZ)) {
+              this.gridFloor.setCellEdgeColor(row, col, this.config.intersectedEdgeColor)
+              this.gridFloor.setCellVisible(row, col, true)
+              intersectedCount++
+            }
           }
         }
       }
     })
 
-    console.log(`地图整理完成，共检测到 ${intersectedCount} 个相交方块`)
+    console.log(`地图整理完成，共检测到 ${intersectedCount} 个相交边框`)
     return { intersectedCount }
+  }
+
+  private checkEdgeIntersection(obj: THREE.Object3D, cellMinX: number, cellMaxX: number, cellMinZ: number, cellMaxZ: number): boolean {
+    const edges = [
+      { start: new THREE.Vector3(cellMinX, 0, cellMinZ), end: new THREE.Vector3(cellMaxX, 0, cellMinZ) },
+      { start: new THREE.Vector3(cellMaxX, 0, cellMinZ), end: new THREE.Vector3(cellMaxX, 0, cellMaxZ) },
+      { start: new THREE.Vector3(cellMaxX, 0, cellMaxZ), end: new THREE.Vector3(cellMinX, 0, cellMaxZ) },
+      { start: new THREE.Vector3(cellMinX, 0, cellMaxZ), end: new THREE.Vector3(cellMinX, 0, cellMinZ) }
+    ]
+
+    const raycaster = new THREE.Raycaster()
+    const epsilon = 0.001
+
+    for (const edge of edges) {
+      const direction = new THREE.Vector3().subVectors(edge.end, edge.start).normalize()
+      const distance = edge.start.distanceTo(edge.end)
+
+      raycaster.set(edge.start, direction)
+      raycaster.far = distance
+      raycaster.near = epsilon
+
+      const intersects = raycaster.intersectObject(obj, true)
+
+      if (intersects.length > 0) {
+        return true
+      }
+    }
+
+    return false
   }
 
   resetColors(): void {
@@ -85,17 +113,15 @@ export class MapOrganizer {
       return
     }
 
-    console.log('重置所有方块颜色...')
+    console.log('重置所有边框颜色...')
 
     const config = this.gridFloor.getConfig()
     
-    this.gridFloor.setAllCellsFillColor(config.defaultFillColor)
     this.gridFloor.setAllCellsEdgeColor(config.defaultEdgeColor)
     this.gridFloor.setAllCellsVisible(false)
   }
 
-  setIntersectedColor(fillColor: string, edgeColor: string): void {
-    this.config.intersectedFillColor = fillColor
+  setIntersectedColor(edgeColor: string): void {
     this.config.intersectedEdgeColor = edgeColor
   }
 }

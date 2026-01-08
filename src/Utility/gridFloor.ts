@@ -2,17 +2,14 @@ import * as THREE from 'three'
 
 export interface GridCell {
   visible: boolean
-  fillColor: string
   edgeColor: string
-  mesh: THREE.Mesh | null
+  line: THREE.Line | null
 }
 
 export interface GridFloorConfig {
   gridSize: number
   cellSize: number
   defaultEdgeColor: string
-  defaultFillColor: string
-  opacity: number
 }
 
 export class GridFloor {
@@ -27,8 +24,6 @@ export class GridFloor {
       gridSize: 20,
       cellSize: 1,
       defaultEdgeColor: '#808080',
-      defaultFillColor: 'transparent',
-      opacity: 0,
       ...config
     }
     this.group = new THREE.Group()
@@ -44,8 +39,8 @@ export class GridFloor {
       for (let j = 0; j < this.config.gridSize; j++) {
         const cell = this.createCell(i, j, halfSize)
         this.cells[i][j] = cell
-        if (cell.mesh) {
-          this.group.add(cell.mesh)
+        if (cell.line) {
+          this.group.add(cell.line)
         }
       }
     }
@@ -57,31 +52,30 @@ export class GridFloor {
     const x = (col * this.config.cellSize) - halfSize + (this.config.cellSize / 2)
     const z = (row * this.config.cellSize) - halfSize + (this.config.cellSize / 2)
 
-    const geometry = new THREE.PlaneGeometry(this.config.cellSize, this.config.cellSize)
-    const material = new THREE.MeshBasicMaterial({
-      color: this.config.defaultFillColor,
-      transparent: true,
-      opacity: this.config.opacity,
-      side: THREE.DoubleSide
-    })
+    const size = this.config.cellSize
+    const halfCell = size / 2
 
-    const mesh = new THREE.Mesh(geometry, material)
-    mesh.rotation.x = -Math.PI / 2
-    mesh.position.set(x, 0, z)
-    mesh.userData = { row, col }
+    const points = [
+      new THREE.Vector3(-halfCell, 0, -halfCell),
+      new THREE.Vector3(halfCell, 0, -halfCell),
+      new THREE.Vector3(halfCell, 0, halfCell),
+      new THREE.Vector3(-halfCell, 0, halfCell),
+      new THREE.Vector3(-halfCell, 0, -halfCell)
+    ]
 
-    const edgesGeometry = new THREE.EdgesGeometry(geometry)
-    const edgesMaterial = new THREE.LineBasicMaterial({
+    const geometry = new THREE.BufferGeometry().setFromPoints(points)
+    const material = new THREE.LineBasicMaterial({
       color: this.config.defaultEdgeColor
     })
-    const edges = new THREE.LineSegments(edgesGeometry, edgesMaterial)
-    mesh.add(edges)
+
+    const line = new THREE.Line(geometry, material)
+    line.position.set(x, 0, z)
+    line.userData = { row, col }
 
     return {
       visible: false,
-      fillColor: this.config.defaultFillColor,
       edgeColor: this.config.defaultEdgeColor,
-      mesh
+      line
     }
   }
 
@@ -94,29 +88,18 @@ export class GridFloor {
 
   setCellVisible(row: number, col: number, visible: boolean): void {
     const cell = this.getCell(row, col)
-    if (cell && cell.mesh) {
+    if (cell && cell.line) {
       cell.visible = visible
-      cell.mesh.visible = true
-      cell.mesh.material.opacity = visible ? 1 : this.config.opacity
-    }
-  }
-
-  setCellFillColor(row: number, col: number, color: string): void {
-    const cell = this.getCell(row, col)
-    if (cell && cell.mesh) {
-      cell.fillColor = color
-      cell.mesh.material.color.set(color)
+      cell.line.visible = visible
     }
   }
 
   setCellEdgeColor(row: number, col: number, color: string): void {
     const cell = this.getCell(row, col)
-    if (cell && cell.mesh) {
+    if (cell && cell.line && cell.line.material) {
       cell.edgeColor = color
-      const edges = cell.mesh.children[0] as THREE.LineSegments
-      if (edges && edges.material) {
-        (edges.material as THREE.LineBasicMaterial).color.set(color)
-      }
+      const material = cell.line.material as THREE.LineBasicMaterial
+      material.color = new THREE.Color(color)
     }
   }
 
@@ -124,14 +107,6 @@ export class GridFloor {
     for (let i = 0; i < this.config.gridSize; i++) {
       for (let j = 0; j < this.config.gridSize; j++) {
         this.setCellVisible(i, j, visible)
-      }
-    }
-  }
-
-  setAllCellsFillColor(color: string): void {
-    for (let i = 0; i < this.config.gridSize; i++) {
-      for (let j = 0; j < this.config.gridSize; j++) {
-        this.setCellFillColor(i, j, color)
       }
     }
   }
@@ -144,11 +119,10 @@ export class GridFloor {
     }
   }
 
-  setCellsRange(startRow: number, endRow: number, startCol: number, endCol: number, fillColor: string, edgeColor: string): void {
+  setCellsRange(startRow: number, endRow: number, startCol: number, endCol: number, edgeColor: string): void {
     for (let row = startRow; row <= endRow; row++) {
       for (let col = startCol; col <= endCol; col++) {
         if (row >= 0 && row < this.config.gridSize && col >= 0 && col < this.config.gridSize) {
-          this.setCellFillColor(row, col, fillColor)
           this.setCellEdgeColor(row, col, edgeColor)
           this.setCellVisible(row, col, true)
         }
@@ -173,7 +147,7 @@ export class GridFloor {
     this.cells = []
     while (this.group.children.length > 0) {
       const child = this.group.children[0]
-      if (child instanceof THREE.Mesh) {
+      if (child instanceof THREE.Line) {
         child.geometry.dispose()
         if (child.material instanceof THREE.Material) {
           child.material.dispose()
