@@ -335,6 +335,95 @@ class ObjectMovementManager {
     })
     this.movements.clear()
   }
+
+  setMovementState(object: THREE.Object3D, pathId: string, config: ObjectMovementConfig, options: {
+    currentProgress?: number
+    currentPosition?: number[]
+    isMoving?: boolean
+  }): boolean {
+    console.log('[ObjectMovementManager] setMovementState() 被调用')
+    console.log('[ObjectMovementManager] 对象ID:', object.uuid, '路径ID:', pathId)
+    
+    const pathMesh = pathManager.getPathById(pathId)
+    if (!pathMesh) {
+      console.error('[ObjectMovementManager] 路径不存在:', pathId)
+      return false
+    }
+
+    const pathPoints = this.getPathPoints(pathMesh)
+    if (pathPoints.length < 2) {
+      console.error('[ObjectMovementManager] 路径点不足，实际点数:', pathPoints.length)
+      return false
+    }
+
+    const bottomOffset = this.calculateBottomOffset(object)
+
+    const state: ObjectMovementState = {
+      pathId,
+      speed: config.speed,
+      loops: config.loops,
+      currentLoop: 0,
+      isMoving: options.isMoving || false,
+      tween: null,
+      facingDirection: config.facingDirection || 'none',
+      bottomOffset,
+      currentProgress: options.currentProgress || 0
+    }
+
+    this.movements.set(object.uuid, state)
+
+    if (options.currentPosition && Array.isArray(options.currentPosition) && options.currentPosition.length === 3) {
+      object.position.set(options.currentPosition[0], options.currentPosition[1], options.currentPosition[2])
+      console.log('[ObjectMovementManager] 恢复对象位置:', object.position)
+    } else if (options.currentProgress !== undefined) {
+      const position = this.getPositionOnPath(pathPoints, options.currentProgress)
+      if (bottomOffset) {
+        position.add(bottomOffset)
+      }
+      object.position.copy(position)
+      console.log('[ObjectMovementManager] 根据进度恢复对象位置:', object.position)
+    }
+
+    if (state.facingDirection && state.facingDirection !== 'none') {
+      this.updateObjectFacing(object, pathPoints, state.currentProgress || 0, state.facingDirection)
+    }
+
+    if (options.isMoving) {
+      const duration = this.calculateDuration(pathPoints, config.speed, config.loops)
+      const progress = { value: state.currentProgress || 0 }
+
+      state.tween = gsap.to(progress, {
+        value: config.loops,
+        duration: duration,
+        ease: 'none',
+        onUpdate: () => {
+          const normalizedProgress = progress.value % 1
+          const position = this.getPositionOnPath(pathPoints, normalizedProgress)
+          
+          if (state.bottomOffset) {
+            position.add(state.bottomOffset)
+          }
+          
+          object.position.copy(position)
+          
+          if (state.facingDirection && state.facingDirection !== 'none') {
+            this.updateObjectFacing(object, pathPoints, normalizedProgress, state.facingDirection)
+          }
+        },
+        onComplete: () => {
+          state.isMoving = false
+          state.tween = null
+          state.currentProgress = 0
+          console.log('[ObjectMovementManager] 对象移动完成:', object.name)
+        }
+      })
+      console.log('[ObjectMovementManager] 开始移动对象:', object.name)
+    } else {
+      console.log('[ObjectMovementManager] 对象已设置移动状态，但未开始移动')
+    }
+
+    return true
+  }
 }
 
 export const objectMovementManager = new ObjectMovementManager()

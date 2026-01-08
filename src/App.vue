@@ -1446,7 +1446,9 @@ const exportScene = () => {
           speed: movementState.speed,
           loops: movementState.loops,
           facingDirection: movementState.facingDirection || 'none',
-          isMoving: movementState.isMoving
+          isMoving: movementState.isMoving,
+          currentProgress: movementState.currentProgress || 0,
+          currentPosition: child.position.toArray()
         }
         console.log('Exported movement state for object:', child.name, objectData.movement)
       }
@@ -1858,10 +1860,14 @@ const handleImportScene = (event: Event) => {
             
             if (object) {
               console.log('恢复对象路径移动状态:', objData.name, objData.movement)
-              objectMovementManager.startMovement(object, objData.movement.pathId, {
+              objectMovementManager.setMovementState(object, objData.movement.pathId, {
                 speed: objData.movement.speed,
                 loops: objData.movement.loops,
                 facingDirection: objData.movement.facingDirection
+              }, {
+                currentProgress: objData.movement.currentProgress,
+                currentPosition: objData.movement.currentPosition,
+                isMoving: objData.movement.isMoving
               })
             } else {
               console.warn('未找到对象，无法恢复移动状态:', objData.name, objData.uuid)
