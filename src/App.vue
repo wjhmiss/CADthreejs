@@ -81,6 +81,105 @@
         <button @click.stop="setTransformMode('scale')" :class="{ active: transformMode === 'scale' }">缩放</button>
       </div>
     </div>
+
+    <!-- 网格地面设置 -->
+    <div class="grid-floor-control">
+      <h4>网格地面</h4>
+      <div class="property-row">
+        <span class="property-label">显示:</span>
+        <input type="checkbox" v-model="showGridFloor" @change="toggleGridFloor" class="property-checkbox" />
+      </div>
+      <div class="property-row">
+        <span class="property-label">网格大小:</span>
+        <input type="number" v-model.number="gridFloorSize" @input="updateGridFloorSize" min="5" max="50" step="1" class="property-input" />
+      </div>
+      <div class="property-row">
+        <span class="property-label">方块大小:</span>
+        <input type="number" v-model.number="gridFloorCellSize" @input="updateGridFloorCellSize" min="0.5" max="5" step="0.1" class="property-input" />
+      </div>
+      <div class="property-row">
+        <span class="property-label">默认边线颜色:</span>
+        <input type="color" v-model="gridFloorDefaultEdgeColor" @input="updateGridFloorDefaultEdgeColor" class="property-color-input" />
+      </div>
+      <div class="property-row">
+        <span class="property-label">默认方块颜色:</span>
+        <input type="color" v-model="gridFloorDefaultFillColor" @input="updateGridFloorDefaultFillColor" class="property-color-input" />
+      </div>
+      <div class="property-row">
+        <span class="property-label">透明度:</span>
+        <input type="range" v-model.number="gridFloorOpacity" @input="updateGridFloorOpacity" min="0" max="1" step="0.1" class="property-range" />
+        <span class="property-value">{{ gridFloorOpacity.toFixed(1) }}</span>
+      </div>
+
+      <!-- 网格方块设置 -->
+      <div v-if="selectedGridCell" class="property-group">
+        <h4>网格方块</h4>
+        <div class="property-row">
+          <span class="property-label">位置:</span>
+          <span class="property-value">行: {{ selectedGridCell.row }}, 列: {{ selectedGridCell.col }}</span>
+        </div>
+        <div class="property-row">
+          <span class="property-label">显示:</span>
+          <input type="checkbox" v-model="gridCellVisible" @change="updateGridCellVisible" class="property-checkbox" />
+        </div>
+        <div class="property-row">
+          <span class="property-label">方块颜色:</span>
+          <input type="color" v-model="gridCellFillColor" @input="updateGridCellFillColor" class="property-color-input" />
+        </div>
+        <div class="property-row">
+          <span class="property-label">边线颜色:</span>
+          <input type="color" v-model="gridCellEdgeColor" @input="updateGridCellEdgeColor" class="property-color-input" />
+        </div>
+      </div>
+
+      <!-- 通过行列号选择方块 -->
+      <div class="property-group">
+        <h4>按行列号选择方块</h4>
+        <div class="property-row">
+          <span class="property-label">行号:</span>
+          <input type="number" v-model.number="gridCellRow" min="0" :max="gridFloorSize - 1" class="property-input" />
+        </div>
+        <div class="property-row">
+          <span class="property-label">列号:</span>
+          <input type="number" v-model.number="gridCellCol" min="0" :max="gridFloorSize - 1" class="property-input" />
+        </div>
+        <div class="property-row">
+          <button @click="selectGridCellByIndex" class="property-button">选择方块</button>
+        </div>
+      </div>
+
+      <!-- 批量设置方块 -->
+      <div class="property-group">
+        <h4>批量设置方块</h4>
+        <div class="property-row">
+          <span class="property-label">起始行:</span>
+          <input type="number" v-model.number="batchStartRow" min="0" :max="gridFloorSize - 1" class="property-input" />
+        </div>
+        <div class="property-row">
+          <span class="property-label">结束行:</span>
+          <input type="number" v-model.number="batchEndRow" min="0" :max="gridFloorSize - 1" class="property-input" />
+        </div>
+        <div class="property-row">
+          <span class="property-label">起始列:</span>
+          <input type="number" v-model.number="batchStartCol" min="0" :max="gridFloorSize - 1" class="property-input" />
+        </div>
+        <div class="property-row">
+          <span class="property-label">结束列:</span>
+          <input type="number" v-model.number="batchEndCol" min="0" :max="gridFloorSize - 1" class="property-input" />
+        </div>
+        <div class="property-row">
+          <span class="property-label">方块颜色:</span>
+          <input type="color" v-model="batchFillColor" class="property-color-input" />
+        </div>
+        <div class="property-row">
+          <span class="property-label">边线颜色:</span>
+          <input type="color" v-model="batchEdgeColor" class="property-color-input" />
+        </div>
+        <div class="property-row">
+          <button @click="batchSetCells" class="property-button">批量设置</button>
+        </div>
+      </div>
+    </div>
       </div>
   </div>
 
@@ -364,6 +463,7 @@ import { pathPanelManager } from './Utility/pathPanel'
 import { pathManager } from './Utility/path'
 import { objectMovementManager } from './Utility/objectMovement'
 import { nameValidator } from './Utility/nameValidator'
+import { GridFloor } from './Utility/gridFloor'
 
 
 
@@ -450,6 +550,27 @@ const facingDirection = ref<'none' | 'front' | 'back' | 'left' | 'right'>('none'
 const isMoving = ref<boolean>(false)
 const isObjectInPath = ref<boolean>(false)
 const availablePaths = ref<any[]>([])
+
+// 网格地面相关变量
+let gridFloor: GridFloor | null = null
+const showGridFloor = ref(true)
+const gridFloorSize = ref(20)
+const gridFloorCellSize = ref(1)
+const gridFloorDefaultEdgeColor = ref('#808080')
+const gridFloorDefaultFillColor = ref('transparent')
+const gridFloorOpacity = ref(0)
+const selectedGridCell = ref<{ row: number; col: number } | null>(null)
+const gridCellFillColor = ref('#ffffff')
+const gridCellEdgeColor = ref('#808080')
+const gridCellVisible = ref(false)
+const gridCellRow = ref(0)
+const gridCellCol = ref(0)
+const batchStartRow = ref(0)
+const batchEndRow = ref(0)
+const batchStartCol = ref(0)
+const batchEndCol = ref(0)
+const batchFillColor = ref('#ffffff')
+const batchEdgeColor = ref('#808080')
 
 // Three.js 变量
 let scene: THREE.Scene
@@ -780,6 +901,9 @@ const initThreeJS = () => {
     })
   }
 
+  // 初始化网格地面
+  initGridFloor()
+
 }
 
 // 窗口大小改变时更新渲染
@@ -801,6 +925,25 @@ const onMouseClick = (event: MouseEvent) => {
     // 使用objects数组进行射线检测（不递归检测子对象）
     console.log(objects);
     const intersects = raycaster.intersectObjects(objects, false)
+    
+    // 检测网格地面的方块
+    let gridIntersect: THREE.Intersection | null = null
+    if (gridFloor && gridFloor.getGroup().visible) {
+      const gridMeshes: THREE.Mesh[] = []
+      const cells = gridFloor.getCells()
+      for (let i = 0; i < cells.length; i++) {
+        for (let j = 0; j < cells[i].length; j++) {
+          if (cells[i][j].mesh) {
+            gridMeshes.push(cells[i][j].mesh)
+          }
+        }
+      }
+      const gridIntersects = raycaster.intersectObjects(gridMeshes, false)
+      if (gridIntersects.length > 0) {
+        gridIntersect = gridIntersects[0]
+      }
+    }
+    
     if (intersects.length > 0) {
       // 找到第一个可变换的相交对象
       let targetObject: THREE.Object3D | null = null
@@ -816,9 +959,31 @@ const onMouseClick = (event: MouseEvent) => {
         // 强制更新OrbitControls
         controls.update()
       }
+    } else if (gridIntersect) {
+      // 点击了网格地面的方块
+      const mesh = gridIntersect.object as THREE.Mesh
+      const row = mesh.userData.row
+      const col = mesh.userData.col
+      
+      if (row !== undefined && col !== undefined) {
+        selectedGridCell.value = { row, col }
+        
+        // 更新方块属性的响应式变量
+        const cell = gridFloor!.getCell(row, col)
+        if (cell) {
+          gridCellVisible.value = cell.visible
+          gridCellFillColor.value = cell.fillColor
+          gridCellEdgeColor.value = cell.edgeColor
+        }
+        
+        // 取消对象选择
+        deselectObject()
+      }
     } else {
       // 点击了空白区域，确保取消选择并恢复视角控制
       deselectObject()
+      // 取消网格方块选择
+      selectedGridCell.value = null
       // 确保OrbitControls可用
       controls.enabled = true
       // 强制更新OrbitControls
@@ -3429,6 +3594,117 @@ const groundObject = (obj: THREE.Object3D) => {
     
     // 更新路径面板中该对象的底部中心点
     pathPanelManager.updateObject(obj.uuid)
+  }
+}
+
+// 网格地面相关函数
+const initGridFloor = () => {
+  if (gridFloor) {
+    gridFloor.dispose()
+  }
+  gridFloor = new GridFloor(scene, {
+    gridSize: gridFloorSize.value,
+    cellSize: gridFloorCellSize.value,
+    defaultEdgeColor: gridFloorDefaultEdgeColor.value,
+    defaultFillColor: gridFloorDefaultFillColor.value,
+    opacity: gridFloorOpacity.value
+  })
+}
+
+const toggleGridFloor = () => {
+  if (gridFloor) {
+    gridFloor.getGroup().visible = showGridFloor.value
+  }
+}
+
+const updateGridFloorSize = () => {
+  if (gridFloor) {
+    gridFloor.updateGridSize(gridFloorSize.value)
+  }
+}
+
+const updateGridFloorCellSize = () => {
+  if (gridFloor) {
+    gridFloor.updateCellSize(gridFloorCellSize.value)
+  }
+}
+
+const updateGridFloorDefaultEdgeColor = () => {
+  if (gridFloor) {
+    gridFloor.setAllCellsEdgeColor(gridFloorDefaultEdgeColor.value)
+  }
+}
+
+const updateGridFloorDefaultFillColor = () => {
+  if (gridFloor) {
+    gridFloor.setAllCellsFillColor(gridFloorDefaultFillColor.value)
+  }
+}
+
+const updateGridFloorOpacity = () => {
+  if (gridFloor) {
+    const cells = gridFloor.getCells()
+    for (let i = 0; i < cells.length; i++) {
+      for (let j = 0; j < cells[i].length; j++) {
+        if (cells[i][j].mesh) {
+          cells[i][j].mesh.material.opacity = gridFloorOpacity.value
+        }
+      }
+    }
+  }
+}
+
+const updateGridCellVisible = () => {
+  if (gridFloor && selectedGridCell.value) {
+    gridFloor.setCellVisible(selectedGridCell.value.row, selectedGridCell.value.col, gridCellVisible.value)
+  }
+}
+
+const updateGridCellFillColor = () => {
+  if (gridFloor && selectedGridCell.value) {
+    gridFloor.setCellFillColor(selectedGridCell.value.row, selectedGridCell.value.col, gridCellFillColor.value)
+  }
+}
+
+const updateGridCellEdgeColor = () => {
+  if (gridFloor && selectedGridCell.value) {
+    gridFloor.setCellEdgeColor(selectedGridCell.value.row, selectedGridCell.value.col, gridCellEdgeColor.value)
+  }
+}
+
+const selectGridCellByIndex = () => {
+  if (gridFloor) {
+    const row = gridCellRow.value
+    const col = gridCellCol.value
+    
+    if (row >= 0 && row < gridFloorSize.value && col >= 0 && col < gridFloorSize.value) {
+      selectedGridCell.value = { row, col }
+      
+      const cell = gridFloor.getCell(row, col)
+      if (cell) {
+        gridCellVisible.value = cell.visible
+        gridCellFillColor.value = cell.fillColor
+        gridCellEdgeColor.value = cell.edgeColor
+      }
+      
+      console.log(`已选择方块: 行 ${row}, 列 ${col}`)
+    } else {
+      console.warn('行列号超出范围')
+    }
+  }
+}
+
+const batchSetCells = () => {
+  if (gridFloor) {
+    const startRow = Math.min(batchStartRow.value, batchEndRow.value)
+    const endRow = Math.max(batchStartRow.value, batchEndRow.value)
+    const startCol = Math.min(batchStartCol.value, batchEndCol.value)
+    const endCol = Math.max(batchStartCol.value, batchEndCol.value)
+    
+    gridFloor.setCellsRange(startRow, endRow, startCol, endCol, batchFillColor.value, batchEdgeColor.value)
+    
+    const count = (endRow - startRow + 1) * (endCol - startCol + 1)
+    console.log(`已批量设置 ${count} 个方块的颜色`)
   }
 }
 

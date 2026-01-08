@@ -560,3 +560,56 @@ body {
 .context-menu-item:hover {
   background-color: #f0f0f0;
 }
+
+.grid-floor-control {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 8px;
+  background-color: rgba(255, 255, 255, 0.5);
+  border-radius: 4px;
+}
+
+.grid-floor-control h4 {
+  margin: 0 0 5px 0;
+  font-size: 14px;
+  color: #333;
+}
+
+.grid-floor-control .property-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 5px;
+}
+
+.grid-floor-control .property-label {
+  font-size: 12px;
+  font-weight: bold;
+  color: #555;
+  min-width: 60px;
+}
+
+.grid-floor-control .property-input {
+  flex: 1;
+  padding: 4px 6px;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  font-size: 12px;
+}
+
+.grid-floor-control .property-checkbox {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  margin: 0;
+}
+
+.grid-floor-control .property-color-input {
+  width: 40px;
+  height: 25px;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  cursor: pointer;
+  padding: 0;
+}
