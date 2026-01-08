@@ -46,6 +46,9 @@ class ObjectMovementManager {
   }
 
   startMovement(object: THREE.Object3D, pathId: string, config: ObjectMovementConfig): boolean {
+    console.log('[ObjectMovementManager] startMovement() 被调用')
+    console.log('[ObjectMovementManager] 对象ID:', object.uuid, '路径ID:', pathId)
+    
     if (this.isObjectInPath(object.uuid)) {
       console.warn('[ObjectMovementManager] 对象在路径中，不能移动')
       return false
@@ -59,11 +62,12 @@ class ObjectMovementManager {
 
     const pathPoints = this.getPathPoints(pathMesh)
     if (pathPoints.length < 2) {
-      console.error('[ObjectMovementManager] 路径点不足')
+      console.error('[ObjectMovementManager] 路径点不足，实际点数:', pathPoints.length)
       return false
     }
 
     const existingState = this.movements.get(object.uuid)
+    console.log('[ObjectMovementManager] 现有状态:', existingState)
     if (existingState && existingState.isMoving) {
       this.stopMovement(object.uuid)
     }
@@ -116,10 +120,14 @@ class ObjectMovementManager {
   }
 
   stopMovement(objectId: string): void {
+    console.log('[ObjectMovementManager] stopMovement() 被调用，对象ID:', objectId)
     const state = this.movements.get(objectId)
-    if (state && state.tween) {
-      state.tween.kill()
-      state.tween = null
+    console.log('[ObjectMovementManager] 找到的状态:', state)
+    if (state) {
+      if (state.tween) {
+        state.tween.kill()
+        state.tween = null
+      }
       state.isMoving = false
       console.log('[ObjectMovementManager] 停止移动对象:', objectId)
     }
@@ -285,6 +293,28 @@ class ObjectMovementManager {
 
   clearPathCache(): void {
     this.pathCache.clear()
+  }
+
+  clearPathCacheById(pathId: string): void {
+    this.pathCache.delete(pathId)
+  }
+
+  refreshMovementByPathId(pathId: string): void {
+    this.clearPathCacheById(pathId)
+    
+    this.movements.forEach((state, objectId) => {
+      if (state.pathId === pathId && state.isMoving) {
+        const object = this.findObjectById(objectId)
+        if (object) {
+          this.stopMovement(objectId)
+          this.startMovement(object, pathId, {
+            speed: state.speed,
+            loops: state.loops,
+            facingDirection: state.facingDirection
+          })
+        }
+      }
+    })
   }
 
   clearAllMovements(): void {

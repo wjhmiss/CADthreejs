@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { pathManager, type PathConfig, type PathMesh } from './path'
+import { objectMovementManager } from './objectMovement'
 
 export interface PathObject {
   id: string
@@ -669,6 +670,8 @@ class PathPanelManager {
     })
 
     pathManager.updatePathPointsById(pathId, points)
+    
+    objectMovementManager.refreshMovementByPathId(pathId)
   }
 
   private updatePathList(): void {
@@ -959,6 +962,7 @@ class PathPanelManager {
       pathInfo.config.cornerRadius = cornerRadius
       const result = pathManager.updatePathConfig(pathId, { cornerRadius })
       console.log('[PathPanel] 更新结果:', result)
+      objectMovementManager.refreshMovementByPathId(pathId)
     })
 
     const cornerSplitInput = pathConfigPanel.querySelector('.config-cornerSplit') as HTMLInputElement
@@ -968,6 +972,7 @@ class PathPanelManager {
       pathInfo.config.cornerSplit = cornerSplit
       const result = pathManager.updatePathConfig(pathId, { cornerSplit })
       console.log('[PathPanel] 更新结果:', result)
+      objectMovementManager.refreshMovementByPathId(pathId)
     })
 
     const colorInput = pathConfigPanel.querySelector('.config-color') as HTMLInputElement
