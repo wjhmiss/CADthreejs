@@ -1148,6 +1148,11 @@ class PathPanelManager {
     }
     
     this.updatePathList()
+    
+    // 触发路径更新回调
+    if (this.onPathUpdateCallback) {
+      this.onPathUpdateCallback(pathId)
+    }
   }
 
   onPathUpdate(callback: (pathId: string) => void): void {
@@ -1183,6 +1188,13 @@ class PathPanelManager {
     })
     
     this.updatePathList()
+    
+    // 触发路径更新回调，通知所有路径已同步
+    if (this.onPathUpdateCallback) {
+      allPaths.forEach(pathMesh => {
+        this.onPathUpdateCallback(pathMesh.id)
+      })
+    }
   }
 
   isVisible(): boolean {

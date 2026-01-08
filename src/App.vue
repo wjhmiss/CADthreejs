@@ -770,6 +770,14 @@ const initThreeJS = () => {
     pathPanelManager.initialize(canvasContainer.value)
     pathManager.setScene(scene)
     pathManager.setRenderer(renderer)
+    
+    // 设置路径更新回调，同步对象移动的下拉路径列表
+    pathPanelManager.onPathUpdate((pathId: string) => {
+      console.log('[App] 路径更新，同步对象移动下拉路径列表:', pathId)
+      if (selectedObject.value) {
+        availablePaths.value = objectMovementManager.getAvailablePaths(selectedObject.value.uuid)
+      }
+    })
   }
 
 }
@@ -1842,6 +1850,12 @@ const handleImportScene = (event: Event) => {
           if (pathPanelManager) {
             pathPanelManager.syncPathsFromManager()
             console.log('路径已同步到路径面板')
+          }
+          
+          // 同步对象移动的下拉路径列表
+          if (selectedObject.value) {
+            availablePaths.value = objectMovementManager.getAvailablePaths(selectedObject.value.uuid)
+            console.log('对象移动下拉路径列表已同步')
           }
         }
 
