@@ -923,8 +923,93 @@ class PathManager {
         ...pathData.config,
         points: points
       }
-      const id = this.createPath(config, pathData.name, pathData.objectIds)
-      console.log('[PathManager] 反序列化路径:', pathData.name, 'ID:', id)
+      
+      if (!this.scene) {
+        console.error('[PathManager] 错误：scene 未设置')
+        return
+      }
+
+      const id = pathData.id || this._generateId(points)
+      console.log('[PathManager] 反序列化路径:', pathData.name, '使用ID:', id)
+
+      if (this.paths.has(id)) {
+        console.warn('[PathManager] 警告：路径ID已存在，跳过:', id)
+        return
+      }
+
+      let processedPoints = points
+      if (config.parallelToXZ) {
+        processedPoints = points.map(point => new THREE.Vector3(point.x, points[0].y, point.z))
+      }
+
+      const pathPointList = new PathPointList()
+      pathPointList.set(
+        processedPoints,
+        config.cornerRadius || 0,
+        config.cornerSplit || 0,
+        config.up || null,
+        config.close || false
+      )
+
+      const updateParam = {
+        width: config.width || 1,
+        arrow: config.arrow !== undefined ? config.arrow : false,
+        progress: config.progress !== undefined ? config.progress : 1,
+        side: config.side || 'both',
+        cornerRadius: config.cornerRadius || 0,
+        cornerSplit: config.cornerSplit || 0
+      }
+
+      const geometry = new PathGeometry({
+        pathPointList: pathPointList,
+        options: updateParam
+      })
+
+      const resolvedTexture = this._resolveTexture(config.texture)
+      const material = this._createPathMaterial(config, resolvedTexture)
+
+      const mesh = new THREE.Mesh(geometry, material)
+      this.scene.add(mesh)
+
+      const pathMesh: PathMesh = {
+        id,
+        name: pathData.name || `路径_${this.paths.size + 1}`,
+        points: processedPoints,
+        objectIds: pathData.objectIds || [],
+        geometry,
+        material,
+        mesh,
+        pathPointList,
+        updateParam,
+        texture: resolvedTexture,
+        useTexture: config.useTexture !== undefined ? config.useTexture : false,
+        scrollUV: config.scrollUV !== undefined ? config.scrollUV : false,
+        scrollSpeed: config.scrollSpeed !== undefined ? config.scrollSpeed : 0.8,
+        progress: config.progress !== undefined ? config.progress : 1,
+        playSpeed: config.playSpeed !== undefined ? config.playSpeed : 0.14,
+        speed: config.speed !== undefined ? config.speed : 0.48,
+        parallelToXZ: config.parallelToXZ || false,
+        loopProgress: config.loopProgress !== undefined ? config.loopProgress : false,
+        textureWrapS: config.textureWrapS !== undefined ? config.textureWrapS : THREE.RepeatWrapping,
+        textureWrapT: config.textureWrapT !== undefined ? config.textureWrapT : THREE.RepeatWrapping,
+        textureRepeatX: config.textureRepeatX !== undefined ? config.textureRepeatX : 1,
+        textureRepeatY: config.textureRepeatY !== undefined ? config.textureRepeatY : 1,
+        textureOffsetX: config.textureOffsetX !== undefined ? config.textureOffsetX : 0,
+        textureOffsetY: config.textureOffsetY !== undefined ? config.textureOffsetY : 0
+      }
+
+      this.paths.set(id, pathMesh)
+      
+      if (pathData.objectIds && pathData.objectIds.length > 0) {
+        pathData.objectIds.forEach((objId: string) => {
+          if (!this.objectToPathsMap.has(objId)) {
+            this.objectToPathsMap.set(objId, new Set())
+          }
+          this.objectToPathsMap.get(objId)!.add(id)
+        })
+      }
+      
+      console.log('[PathManager] 反序列化路径完成:', pathData.name, 'ID:', id)
     })
   }
 

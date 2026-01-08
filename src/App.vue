@@ -1747,16 +1747,17 @@ const handleImportScene = (event: Event) => {
                 successfullyLoadedGLBCount++
                 console.log(`成功从public文件夹加载GLB模型: ${objData.originalFileName}，包含 ${meshes.length} 个网格对象`)
 
+                // 不在这里恢复移动状态，等所有路径恢复后再统一恢复
                 // 恢复第一个mesh的路径移动状态
-                if (objData.movement && objData.movement.pathId && meshes.length > 0) {
-                  const firstMesh = meshes[0]
-                  console.log('恢复GLB模型路径移动状态:', objData.name, objData.movement)
-                  objectMovementManager.startMovement(firstMesh, objData.movement.pathId, {
-                    speed: objData.movement.speed,
-                    loops: objData.movement.loops,
-                    facingDirection: objData.movement.facingDirection
-                  })
-                }
+                // if (objData.movement && objData.movement.pathId && meshes.length > 0) {
+                //   const firstMesh = meshes[0]
+                //   console.log('恢复GLB模型路径移动状态:', objData.name, objData.movement)
+                //   objectMovementManager.startMovement(firstMesh, objData.movement.pathId, {
+                //     speed: objData.movement.speed,
+                //     loops: objData.movement.loops,
+                //     facingDirection: objData.movement.facingDirection
+                //   })
+                // }
               })
               .catch(error => {
                 console.warn(`无法从public文件夹加载GLB模型: ${objData.originalFileName}`, error)
@@ -1807,15 +1808,16 @@ const handleImportScene = (event: Event) => {
             // 将占位符mesh对象添加到路径管理面板
             pathPanelManager.addObject(placeholderMesh)
 
+            // 不在这里恢复移动状态，等所有路径恢复后再统一恢复
             // 恢复占位符的路径移动状态
-            if (objData.movement && objData.movement.pathId) {
-              console.log('恢复占位符路径移动状态:', objData.name, objData.movement)
-              objectMovementManager.startMovement(placeholderMesh, objData.movement.pathId, {
-                speed: objData.movement.speed,
-                loops: objData.movement.loops,
-                facingDirection: objData.movement.facingDirection
-              })
-            }
+            // if (objData.movement && objData.movement.pathId) {
+            //   console.log('恢复占位符路径移动状态:', objData.name, objData.movement)
+            //   objectMovementManager.startMovement(placeholderMesh, objData.movement.pathId, {
+            //     speed: objData.movement.speed,
+            //     loops: objData.movement.loops,
+            //     facingDirection: objData.movement.facingDirection
+            //   })
+            // }
           }
         }
       })
@@ -1841,17 +1843,28 @@ const handleImportScene = (event: Event) => {
           }
         }
 
-        // 恢复基础对象的路径移动状态
+        // 统一恢复所有对象的路径移动状态（在路径恢复之后）
         sceneData.objects.forEach((objData: any) => {
-          if (objData.movement && objData.movement.pathId && objData.type === 'basic') {
-            const object = objects.find(obj => obj.uuid === objData.uuid)
+          if (objData.movement && objData.movement.pathId) {
+            let object: THREE.Object3D | null = null
+            
+            if (objData.type === 'basic') {
+              // 基础对象
+              object = objects.find(obj => obj.uuid === objData.uuid)
+            } else if (objData.type === 'gltf') {
+              // GLB模型，找到第一个匹配的对象（可能带有后缀）
+              object = objects.find(obj => obj.uuid === objData.uuid || obj.uuid.startsWith(objData.uuid))
+            }
+            
             if (object) {
-              console.log('恢复基础对象路径移动状态:', objData.name, objData.movement)
+              console.log('恢复对象路径移动状态:', objData.name, objData.movement)
               objectMovementManager.startMovement(object, objData.movement.pathId, {
                 speed: objData.movement.speed,
                 loops: objData.movement.loops,
                 facingDirection: objData.movement.facingDirection
               })
+            } else {
+              console.warn('未找到对象，无法恢复移动状态:', objData.name, objData.uuid)
             }
           }
         })
