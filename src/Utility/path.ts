@@ -231,8 +231,8 @@ class PathManager {
     const pathPointList = new PathPointList()
     pathPointList.set(
       processedPoints,
-      config.cornerRadius || 0,
-      config.cornerSplit || 0,
+      config.cornerRadius !== undefined ? config.cornerRadius : 1,
+      config.cornerSplit !== undefined ? config.cornerSplit : 10,
       config.up || null,
       config.close || false
     )
@@ -243,8 +243,8 @@ class PathManager {
       arrow: config.arrow !== undefined ? config.arrow : false,
       progress: config.progress !== undefined ? config.progress : 1,
       side: config.side || 'both',
-      cornerRadius: config.cornerRadius || 0,
-      cornerSplit: config.cornerSplit || 0
+      cornerRadius: config.cornerRadius !== undefined ? config.cornerRadius : 1,
+      cornerSplit: config.cornerSplit !== undefined ? config.cornerSplit : 10
     }
     console.log('[PathManager] 更新参数:', updateParam)
 
@@ -336,8 +336,8 @@ class PathManager {
     const pathPointList = new PathPointList()
     pathPointList.set(
       config.points,
-      config.cornerRadius || 0,
-      config.cornerSplit || 0,
+      config.cornerRadius !== undefined ? config.cornerRadius : 1,
+      config.cornerSplit !== undefined ? config.cornerSplit : 10,
       config.up || null,
       config.close || false
     )
@@ -722,8 +722,8 @@ class PathManager {
     }
 
     if (config.cornerRadius !== undefined || config.cornerSplit !== undefined) {
-      const cornerRadius = config.cornerRadius !== undefined ? config.cornerRadius : (pathMesh.updateParam.cornerRadius || 0)
-      const cornerSplit = config.cornerSplit !== undefined ? config.cornerSplit : (pathMesh.updateParam.cornerSplit || 0)
+      const cornerRadius = config.cornerRadius !== undefined ? config.cornerRadius : (pathMesh.updateParam.cornerRadius !== undefined ? pathMesh.updateParam.cornerRadius : 1)
+      const cornerSplit = config.cornerSplit !== undefined ? config.cornerSplit : (pathMesh.updateParam.cornerSplit !== undefined ? pathMesh.updateParam.cornerSplit : 10)
       const up = pathMesh.parallelToXZ ? new THREE.Vector3(0, 1, 0) : null
       console.log('[PathManager] 更新圆角参数 - cornerRadius:', cornerRadius, 'cornerSplit:', cornerSplit)
       console.log('[PathManager] pathMesh.updateParam.cornerRadius:', pathMesh.updateParam.cornerRadius, 'cornerSplit:', pathMesh.updateParam.cornerSplit)
@@ -748,8 +748,8 @@ class PathManager {
       const up = config.parallelToXZ ? new THREE.Vector3(0, 1, 0) : null
       pathMesh.pathPointList.set(
         pathMesh.points,
-        pathMesh.updateParam.cornerRadius || 0,
-        pathMesh.updateParam.cornerSplit || 0,
+        pathMesh.updateParam.cornerRadius !== undefined ? pathMesh.updateParam.cornerRadius : 1,
+        pathMesh.updateParam.cornerSplit !== undefined ? pathMesh.updateParam.cornerSplit : 10,
         up,
         false
       )
@@ -945,8 +945,8 @@ class PathManager {
       const pathPointList = new PathPointList()
       pathPointList.set(
         processedPoints,
-        config.cornerRadius || 0,
-        config.cornerSplit || 0,
+        config.cornerRadius !== undefined ? config.cornerRadius : 1,
+        config.cornerSplit !== undefined ? config.cornerSplit : 10,
         config.up || null,
         config.close || false
       )
@@ -956,8 +956,8 @@ class PathManager {
         arrow: config.arrow !== undefined ? config.arrow : false,
         progress: config.progress !== undefined ? config.progress : 1,
         side: config.side || 'both',
-        cornerRadius: config.cornerRadius || 0,
-        cornerSplit: config.cornerSplit || 0
+        cornerRadius: config.cornerRadius !== undefined ? config.cornerRadius : 1,
+        cornerSplit: config.cornerSplit !== undefined ? config.cornerSplit : 10
       }
 
       const geometry = new PathGeometry({

@@ -613,8 +613,8 @@ class PathPanelManager {
     const config: PathConfig = {
       points,
       width: 1,
-      cornerRadius: 0,
-      cornerSplit: 0,
+      cornerRadius: 1,
+      cornerSplit: 10,
       color: 0x58dede,
       transparent: true,
       opacity: 0.9,
@@ -800,13 +800,13 @@ class PathPanelManager {
       
       <div style="display: flex; align-items: center; gap: 10px;">
         <label style="font-size: 12px; min-width: 80px;">圆角半径:</label>
-        <input type="number" step="0.1" min="0" value="${config.cornerRadius || 0}" 
+        <input type="number" step="0.1" min="0" value="${config.cornerRadius !== undefined ? config.cornerRadius : 1}" 
           class="config-cornerRadius" style="flex: 1; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
       </div>
       
       <div style="display: flex; align-items: center; gap: 10px;">
         <label style="font-size: 12px; min-width: 80px;">圆角分段:</label>
-        <input type="number" step="1" min="0" value="${config.cornerSplit || 0}" 
+        <input type="number" step="1" min="0" value="${config.cornerSplit !== undefined ? config.cornerSplit : 10}" 
           class="config-cornerSplit" style="flex: 1; padding: 5px; border: 1px solid #ccc; border-radius: 3px;">
       </div>
       
