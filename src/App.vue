@@ -880,6 +880,32 @@ const onRightClick = (event: MouseEvent) => {
         z: targetObject.scale.z
       }
 
+      // 更新对象移动状态
+      isObjectInPath.value = objectMovementManager.isObjectInPath(targetObject.uuid)
+      if (isObjectInPath.value) {
+        selectedPathId.value = null
+        selectedPathName.value = '对象在路径中'
+        availablePaths.value = []
+      } else {
+        availablePaths.value = objectMovementManager.getAvailablePaths(targetObject.uuid)
+        const movementState = objectMovementManager.getMovementState(targetObject.uuid)
+        if (movementState) {
+          selectedPathId.value = movementState.pathId
+          const path = pathManager.getPathById(movementState.pathId)
+          selectedPathName.value = path?.name || ''
+          movementSpeed.value = movementState.speed
+          movementLoops.value = movementState.loops
+          facingDirection.value = movementState.facingDirection || 'none'
+          isMoving.value = movementState.isMoving
+        } else {
+          selectedPathId.value = null
+          selectedPathName.value = ''
+          movementSpeed.value = 1.0
+          movementLoops.value = 1
+          isMoving.value = false
+        }
+      }
+
       // 显示右键菜单
       showContextMenu(event.clientX, event.clientY)
     } else {
@@ -1020,6 +1046,17 @@ const deselectObject = () => {
   }
 
   selectedObject.value = null
+  
+  // 重置对象移动状态
+  selectedPathId.value = null
+  selectedPathName.value = ''
+  movementSpeed.value = 1.0
+  movementLoops.value = 1
+  facingDirection.value = 'none'
+  isMoving.value = false
+  isObjectInPath.value = false
+  availablePaths.value = []
+  
   // 确保OrbitControls可用
   controls.enabled = true
   // 强制更新OrbitControls
@@ -2294,6 +2331,32 @@ const toggleTransformControls = () => {
     const material = selectedObject.value.material
     if (material instanceof THREE.Material && 'color' in material) {
       objectColor.value = '#' + material.color.getHexString()
+    }
+  }
+
+  // 更新对象移动状态
+  isObjectInPath.value = objectMovementManager.isObjectInPath(selectedObject.value.uuid)
+  if (isObjectInPath.value) {
+    selectedPathId.value = null
+    selectedPathName.value = '对象在路径中'
+    availablePaths.value = []
+  } else {
+    availablePaths.value = objectMovementManager.getAvailablePaths(selectedObject.value.uuid)
+    const movementState = objectMovementManager.getMovementState(selectedObject.value.uuid)
+    if (movementState) {
+      selectedPathId.value = movementState.pathId
+      const path = pathManager.getPathById(movementState.pathId)
+      selectedPathName.value = path?.name || ''
+      movementSpeed.value = movementState.speed
+      movementLoops.value = movementState.loops
+      facingDirection.value = movementState.facingDirection || 'none'
+      isMoving.value = movementState.isMoving
+    } else {
+      selectedPathId.value = null
+      selectedPathName.value = ''
+      movementSpeed.value = 1.0
+      movementLoops.value = 1
+      isMoving.value = false
     }
   }
 }
