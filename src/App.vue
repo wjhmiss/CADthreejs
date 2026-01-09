@@ -2033,6 +2033,14 @@ const handleImportScene = (event: Event) => {
           if (pathPanelManager) {
             pathPanelManager.syncPathsFromManager()
             console.log('路径已同步到路径面板')
+            
+            // 重新计算所有路径（调用后端API）
+            console.log('开始重新计算所有路径...')
+            pathPanelManager.recalculateAllPaths().then(() => {
+              console.log('所有路径重新计算完成')
+            }).catch(error => {
+              console.error('重新计算路径时出错:', error)
+            })
           }
           
           // 同步对象移动的下拉路径列表
@@ -2343,6 +2351,12 @@ const deleteSelectedObject = () => {
 
   // 检查对象是否可以被删除
   if (selectedObject.value.userData.isTransformable === false) return
+
+  // 检查对象是否在路径中
+  if (pathPanelManager.isObjectInPath(selectedObject.value.uuid)) {
+    alert('该对象正在路径中使用，无法删除。请先从路径中移除该对象。')
+    return
+  }
 
   // 从路径面板移除对象
   pathPanelManager.removeObject(selectedObject.value.uuid)

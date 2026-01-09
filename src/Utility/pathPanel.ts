@@ -1338,6 +1338,10 @@ class PathPanelManager {
     return [...this.paths]
   }
 
+  isObjectInPath(objectId: string): boolean {
+    return this.paths.some(path => path.objectIds.includes(objectId))
+  }
+
   async recalculateAllPaths(): Promise<void> {
     console.log('[PathPanel] 开始重新计算所有路径...')
     const pathIds = this.paths.map(p => p.id)
