@@ -10,6 +10,8 @@ export interface GridFloorConfig {
   gridSize: number
   cellSize: number
   defaultEdgeColor: string
+  offsetX: number
+  offsetZ: number
 }
 
 export class GridFloor {
@@ -24,6 +26,8 @@ export class GridFloor {
       gridSize: 20,
       cellSize: 1,
       defaultEdgeColor: '#808080',
+      offsetX: 0,
+      offsetZ: 0,
       ...config
     }
     this.group = new THREE.Group()
@@ -45,6 +49,7 @@ export class GridFloor {
       }
     }
 
+    this.group.position.set(this.config.offsetX, 0, this.config.offsetZ)
     this.scene.add(this.group)
   }
 
@@ -171,5 +176,18 @@ export class GridFloor {
 
   getCells(): GridCell[][] {
     return this.cells
+  }
+
+  updateOffset(offsetX: number, offsetZ: number): void {
+    this.config.offsetX = offsetX
+    this.config.offsetZ = offsetZ
+    this.group.position.set(offsetX, 0, offsetZ)
+  }
+
+  getOffset(): { offsetX: number; offsetZ: number } {
+    return {
+      offsetX: this.config.offsetX,
+      offsetZ: this.config.offsetZ
+    }
   }
 }

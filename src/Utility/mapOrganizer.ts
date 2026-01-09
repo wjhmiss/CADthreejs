@@ -29,12 +29,15 @@ export class MapOrganizer {
     const cellSize = floorConfig.cellSize
     const gridSize = floorConfig.gridSize
     const halfSize = (gridSize * cellSize) / 2
+    const offsetX = floorConfig.offsetX
+    const offsetZ = floorConfig.offsetZ
 
     let intersectedCount = 0
 
     this.resetColors()
 
     console.log(`总共检测 ${objects.length} 个对象`)
+    console.log(`网格偏移: offsetX=${offsetX}, offsetZ=${offsetZ}`)
 
     objects.forEach((obj) => {
       const box = new THREE.Box3().setFromObject(obj)
@@ -48,17 +51,17 @@ export class MapOrganizer {
       const minZ = box.min.z
       const maxZ = box.max.z
 
-      const startCol = Math.floor((minX + halfSize) / cellSize)
-      const endCol = Math.floor((maxX + halfSize) / cellSize)
-      const startRow = Math.floor((minZ + halfSize) / cellSize)
-      const endRow = Math.floor((maxZ + halfSize) / cellSize)
+      const startCol = Math.floor((minX - offsetX + halfSize) / cellSize)
+      const endCol = Math.floor((maxX - offsetX + halfSize) / cellSize)
+      const startRow = Math.floor((minZ - offsetZ + halfSize) / cellSize)
+      const endRow = Math.floor((maxZ - offsetZ + halfSize) / cellSize)
 
       for (let row = Math.max(0, startRow); row <= Math.min(gridSize - 1, endRow); row++) {
         for (let col = Math.max(0, startCol); col <= Math.min(gridSize - 1, endCol); col++) {
-          const cellMinX = (col * cellSize) - halfSize
-          const cellMaxX = ((col + 1) * cellSize) - halfSize
-          const cellMinZ = (row * cellSize) - halfSize
-          const cellMaxZ = ((row + 1) * cellSize) - halfSize
+          const cellMinX = (col * cellSize) - halfSize + offsetX
+          const cellMaxX = ((col + 1) * cellSize) - halfSize + offsetX
+          const cellMinZ = (row * cellSize) - halfSize + offsetZ
+          const cellMaxZ = ((row + 1) * cellSize) - halfSize + offsetZ
 
           const xOverlap = !(cellMaxX < minX || cellMinX > maxX)
           const zOverlap = !(cellMaxZ < minZ || cellMinZ > maxZ)

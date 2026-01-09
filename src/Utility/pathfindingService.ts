@@ -109,11 +109,14 @@ export class PathfindingService {
     const cellSize = config.cellSize
     const gridSize = config.gridSize
     const halfSize = (gridSize * cellSize) / 2
+    const offsetX = config.offsetX
+    const offsetZ = config.offsetZ
     
     console.log('[convert3DToGridCoordinates] cellSize:', cellSize, 'gridSize:', gridSize, 'halfSize:', halfSize)
+    console.log('[convert3DToGridCoordinates] offsetX:', offsetX, 'offsetZ:', offsetZ)
 
-    const col = Math.floor((position.x + halfSize) / cellSize)
-    const row = Math.floor((position.z + halfSize) / cellSize)
+    const col = Math.floor((position.x - offsetX + halfSize) / cellSize)
+    const row = Math.floor((position.z - offsetZ + halfSize) / cellSize)
     
     console.log('[convert3DToGridCoordinates] 计算结果 - col (X轴):', col, 'row (Y轴):', row)
     console.log('[convert3DToGridCoordinates] 坐标映射: 3D X(', position.x, ') -> 2D X(', col, '), 3D Z(', position.z, ') -> 2D Y(', row, ')')
@@ -148,14 +151,17 @@ export class PathfindingService {
     const cellSize = config.cellSize
     const gridSize = config.gridSize
     const halfSize = (gridSize * cellSize) / 2
+    const offsetX = config.offsetX
+    const offsetZ = config.offsetZ
     
     console.log('[convertGridTo3DCoordinates] cellSize:', cellSize, 'gridSize:', gridSize, 'halfSize:', halfSize)
+    console.log('[convertGridTo3DCoordinates] offsetX:', offsetX, 'offsetZ:', offsetZ)
     console.log('[convertGridTo3DCoordinates] 2D坐标: waypoint.x (对应3D X轴):', waypoint.x, 'waypoint.y (对应3D Z轴):', waypoint.y)
-    console.log('[convertGridTo3DCoordinates] 计算公式: 3D X = (', waypoint.x, '*', cellSize, ') -', halfSize, '+ (', cellSize, '/ 2)')
-    console.log('[convertGridTo3DCoordinates] 计算公式: 3D Z = (', waypoint.y, '*', cellSize, ') -', halfSize, '+ (', cellSize, '/ 2)')
+    console.log('[convertGridTo3DCoordinates] 计算公式: 3D X = (', waypoint.x, '*', cellSize, ') -', halfSize, '+ (', cellSize, '/ 2) +', offsetX)
+    console.log('[convertGridTo3DCoordinates] 计算公式: 3D Z = (', waypoint.y, '*', cellSize, ') -', halfSize, '+ (', cellSize, '/ 2) +', offsetZ)
 
-    const x = (waypoint.x * cellSize) - halfSize + (cellSize / 2)
-    const z = (waypoint.y * cellSize) - halfSize + (cellSize / 2)
+    const x = (waypoint.x * cellSize) - halfSize + (cellSize / 2) + offsetX
+    const z = (waypoint.y * cellSize) - halfSize + (cellSize / 2) + offsetZ
     
     console.log('[convertGridTo3DCoordinates] 计算结果 - 3D X:', x, '3D Z:', z)
     console.log('[convertGridTo3DCoordinates] 坐标映射: 2D X(', waypoint.x, ') -> 3D X(', x, '), 2D Y(', waypoint.y, ') -> 3D Z(', z, ')')

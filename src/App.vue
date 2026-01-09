@@ -101,6 +101,14 @@
         <span class="property-label">默认边线颜色:</span>
         <input type="color" v-model="gridFloorDefaultEdgeColor" @input="updateGridFloorDefaultEdgeColor" class="property-color-input" />
       </div>
+      <div class="property-row">
+        <span class="property-label">X轴偏移:</span>
+        <input type="number" v-model.number="gridFloorOffsetX" @input="updateGridFloorOffset" min="-100" max="100" step="0.1" class="property-input" />
+      </div>
+      <div class="property-row">
+        <span class="property-label">Z轴偏移:</span>
+        <input type="number" v-model.number="gridFloorOffsetZ" @input="updateGridFloorOffset" min="-100" max="100" step="0.1" class="property-input" />
+      </div>
 
       <!-- 网格方块设置 -->
       <div v-if="selectedGridCell" class="property-group">
@@ -552,6 +560,9 @@ const showGridFloor = ref(true)
 const gridFloorSize = ref(20)
 const gridFloorCellSize = ref(1)
 const gridFloorDefaultEdgeColor = ref('#808080')
+const gridFloorOffsetX = ref(0)
+const gridFloorOffsetZ = ref(0)
+let gridFloorRecalculateTimer: number | null = null
 const selectedGridCell = ref<{ row: number; col: number } | null>(null)
 const gridCellEdgeColor = ref('#808080')
 const gridCellVisible = ref(false)
@@ -3623,12 +3634,14 @@ const toggleGridFloor = () => {
 const updateGridFloorSize = () => {
   if (gridFloor) {
     gridFloor.updateGridSize(gridFloorSize.value)
+    debounceRecalculatePaths()
   }
 }
 
 const updateGridFloorCellSize = () => {
   if (gridFloor) {
     gridFloor.updateCellSize(gridFloorCellSize.value)
+    debounceRecalculatePaths()
   }
 }
 
@@ -3636,6 +3649,25 @@ const updateGridFloorDefaultEdgeColor = () => {
   if (gridFloor) {
     gridFloor.setAllCellsEdgeColor(gridFloorDefaultEdgeColor.value)
   }
+}
+
+const updateGridFloorOffset = () => {
+  if (gridFloor) {
+    gridFloor.updateOffset(gridFloorOffsetX.value, gridFloorOffsetZ.value)
+    debounceRecalculatePaths()
+  }
+}
+
+const debounceRecalculatePaths = () => {
+  if (gridFloorRecalculateTimer !== null) {
+    clearTimeout(gridFloorRecalculateTimer)
+  }
+  gridFloorRecalculateTimer = window.setTimeout(async () => {
+    console.log('[App] 开始重新计算所有路径...')
+    await pathPanelManager.recalculateAllPaths()
+    console.log('[App] 所有路径重新计算完成')
+    gridFloorRecalculateTimer = null
+  }, 500)
 }
 
 const updateGridCellVisible = () => {

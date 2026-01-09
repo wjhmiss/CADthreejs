@@ -1338,6 +1338,22 @@ class PathPanelManager {
     return [...this.paths]
   }
 
+  async recalculateAllPaths(): Promise<void> {
+    console.log('[PathPanel] 开始重新计算所有路径...')
+    const pathIds = this.paths.map(p => p.id)
+    console.log('[PathPanel] 需要重新计算的路径数量:', pathIds.length)
+    
+    for (const pathId of pathIds) {
+      try {
+        await this.updatePathPoints(pathId)
+      } catch (error) {
+        console.error(`[PathPanel] 重新计算路径 ${pathId} 时出错:`, error)
+      }
+    }
+    
+    console.log('[PathPanel] 所有路径重新计算完成')
+  }
+
   syncPathsFromManager(): void {
     const allPaths = pathManager.getAllPaths()
     const currentPathIds = new Set(this.paths.map(p => p.id))
