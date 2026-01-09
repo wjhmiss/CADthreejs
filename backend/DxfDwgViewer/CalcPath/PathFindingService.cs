@@ -35,16 +35,69 @@ namespace DxfDwgViewer.CalcPath
             }
         }
 
-        public PathFindingResult FindPath(int startX, int startY, int endX, int endY)
+        public PathFindingResult FindPathWithWaypoints(List<(int X, int Y)> waypoints, List<(int X, int Y)> obstacles = null)
         {
-            return _pathFinder.FindPath(startX, startY, endX, endY);
-        }
+            if (waypoints == null || waypoints.Count < 2)
+            {
+                return new PathFindingResult
+                {
+                    Success = false,
+                    Message = "路径点数量必须大于等于2"
+                };
+            }
 
-        public PathFindingResult FindPathWithObstacles(int startX, int startY, int endX, int endY, List<(int X, int Y)> obstacles)
-        {
-            ClearObstacles();
-            SetObstacles(obstacles);
-            return FindPath(startX, startY, endX, endY);
+            if (obstacles != null)
+            {
+                ClearObstacles();
+                SetObstacles(obstacles);
+            }
+
+            var fullPath = new List<(int, int)>();
+            double totalCost = 0;
+            int totalNodesExplored = 0;
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+
+            for (int i = 0; i < waypoints.Count - 1; i++)
+            {
+                var start = waypoints[i];
+                var end = waypoints[i + 1];
+
+                var segmentResult = _pathFinder.FindPath(start.X, start.Y, end.X, end.Y);
+
+                if (!segmentResult.Success)
+                {
+                    return new PathFindingResult
+                    {
+                        Success = false,
+                        Message = $"无法从点 ({start.X}, {start.Y}) 到点 ({end.X}, {end.Y}) 找到路径: {segmentResult.Message}",
+                        Path = fullPath,
+                        TotalCost = totalCost,
+                        NodesExplored = totalNodesExplored,
+                        ExecutionTimeMs = stopwatch.ElapsedMilliseconds
+                    };
+                }
+
+                if (i > 0)
+                {
+                    segmentResult.Path.RemoveAt(0);
+                }
+
+                fullPath.AddRange(segmentResult.Path);
+                totalCost += segmentResult.TotalCost;
+                totalNodesExplored += segmentResult.NodesExplored;
+            }
+
+            stopwatch.Stop();
+
+            return new PathFindingResult
+            {
+                Success = true,
+                Message = $"成功规划经过 {waypoints.Count} 个点的路径",
+                Path = fullPath,
+                TotalCost = totalCost,
+                NodesExplored = totalNodesExplored,
+                ExecutionTimeMs = stopwatch.ElapsedMilliseconds
+            };
         }
 
         public int GridWidth => _gridMap.Width;

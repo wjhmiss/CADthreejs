@@ -198,63 +198,36 @@ app.MapGet("/api/parse/drawing1", (ILogger<Program> logger) =>
 })
 .WithName("ParseDrawing1");
 
-app.MapPost("/api/pathfinding/find", (PathFindingRequest request, PathFindingService pathFindingService, ILogger<Program> logger) =>
+app.MapPost("/api/pathfinding/find-with-waypoints", (PathFindingWithWaypointsRequest request, PathFindingService pathFindingService, ILogger<Program> logger) =>
 {
     try
     {
-        logger.LogInformation($"收到路径规划请求: 起点({request.StartX}, {request.StartY}), 终点({request.EndX}, {request.EndY})");
+        logger.LogInformation($"收到多路径点规划请求: 路径点数量={request.Waypoints?.Count ?? 0}, 障碍物数量={request.Obstacles?.Count ?? 0}");
         
-        if (request.Obstacles != null && request.Obstacles.Count > 0)
+        if (request.Waypoints == null || request.Waypoints.Count < 2)
         {
-            pathFindingService.SetObstacles(request.Obstacles);
+            return Results.BadRequest(new { error = "路径点数量必须大于等于2" });
         }
 
-        var result = pathFindingService.FindPath(request.StartX, request.StartY, request.EndX, request.EndY);
+        var result = pathFindingService.FindPathWithWaypoints(
+            request.Waypoints,
+            request.Obstacles);
         
-        logger.LogInformation($"路径规划完成: 成功={result.Success}, 节点数={result.NodesExplored}, 耗时={result.ExecutionTimeMs}ms");
-        
-        return Results.Ok(result);
-    }
-    catch (Exception ex)
-    {
-        logger.LogError(ex, "路径规划时发生错误");
-        return Results.Problem(
-            detail: ex.Message,
-            statusCode: 500,
-            title: "路径规划时发生错误"
-        );
-    }
-})
-.WithName("FindPath");
-
-app.MapPost("/api/pathfinding/find-with-obstacles", (PathFindingWithObstaclesRequest request, PathFindingService pathFindingService, ILogger<Program> logger) =>
-{
-    try
-    {
-        logger.LogInformation($"收到带障碍物的路径规划请求: 起点({request.StartX}, {request.StartY}), 终点({request.EndX}, {request.EndY}), 障碍物数量={request.Obstacles?.Count ?? 0}");
-        
-        var result = pathFindingService.FindPathWithObstacles(
-            request.StartX, 
-            request.StartY, 
-            request.EndX, 
-            request.EndY, 
-            request.Obstacles ?? new List<(int, int)>());
-        
-        logger.LogInformation($"路径规划完成: 成功={result.Success}, 节点数={result.NodesExplored}, 耗时={result.ExecutionTimeMs}ms");
+        logger.LogInformation($"多路径点规划完成: 成功={result.Success}, 路径长度={result.Path?.Count ?? 0}, 节点数={result.NodesExplored}, 耗时={result.ExecutionTimeMs}ms");
         
         return Results.Ok(result);
     }
     catch (Exception ex)
     {
-        logger.LogError(ex, "路径规划时发生错误");
+        logger.LogError(ex, "多路径点规划时发生错误");
         return Results.Problem(
             detail: ex.Message,
             statusCode: 500,
-            title: "路径规划时发生错误"
+            title: "多路径点规划时发生错误"
         );
     }
 })
-.WithName("FindPathWithObstacles");
+.WithName("FindPathWithWaypoints");
 
 app.MapPost("/api/pathfinding/set-obstacles", (SetObstaclesRequest request, PathFindingService pathFindingService, ILogger<Program> logger) =>
 {
@@ -309,28 +282,16 @@ public class ParseRequest
     public string FilePath { get; set; } = string.Empty;
 }
 
-public class PathFindingRequest
-{
-    public int StartX { get; set; }
-    public int StartY { get; set; }
-    public int EndX { get; set; }
-    public int EndY { get; set; }
-    public List<(int X, int Y)>? Obstacles { get; set; }
-}
-
-public class PathFindingWithObstaclesRequest
-{
-    public int StartX { get; set; }
-    public int StartY { get; set; }
-    public int EndX { get; set; }
-    public int EndY { get; set; }
-    public List<(int X, int Y)>? Obstacles { get; set; }
-}
-
 public class SetObstaclesRequest
 {
     public List<(int X, int Y)>? Obstacles { get; set; }
     public bool ClearExisting { get; set; } = false;
+}
+
+public class PathFindingWithWaypointsRequest
+{
+    public List<(int X, int Y)> Waypoints { get; set; } = new List<(int, int)>();
+    public List<(int X, int Y)>? Obstacles { get; set; }
 }
 
 public class FileUploadOperationFilter : IOperationFilter

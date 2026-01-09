@@ -140,8 +140,7 @@ A*算法核心实现类。
 - `SetObstacle(int x, int y, bool isObstacle)` - 设置单个障碍物
 - `SetObstacles(List<(int X, int Y)> obstacles)` - 批量设置障碍物
 - `ClearObstacles()` - 清除所有障碍物
-- `FindPath(int startX, int startY, int endX, int endY)` - 执行路径规划
-- `FindPathWithObstacles(int startX, int startY, int endX, int endY, List<(int X, int Y)> obstacles)` - 带障碍物的路径规划
+- `FindPathWithWaypoints(List<(int X, int Y)> waypoints, List<(int X, int Y)> obstacles = null)` - 多路径点路径规划
 
 **属性：**
 - `GridWidth` - 网格宽度
@@ -164,32 +163,70 @@ A*算法核心实现类。
 }
 ```
 
-### 2. 基本路径规划
+### 2. 多路径点路径规划
 
-**接口：** `POST /api/pathfinding/find`
+**接口：** `POST /api/pathfinding/find-with-waypoints`
 
-**描述：** 执行基本的路径规划，可选择是否包含障碍物
+**描述：** 执行多路径点路径规划，路径会按顺序经过所有指定的路径点（起点→路径点1→路径点2→...→终点）
 
 **请求参数：**
 ```json
 {
-  "startX": 10,
-  "startY": 10,
-  "endX": 90,
-  "endY": 90,
+  "waypoints": [
+    {"X": 10, "Y": 10},
+    {"X": 30, "Y": 30},
+    {"X": 50, "Y": 20},
+    {"X": 80, "Y": 80}
+  ],
   "obstacles": [
-    {"X": 50, "Y": 50},
-    {"X": 51, "Y": 50}
+    {"X": 40, "Y": 40},
+    {"X": 41, "Y": 40}
   ]
 }
 ```
 
 **参数说明：**
-- `startX` - 起点X坐标（必填）
-- `startY` - 起点Y坐标（必填）
-- `endX` - 终点X坐标（必填）
-- `endY` - 终点Y坐标（必填）
-- `obstacles` - 障碍物列表（可选）
+- `waypoints` (array) - 路径点数组，第一个为起点，最后一个为终点，中间为途经点（必填，至少2个点）
+  - 每个元素是一个对象，包含 `X` 和 `Y` 坐标
+  - 坐标必须为整数，表示网格坐标
+  - 坐标必须在网格范围内（0 ≤ X < width, 0 ≤ Y < height）
+  - 路径点按顺序排列，AGV会按此顺序依次经过
+  - 示例：`[{"X": 10, "Y": 10}, {"X": 30, "Y": 30}, {"X": 50, "Y": 20}, {"X": 80, "Y": 80}]`
+  - 表示从(10,10)出发，途经(30,30)和(50,20)，最后到达(80,80)
+  
+- `obstacles` (array) - 障碍物列表（可选）
+  - 每个元素是一个对象，包含 `X` 和 `Y` 坐标
+  - 坐标必须为整数，表示网格坐标
+  - 坐标必须在网格范围内（0 ≤ X < width, 0 ≤ Y < height）
+  - 障碍物表示AGV无法通过的网格单元
+  - 如果不提供此参数，则使用当前已设置的障碍物
+  - 如果提供此参数，会先清除所有现有障碍物再设置新的
+  - 示例：`[{"X": 40, "Y": 40}, {"X": 41, "Y": 40}, {"X": 42, "Y": 40}]`
+  - 表示在(40,40)、(41,40)、(42,40)位置设置障碍物
+
+**请求示例：**
+```json
+{
+  "waypoints": [
+    {"X": 10, "Y": 10},
+    {"X": 30, "Y": 30},
+    {"X": 50, "Y": 20},
+    {"X": 80, "Y": 80}
+  ],
+  "obstacles": [
+    {"X": 40, "Y": 40},
+    {"X": 41, "Y": 40}
+  ]
+}
+```
+
+**请求注意事项：**
+1. `waypoints` 数组必须至少包含2个点（起点和终点）
+2. 所有坐标必须在网格范围内，否则会返回错误
+3. 起点和终点不能设置为障碍物
+4. 如果 `obstacles` 为空数组 `[]`，会清除所有现有障碍物
+5. 如果 `obstacles` 为 `null` 或不提供，则使用当前已设置的障碍物
+6. 路径点之间不能有重复（除相邻路径段的连接点外）
 
 **响应示例：**
 ```json
@@ -198,62 +235,138 @@ A*算法核心实现类。
   "path": [
     {"X": 10, "Y": 10},
     {"X": 11, "Y": 11},
-    ...
-    {"X": 90, "Y": 90}
+    {"X": 12, "Y": 12},
+    {"X": 13, "Y": 13},
+    {"X": 14, "Y": 14},
+    {"X": 15, "Y": 15},
+    {"X": 16, "Y": 16},
+    {"X": 17, "Y": 17},
+    {"X": 18, "Y": 18},
+    {"X": 19, "Y": 19},
+    {"X": 20, "Y": 20},
+    {"X": 21, "Y": 21},
+    {"X": 22, "Y": 22},
+    {"X": 23, "Y": 23},
+    {"X": 24, "Y": 24},
+    {"X": 25, "Y": 25},
+    {"X": 26, "Y": 26},
+    {"X": 27, "Y": 27},
+    {"X": 28, "Y": 28},
+    {"X": 29, "Y": 29},
+    {"X": 30, "Y": 30},
+    {"X": 31, "Y": 29},
+    {"X": 32, "Y": 28},
+    {"X": 33, "Y": 27},
+    {"X": 34, "Y": 26},
+    {"X": 35, "Y": 25},
+    {"X": 36, "Y": 24},
+    {"X": 37, "Y": 23},
+    {"X": 38, "Y": 22},
+    {"X": 39, "Y": 21},
+    {"X": 40, "Y": 20},
+    {"X": 41, "Y": 20},
+    {"X": 42, "Y": 20},
+    {"X": 43, "Y": 20},
+    {"X": 44, "Y": 20},
+    {"X": 45, "Y": 20},
+    {"X": 46, "Y": 20},
+    {"X": 47, "Y": 20},
+    {"X": 48, "Y": 20},
+    {"X": 49, "Y": 20},
+    {"X": 50, "Y": 20},
+    {"X": 51, "Y": 21},
+    {"X": 52, "Y": 22},
+    {"X": 53, "Y": 23},
+    {"X": 54, "Y": 24},
+    {"X": 55, "Y": 25},
+    {"X": 56, "Y": 26},
+    {"X": 57, "Y": 27},
+    {"X": 58, "Y": 28},
+    {"X": 59, "Y": 29},
+    {"X": 60, "Y": 30},
+    {"X": 61, "Y": 31},
+    {"X": 62, "Y": 32},
+    {"X": 63, "Y": 33},
+    {"X": 64, "Y": 34},
+    {"X": 65, "Y": 35},
+    {"X": 66, "Y": 36},
+    {"X": 67, "Y": 37},
+    {"X": 68, "Y": 38},
+    {"X": 69, "Y": 39},
+    {"X": 70, "Y": 40},
+    {"X": 71, "Y": 41},
+    {"X": 72, "Y": 42},
+    {"X": 73, "Y": 43},
+    {"X": 74, "Y": 44},
+    {"X": 75, "Y": 45},
+    {"X": 76, "Y": 46},
+    {"X": 77, "Y": 47},
+    {"X": 78, "Y": 48},
+    {"X": 79, "Y": 49},
+    {"X": 80, "Y": 80}
   ],
-  "totalCost": 113.13708498984747,
-  "nodesExplored": 81,
-  "message": "路径规划成功",
-  "executionTimeMs": 6
+  "totalCost": 185.41019662496845,
+  "nodesExplored": 245,
+  "message": "成功规划经过 4 个点的路径",
+  "executionTimeMs": 12
 }
 ```
 
-### 3. 带障碍物的路径规划
+**返回数据格式说明：**
+- `success` (boolean) - 路径规划是否成功
+  - `true` - 成功找到路径
+  - `false` - 未找到路径（可能原因：起点或终点在障碍物上、路径被完全阻挡等）
+  
+- `path` (array) - 路径点数组，包含从起点到终点的所有网格坐标
+  - 每个元素是一个对象，包含 `X` 和 `Y` 坐标
+  - 数组第一个元素为起点，最后一个元素为终点
+  - 路径点按顺序排列，可以直接用于AGV导航
+  - 如果 `success` 为 `false`，此数组可能为空或包含部分路径
+  
+- `totalCost` (number) - 路径总代价
+  - 使用欧几里得距离计算（对角线移动代价为√2，直线移动代价为1）
+  - 值越小表示路径越短
+  - 可用于评估路径质量
+  
+- `nodesExplored` (integer) - 算法探索的节点数量
+  - 表示A*算法在寻找路径过程中检查的网格节点总数
+  - 可用于评估算法性能
+  - 值越大表示计算量越大
+  
+- `message` (string) - 执行结果消息
+  - 成功时：`"成功规划经过 N 个点的路径"`（N为路径点数量）
+  - 失败时：`"无法从点 (X1, Y1) 到点 (X2, Y2) 找到路径: 具体原因"`
+  - 包含详细的错误信息，便于调试
+  
+- `executionTimeMs` (integer) - 执行时间（毫秒）
+  - 路径规划算法的总执行时间
+  - 可用于性能监控和优化
+  - 通常在1-20ms之间，取决于路径复杂度
 
-**接口：** `POST /api/pathfinding/find-with-obstacles`
-
-**描述：** 执行带障碍物的路径规划，每次调用会清除之前的障碍物
-
-**请求参数：**
+**失败响应示例：**
 ```json
 {
-  "startX": 10,
-  "startY": 10,
-  "endX": 90,
-  "endY": 90,
-  "obstacles": [
-    {"X": 50, "Y": 50},
-    {"X": 51, "Y": 50},
-    {"X": 52, "Y": 50}
-  ]
-}
-```
-
-**参数说明：**
-- `startX` - 起点X坐标（必填）
-- `startY` - 起点Y坐标（必填）
-- `endX` - 终点X坐标（必填）
-- `endY` - 终点Y坐标（必填）
-- `obstacles` - 障碍物列表（可选）
-
-**响应示例：**
-```json
-{
-  "success": true,
+  "success": false,
   "path": [
     {"X": 10, "Y": 10},
     {"X": 11, "Y": 11},
-    ...
-    {"X": 90, "Y": 90}
+    {"X": 12, "Y": 12}
   ],
-  "totalCost": 113.13708498984747,
-  "nodesExplored": 81,
-  "message": "路径规划成功",
-  "executionTimeMs": 1
+  "totalCost": 2.8284271247461903,
+  "nodesExplored": 15,
+  "message": "无法从点 (12, 12) 到点 (50, 50) 找到路径: 无法到达目标点",
+  "executionTimeMs": 5
 }
 ```
 
-### 4. 设置障碍物
+**注意事项：**
+1. 路径点坐标为整数，表示网格坐标
+2. 路径会包含起点和终点
+3. 如果某个路径段无法找到路径，会返回失败，并包含已规划的部分路径
+4. 路径点顺序为：起点 → 途经点1 → 途经点2 → ... → 终点
+5. 每个路径段都是独立规划的，相邻路径段的连接点会自动合并（避免重复）
+
+### 5. 设置障碍物
 
 **接口：** `POST /api/pathfinding/set-obstacles`
 
@@ -287,114 +400,116 @@ A*算法核心实现类。
 }
 ```
 
+**返回数据格式说明：**
+- `success` (boolean) - 操作是否成功
+  - `true` - 成功设置障碍物
+  - `false` - 设置失败（可能原因：坐标超出网格范围等）
+  
+- `message` (string) - 执行结果消息
+  - 成功时：`"成功设置 N 个障碍物"`（N为障碍物数量）
+  - 失败时：`"设置障碍物失败: 具体原因"`
+  
+- `gridSize` (object) - 网格尺寸信息
+  - `width` (integer) - 网格宽度
+  - `height` (integer) - 网格高度
+  - 可用于验证障碍物坐标是否在有效范围内
+
+**失败响应示例：**
+```json
+{
+  "success": false,
+  "message": "设置障碍物失败: 坐标 (150, 50) 超出网格范围",
+  "gridSize": {
+    "width": 100,
+    "height": 100
+  }
+}
+```
+
+**注意事项：**
+1. 障碍物坐标必须在网格范围内（0 ≤ X < width, 0 ≤ Y < height）
+2. 如果 `clearExisting` 为 `true`，会先清除所有现有障碍物再设置新的
+3. 如果 `clearExisting` 为 `false`，新的障碍物会添加到现有障碍物列表中
+4. 重复设置相同坐标的障碍物不会产生错误
+5. 起点和终点不能设置为障碍物，否则路径规划会失败
+
 ## 使用示例
 
-### 示例1：基本路径规划
-
-```csharp
-// 创建路径规划服务（100x100网格，允许对角线移动）
-var service = new PathFindingService(100, 100, true);
-
-// 执行路径规划
-var result = service.FindPath(10, 10, 90, 90);
-
-if (result.Success)
-{
-    Console.WriteLine($"路径规划成功！");
-    Console.WriteLine($"总代价: {result.TotalCost}");
-    Console.WriteLine($"探索节点数: {result.NodesExplored}");
-    Console.WriteLine($"执行时间: {result.ExecutionTimeMs}ms");
-    
-    Console.WriteLine("路径点:");
-    foreach (var point in result.Path)
-    {
-        Console.WriteLine($"({point.X}, {point.Y})");
-    }
-}
-else
-{
-    Console.WriteLine($"路径规划失败: {result.Message}");
-}
-```
-
-### 示例2：带障碍物的路径规划
+### 示例1：多路径点路径规划
 
 ```csharp
 // 创建路径规划服务
 var service = new PathFindingService(100, 100, true);
 
-// 定义障碍物
-var obstacles = new List<(int, int)>
+// 定义路径点（起点→路径点1→路径点2→终点）
+var waypoints = new List<(int, int)>
 {
-    (50, 50), (51, 50), (52, 50),
-    (50, 51), (51, 51), (52, 51),
-    (50, 52), (51, 52), (52, 52)
+    (10, 10),  // 起点
+    (30, 30),  // 路径点1
+    (50, 20),  // 路径点2
+    (80, 80)   // 终点
 };
 
-// 设置障碍物
-service.SetObstacles(obstacles);
-
-// 执行路径规划
-var result = service.FindPath(10, 10, 90, 90);
-
-if (result.Success)
-{
-    Console.WriteLine($"路径规划成功，绕过了障碍物！");
-    Console.WriteLine($"路径点数量: {result.Path.Count}");
-}
-```
-
-### 示例3：一次性设置障碍物并规划路径
-
-```csharp
-// 创建路径规划服务
-var service = new PathFindingService(100, 100, true);
-
 // 定义障碍物
 var obstacles = new List<(int, int)>
 {
-    (30, 30), (31, 30), (32, 30),
     (40, 40), (41, 40), (42, 40)
 };
 
-// 一次性设置障碍物并规划路径
-var result = service.FindPathWithObstacles(10, 10, 90, 90, obstacles);
+// 执行多路径点路径规划
+var result = service.FindPathWithWaypoints(waypoints, obstacles);
 
 if (result.Success)
 {
-    Console.WriteLine($"路径规划成功！");
+    Console.WriteLine($"多路径点规划成功！");
+    Console.WriteLine($"经过 {waypoints.Count} 个路径点");
     Console.WriteLine($"总代价: {result.TotalCost:F2}");
+    Console.WriteLine($"探索节点数: {result.NodesExplored}");
+    Console.WriteLine($"执行时间: {result.ExecutionTimeMs}ms");
+    Console.WriteLine($"路径点总数: {result.Path.Count}");
+}
+else
+{
+    Console.WriteLine($"多路径点规划失败: {result.Message}");
 }
 ```
 
-### 示例4：动态添加障碍物
+### 示例2：动态添加障碍物
 
 ```csharp
 // 创建路径规划服务
 var service = new PathFindingService(100, 100, true);
 
+// 定义路径点
+var waypoints = new List<(int, int)>
+{
+    (10, 10),
+    (50, 50),
+    (90, 90)
+};
+
 // 先规划一条路径
-var result1 = service.FindPath(10, 10, 90, 90);
+var result1 = service.FindPathWithWaypoints(waypoints);
 Console.WriteLine($"第一次规划: {result1.Success}");
 
 // 添加障碍物
-service.SetObstacle(50, 50, true);
-service.SetObstacle(51, 50, true);
-service.SetObstacle(50, 51, true);
+service.SetObstacle(30, 30, true);
+service.SetObstacle(31, 30, true);
+service.SetObstacle(30, 31, true);
 
 // 再次规划路径
-var result2 = service.FindPath(10, 10, 90, 90);
+var result2 = service.FindPathWithWaypoints(waypoints);
 Console.WriteLine($"第二次规划: {result2.Success}");
 
 // 清除所有障碍物
 service.ClearObstacles();
 
 // 第三次规划路径
-var result3 = service.FindPath(10, 10, 90, 90);
+var result3 = service.FindPathWithWaypoints(waypoints);
 Console.WriteLine($"第三次规划: {result3.Success}");
 ```
 
-### 示例5：使用PowerShell调用API
+### 示例3：使用PowerShell调用API
 
 ```powershell
 # 获取网格信息
@@ -435,9 +550,25 @@ $body = @{
 } | ConvertTo-Json -Depth 3
 
 Invoke-RestMethod -Uri "http://localhost:5001/api/pathfinding/set-obstacles" -Method Post -Body $body -ContentType "application/json"
+
+# 多路径点路径规划
+$body = @{
+    waypoints = @(
+        @{X = 10; Y = 10},
+        @{X = 30; Y = 30},
+        @{X = 50; Y = 20},
+        @{X = 80; Y = 80}
+    )
+    obstacles = @(
+        @{X = 40; Y = 40},
+        @{X = 41; Y = 40}
+    )
+} | ConvertTo-Json -Depth 3
+
+Invoke-RestMethod -Uri "http://localhost:5001/api/pathfinding/find-with-waypoints" -Method Post -Body $body -ContentType "application/json"
 ```
 
-### 示例6：使用JavaScript/Fetch调用API
+### 示例4：使用JavaScript/Fetch调用API
 
 ```javascript
 // 获取网格信息
@@ -445,44 +576,6 @@ async function getGridInfo() {
     const response = await fetch('http://localhost:5001/api/pathfinding/grid-info');
     const data = await response.json();
     console.log('网格信息:', data);
-}
-
-// 基本路径规划
-async function findPath(startX, startY, endX, endY) {
-    const response = await fetch('http://localhost:5001/api/pathfinding/find', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            startX: startX,
-            startY: startY,
-            endX: endX,
-            endY: endY
-        })
-    });
-    const data = await response.json();
-    console.log('路径规划结果:', data);
-    return data;
-}
-
-// 带障碍物的路径规划
-async function findPathWithObstacles(startX, startY, endX, endY, obstacles) {
-    const response = await fetch('http://localhost:5001/api/pathfinding/find-with-obstacles', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            startX: startX,
-            startY: startY,
-            endX: endX,
-            endY: endY,
-            obstacles: obstacles
-        })
-    });
-    const data = await response.json();
-    console.log('路径规划结果:', data);
     return data;
 }
 
@@ -503,24 +596,45 @@ async function setObstacles(obstacles, clearExisting = false) {
     return data;
 }
 
+// 多路径点路径规划
+async function findPathWithWaypoints(waypoints, obstacles = null) {
+    const response = await fetch('http://localhost:5001/api/pathfinding/find-with-waypoints', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            waypoints: waypoints,
+            obstacles: obstacles
+        })
+    });
+    const data = await response.json();
+    console.log('多路径点路径规划结果:', data);
+    return data;
+}
+
 // 使用示例
 (async () => {
     // 获取网格信息
     await getGridInfo();
     
-    // 基本路径规划
-    const result1 = await findPath(10, 10, 90, 90);
-    
-    // 带障碍物的路径规划
+    // 设置障碍物
     const obstacles = [
         {X: 50, Y: 50},
         {X: 51, Y: 50},
         {X: 52, Y: 50}
     ];
-    const result2 = await findPathWithObstacles(10, 10, 90, 90, obstacles);
-    
-    // 设置障碍物
     await setObstacles(obstacles, false);
+    
+    // 多路径点路径规划
+    const waypoints = [
+        {X: 10, Y: 10},
+        {X: 30, Y: 30},
+        {X: 50, Y: 20},
+        {X: 80, Y: 80}
+    ];
+    const result = await findPathWithWaypoints(waypoints, obstacles);
+    console.log('最终结果:', result);
 })();
 ```
 
@@ -616,6 +730,20 @@ async function setObstacles(obstacles, clearExisting = false) {
 如有问题或建议，请联系开发团队。
 
 ## 版本历史
+
+- v1.2.0 - 简化API，统一使用多路径点路径规划
+  - 移除 `FindPath` 和 `FindPathWithObstacles` 方法
+  - 统一使用 `FindPathWithWaypoints` 方法进行路径规划
+  - 移除 `/api/pathfinding/find` 和 `/api/pathfinding/find-with-obstacles` API端点
+  - 简化API设计，所有路径规划都使用多路径点接口
+  - 更新文档，移除旧API的使用示例
+
+- v1.1.0 - 新增多路径点路径规划功能
+  - 新增 `FindPathWithWaypoints` 方法，支持传入多个路径点
+  - 路径会按顺序经过所有指定的路径点（起点→路径点1→路径点2→...→终点）
+  - 新增 API 端点 `/api/pathfinding/find-with-waypoints`
+  - 支持在多路径点规划时设置障碍物
+  - 更新文档，添加多路径点使用示例
 
 - v1.0.0 - 初始版本，实现基本的A*路径规划算法
   - 支持基本的路径规划
