@@ -448,7 +448,9 @@ class PathPanelManager {
       
       const paths = pathManager.findPathsByObjectId(objectId)
       paths.forEach(path => {
-        this.updatePathPoints(path.id)
+        this.updatePathPoints(path.id).catch(error => {
+          console.error('[PathPanel] 更新路径时出错:', error)
+        })
       })
     }
   }
@@ -756,18 +758,91 @@ class PathPanelManager {
     }
   }
 
-  private updatePathPoints(pathId: string): void {
+  private async updatePathPoints(pathId: string): Promise<void> {
     const pathInfo = this.paths.find(p => p.id === pathId)
     if (!pathInfo) return
+
+    if (!this.gridFloor) {
+      console.warn('[PathPanel] 网格地面未初始化，无法重新计算路径')
+      return
+    }
 
     const points = pathInfo.objectIds.map(objId => {
       const pathObject = this.objects.find(obj => obj.id === objId)
       return pathObject ? pathObject.bottomCenter : new THREE.Vector3()
     })
 
-    pathManager.updatePathPointsById(pathId, points)
-    
-    objectMovementManager.refreshMovementByPathId(pathId)
+    try {
+      const gridConfig = this.gridFloor.getConfig()
+      
+      console.log('[PathPanel] 重新计算路径，路径ID:', pathId)
+      console.log('[PathPanel] 路径点数:', points.length)
+      console.log('[PathPanel] 路径点:', points)
+      
+      console.log('[PathPanel] 开始自动地图整理以获取障碍物...')
+      
+      if (this.mapOrganizer) {
+        const dxfObjects: THREE.Object3D[] = []
+        
+        if (this.getDXFObjects) {
+          dxfObjects.push(...this.getDXFObjects())
+          console.log('[PathPanel] 获取到DXF对象数量:', dxfObjects.length)
+        } else {
+          console.warn('[PathPanel] DXF对象提供者未设置，将使用路径面板中的对象')
+          this.objects.forEach((obj) => {
+            dxfObjects.push(obj.object)
+          })
+        }
+        
+        const organizeResult = this.mapOrganizer.organize(dxfObjects)
+        console.log('[PathPanel] 地图整理完成，检测到', organizeResult.intersectedCount, '个障碍物')
+      } else {
+        console.warn('[PathPanel] 地图整理器未初始化，将使用现有障碍物数据')
+      }
+      
+      const waypoints = pathfindingService.convert3DPointsToWaypoints(points, this.gridFloor)
+      const obstacles = pathfindingService.getObstacleCells(this.gridFloor)
+
+      console.log('[PathPanel] 调用路径规划API...')
+      console.log('[PathPanel] 路径点(网格坐标):', waypoints)
+      console.log('[PathPanel] 障碍物(网格坐标):', obstacles)
+      console.log('[PathPanel] 障碍物数量:', obstacles.length)
+      console.log('[PathPanel] 网格大小:', gridConfig.gridSize)
+
+      const response: PathFindingResponse = await pathfindingService.findPathWithWaypoints({
+        waypoints,
+        obstacles,
+        gridWidth: gridConfig.gridSize,
+        gridHeight: gridConfig.gridSize,
+        allowDiagonal: false
+      })
+
+      if (!response.success || !response.path || response.path.length === 0) {
+        console.warn(`[PathPanel] 路径规划失败: ${response.message || '未知错误'}`)
+        return
+      }
+
+      console.log('[PathPanel] 路径规划成功，路径点数:', response.path.length)
+      console.log('[PathPanel] 返回的路径点:', response.path)
+      
+      const pathPoints3D = pathfindingService.convertWaypointsTo3DPoints(response.path, this.gridFloor, points[0].y)
+
+      console.log('[PathPanel] 转换后的3D路径点:', pathPoints3D)
+      console.log('[PathPanel] 3D路径点数量:', pathPoints3D.length)
+      
+      if (pathPoints3D.length < 2) {
+        console.error('[PathPanel] 错误：转换后的3D路径点数量不足，无法更新路径')
+        return
+      }
+
+      pathManager.updatePathPointsById(pathId, pathPoints3D)
+      
+      objectMovementManager.refreshMovementByPathId(pathId)
+      
+      console.log('[PathPanel] 路径重新计算完成')
+    } catch (error) {
+      console.error('[PathPanel] 重新计算路径时出错:', error)
+    }
   }
 
   private updatePathList(): void {
