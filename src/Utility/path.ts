@@ -233,7 +233,7 @@ class PathManager {
       processedPoints,
       config.cornerRadius !== undefined ? config.cornerRadius : 1,
       config.cornerSplit !== undefined ? config.cornerSplit : 10,
-      config.up || null,
+      config.up || new THREE.Vector3(0, 1, 0),
       config.close || false
     )
     console.log('[PathManager] PathPointList 创建完成')

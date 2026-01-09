@@ -37,7 +37,14 @@ class PathGeometry extends THREE.BufferGeometry {
 	}
 
 	_initByData(pathPointList, options = {}, usage,  generateUv2) {
+		console.log('[PathGeometry] _initByData() 开始执行')
+		console.log('[PathGeometry] pathPointList:', pathPointList)
+		console.log('[PathGeometry] options:', options)
+		
 		const vertexData = generatePathVertexData(pathPointList, options, generateUv2);
+		
+		console.log('[PathGeometry] vertexData:', vertexData)
+		console.log('[PathGeometry] vertexData.count:', vertexData?.count)
 
 		if (vertexData && vertexData.count !== 0) {
 			this.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vertexData.position), 3).setUsage(usage || THREE.StaticDrawUsage));
@@ -51,7 +58,10 @@ class PathGeometry extends THREE.BufferGeometry {
 				new THREE.Uint32BufferAttribute(vertexData.indices, 1) :
 				new THREE.Uint16BufferAttribute(vertexData.indices, 1)
 			);
+			
+			console.log('[PathGeometry] 几何体创建成功')
 		} else {
+			console.warn('[PathGeometry] vertexData为null或count为0，使用默认初始化')
 			this._initByMaxVertex(2, generateUv2);
 		}
 	}
@@ -150,16 +160,25 @@ export { PathGeometry };
 // Vertex Data Generate Functions
 
 function generatePathVertexData(pathPointList, options, generateUv2 = false) {
+	console.log('[generatePathVertexData] 开始执行')
+	console.log('[generatePathVertexData] pathPointList.count:', pathPointList.count)
+	
 	const width = options.width || 0.1;
 	const progress = options.progress !== undefined ? options.progress : 1;
 	const arrow = options.arrow !== undefined ? options.arrow : true;
 	const side = options.side !== undefined ? options.side : "both";
 
+	console.log('[generatePathVertexData] width:', width, 'progress:', progress, 'arrow:', arrow, 'side:', side)
+
 	const halfWidth = width / 2;
 	const sideWidth = (side !== "both" ? width / 2 : width);
 	const totalDistance = pathPointList.distance();
 	const progressDistance = progress * totalDistance;
+	
+	console.log('[generatePathVertexData] totalDistance:', totalDistance, 'progressDistance:', progressDistance)
+	
 	if (totalDistance == 0) {
+		console.warn('[generatePathVertexData] 总距离为0，返回null')
 		return null;
 	}
 

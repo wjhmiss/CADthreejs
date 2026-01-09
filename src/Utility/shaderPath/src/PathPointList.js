@@ -48,13 +48,20 @@ class PathPointList {
 	 * @param {boolean} close? close path. default is false.
 	 */
 	set(points, cornerRadius = 0.1, cornerSplit = 10, up = null, close = false) {
+		console.log('[PathPointList] set() 开始执行')
+		console.log('[PathPointList] 输入的points数量:', points.length)
+		console.log('[PathPointList] 输入的points:', points)
+		console.log('[PathPointList] cornerRadius:', cornerRadius, 'cornerSplit:', cornerSplit, 'close:', close)
+		
 		points = points.slice(0);
 
 		if (points.length < 2) {
-			console.warn("PathPointList: points length less than 2.");
+			console.warn("[PathPointList] points length less than 2.");
 			this.count = 0;
 			return;
 		}
+
+		console.log('[PathPointList] 开始生成路径点列表')
 
 		// Auto close
 		if (close && !points[0].equals(points[points.length - 1])) {
@@ -81,6 +88,8 @@ class PathPointList {
 				this._corner(points[i], points[i + 1], cornerRadius, cornerSplit, up);
 			}
 		}
+		
+		console.log('[PathPointList] 路径点列表生成完成，总数:', this.count)
 	}
 
 	/**

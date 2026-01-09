@@ -7,6 +7,7 @@ using Microsoft.OpenApi.Models;
 using Swashbuckle.AspNetCore.SwaggerGen;
 using DxfDwgViewer;
 using DxfDwgViewer.CalcPath;
+using System.Linq;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -197,32 +198,91 @@ app.MapPost("/api/pathfinding/find-with-waypoints", (PathFindingWithWaypointsReq
 {
     try
     {
-        logger.LogInformation($"收到多路径点规划请求: 路径点数量={request.Waypoints?.Count ?? 0}, 障碍物数量={request.Obstacles?.Count ?? 0}, 地图大小={request.GridWidth}x{request.GridHeight}, 允许对角线={request.AllowDiagonal}");
+        logger.LogInformation($"========== 路径规划请求开始 ==========");
+        logger.LogInformation($"请求参数:");
+        logger.LogInformation($"  地图大小: {request.GridWidth}x{request.GridHeight}");
+        logger.LogInformation($"  允许对角线: {request.AllowDiagonal}");
+        logger.LogInformation($"  路径点数量: {request.Waypoints?.Count ?? 0}");
+        
+        if (request.Waypoints != null && request.Waypoints.Count > 0)
+        {
+            logger.LogInformation($"  路径点列表:");
+            for (int i = 0; i < request.Waypoints.Count; i++)
+            {
+                logger.LogInformation($"    [{i}] ({request.Waypoints[i].X}, {request.Waypoints[i].Y})");
+            }
+        }
+        
+        logger.LogInformation($"  障碍物数量: {request.Obstacles?.Count ?? 0}");
+        
+        if (request.Obstacles != null && request.Obstacles.Count > 0)
+        {
+            logger.LogInformation($"  障碍物列表 (前20个):");
+            int displayCount = Math.Min(20, request.Obstacles.Count);
+            for (int i = 0; i < displayCount; i++)
+            {
+                logger.LogInformation($"    [{i}] ({request.Obstacles[i].X}, {request.Obstacles[i].Y})");
+            }
+            if (request.Obstacles.Count > 20)
+            {
+                logger.LogInformation($"    ... 还有 {request.Obstacles.Count - 20} 个障碍物");
+            }
+        }
+        
+        logger.LogInformation($"========================================");
         
         if (request.Waypoints == null || request.Waypoints.Count < 2)
         {
+            logger.LogWarning($"请求验证失败: 路径点数量必须大于等于2");
             return Results.BadRequest(new { error = "路径点数量必须大于等于2" });
         }
 
         var pathFindingService = new PathFindingService();
+        
+        var waypointsTuples = request.Waypoints.Select(wp => (wp.X, wp.Y)).ToList();
+        var obstaclesTuples = request.Obstacles?.Select(ob => (ob.X, ob.Y)).ToList();
+        
         var result = pathFindingService.FindPathWithWaypoints(
-            request.Waypoints,
-            request.Obstacles,
+            waypointsTuples,
+            obstaclesTuples,
             request.GridWidth,
             request.GridHeight,
             request.AllowDiagonal);
         
-        logger.LogInformation($"多路径点规划完成: 成功={result.Success}, 路径长度={result.Path?.Count ?? 0}, 节点数={result.NodesExplored}, 耗时={result.ExecutionTimeMs}ms");
+        logger.LogInformation($"========== 路径规划结果 ==========");
+        logger.LogInformation($"  成功: {result.Success}");
+        logger.LogInformation($"  消息: {result.Message}");
+        logger.LogInformation($"  路径长度: {result.Path?.Count ?? 0}");
+        logger.LogInformation($"  总成本: {result.TotalCost}");
+        logger.LogInformation($"  探索节点数: {result.NodesExplored}");
+        logger.LogInformation($"  执行耗时: {result.ExecutionTimeMs}ms");
+        
+        if (result.Path != null && result.Path.Count > 0)
+        {
+            logger.LogInformation($"  路径点列表:");
+            int displayCount = Math.Min(20, result.Path.Count);
+            for (int i = 0; i < displayCount; i++)
+            {
+                logger.LogInformation($"    [{i}] ({result.Path[i].X}, {result.Path[i].Y})");
+            }
+            if (result.Path.Count > 20)
+            {
+                logger.LogInformation($"    ... 还有 {result.Path.Count - 20} 个路径点");
+            }
+        }
+        logger.LogInformation($"========================================");
         
         return Results.Ok(result);
     }
     catch (Exception ex)
     {
         logger.LogError(ex, "多路径点规划时发生错误");
+        logger.LogError($"错误详情: {ex.Message}");
+        logger.LogError($"堆栈跟踪: {ex.StackTrace}");
         return Results.Problem(
             detail: ex.Message,
             statusCode: 500,
-            title = "多路径点规划时发生错误"
+            title: "多路径点规划时发生错误"
         );
     }
 })
@@ -237,11 +297,17 @@ public class ParseRequest
 
 public class PathFindingWithWaypointsRequest
 {
-    public List<(int X, int Y)> Waypoints { get; set; } = new List<(int, int)>();
-    public List<(int X, int Y)>? Obstacles { get; set; }
+    public List<PointCoordinate> Waypoints { get; set; } = new List<PointCoordinate>();
+    public List<PointCoordinate>? Obstacles { get; set; }
     public int GridWidth { get; set; } = 100;
     public int GridHeight { get; set; } = 100;
     public bool AllowDiagonal { get; set; } = true;
+}
+
+public class PointCoordinate
+{
+    public int X { get; set; }
+    public int Y { get; set; }
 }
 
 public class FileUploadOperationFilter : IOperationFilter

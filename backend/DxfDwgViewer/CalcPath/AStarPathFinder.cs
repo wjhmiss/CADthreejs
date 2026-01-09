@@ -135,14 +135,14 @@ namespace DxfDwgViewer.CalcPath
             }
         }
 
-        private List<(int X, int Y)> ReconstructPath(Node endNode)
+        private List<PointCoordinate> ReconstructPath(Node endNode)
         {
-            var path = new List<(int, int)>();
+            var path = new List<PointCoordinate>();
             var current = endNode;
 
             while (current != null)
             {
-                path.Add((current.X, current.Y));
+                path.Add(new PointCoordinate { X = current.X, Y = current.Y });
                 current = current.Parent;
             }
 

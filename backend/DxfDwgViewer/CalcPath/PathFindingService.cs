@@ -59,7 +59,7 @@ namespace DxfDwgViewer.CalcPath
                 }
             }
 
-            var fullPath = new List<(int, int)>();
+            var fullPath = new List<PointCoordinate>();
             double totalCost = 0;
             int totalNodesExplored = 0;
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
@@ -89,7 +89,10 @@ namespace DxfDwgViewer.CalcPath
                     segmentResult.Path.RemoveAt(0);
                 }
 
-                fullPath.AddRange(segmentResult.Path);
+                foreach (var point in segmentResult.Path)
+                {
+                    fullPath.Add(new PointCoordinate { X = point.X, Y = point.Y });
+                }
                 totalCost += segmentResult.TotalCost;
                 totalNodesExplored += segmentResult.NodesExplored;
             }

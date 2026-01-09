@@ -3598,6 +3598,20 @@ const initGridFloor = () => {
     defaultEdgeColor: gridFloorDefaultEdgeColor.value
   })
   mapOrganizer = new MapOrganizer(gridFloor)
+  pathPanelManager.setGridFloor(gridFloor)
+  pathPanelManager.setMapOrganizer(mapOrganizer)
+  pathPanelManager.setDXFObjectsProvider(() => {
+    const dxfObjects: THREE.Object3D[] = []
+    if (renderManager) {
+      const renderedObjects = renderManager.getRenderedObjects()
+      renderedObjects.forEach((objArray) => {
+        objArray.forEach((obj) => {
+          dxfObjects.push(obj)
+        })
+      })
+    }
+    return dxfObjects
+  })
 }
 
 const toggleGridFloor = () => {
@@ -3708,22 +3722,19 @@ const organizeMap = () => {
     return
   }
 
-  const allObjects: THREE.Object3D[] = []
-
-  objects.forEach((obj) => {
-    allObjects.push(obj)
-  })
+  const dxfObjects: THREE.Object3D[] = []
 
   if (renderManager) {
     const renderedObjects = renderManager.getRenderedObjects()
     renderedObjects.forEach((objArray) => {
       objArray.forEach((obj) => {
-        allObjects.push(obj)
+        dxfObjects.push(obj)
       })
     })
   }
 
-  mapOrganizer.organize(allObjects)
+  console.log('地图整理：只对DXF对象进行相交判断，DXF对象数量:', dxfObjects.length)
+  mapOrganizer.organize(dxfObjects)
 }
 
 const resetMapColors = () => {

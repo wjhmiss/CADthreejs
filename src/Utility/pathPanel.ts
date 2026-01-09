@@ -1,6 +1,9 @@
 import * as THREE from 'three'
 import { pathManager, type PathConfig, type PathMesh } from './path'
 import { objectMovementManager } from './objectMovement'
+import { pathfindingService, type PathFindingResponse } from './pathfindingService'
+import { GridFloor } from './gridFloor'
+import { MapOrganizer } from './mapOrganizer'
 
 export interface PathObject {
   id: string
@@ -36,6 +39,8 @@ class PathPanelManager {
   private config: Required<PathPanelConfig>
   private selectedPathId: string = ''
   private onPathUpdateCallback: ((pathId: string) => void) | null = null
+  private gridFloor: GridFloor | null = null
+  private mapOrganizer: MapOrganizer | null = null
 
   constructor(config: PathPanelConfig = {}) {
     this.config = {
@@ -47,6 +52,20 @@ class PathPanelManager {
       itemBackgroundColor: config.itemBackgroundColor || '#f5f5f5',
       itemHoverColor: config.itemHoverColor || '#e0e0e0'
     }
+  }
+
+  setGridFloor(gridFloor: GridFloor): void {
+    this.gridFloor = gridFloor
+  }
+
+  setMapOrganizer(mapOrganizer: MapOrganizer): void {
+    this.mapOrganizer = mapOrganizer
+  }
+
+  private getDXFObjects: (() => THREE.Object3D[]) | null = null
+
+  setDXFObjectsProvider(provider: () => THREE.Object3D[]): void {
+    this.getDXFObjects = provider
   }
 
   initialize(container: HTMLElement): void {
@@ -595,11 +614,16 @@ class PathPanelManager {
     }
   }
 
-  private generatePathFromSelectedObjects(): void {
+  private async generatePathFromSelectedObjects(): Promise<void> {
     const selectedObjects = this.objects.filter(obj => obj.selected)
     
     if (selectedObjects.length < 2) {
       alert('请至少选择2个对象来生成路径')
+      return
+    }
+
+    if (!this.gridFloor) {
+      alert('网格地面未初始化，无法生成路径')
       return
     }
 
@@ -610,53 +634,125 @@ class PathPanelManager {
     console.log('[PathPanel] 生成路径，点数:', points.length)
     console.log('[PathPanel] 路径点:', points)
 
-    const config: PathConfig = {
-      points,
-      width: 1,
-      cornerRadius: 1,
-      cornerSplit: 10,
-      color: 0x58dede,
-      transparent: true,
-      opacity: 0.9,
-      blending: THREE.NormalBlending,
-      side: THREE.FrontSide,
-      arrow: false,
-      texture: '/images/path_007_18.png',
-      useTexture: true,
-      scrollUV: true,
-      scrollSpeed: 0.8,
-      progress: 1,
-      playSpeed: 0.14,
-      speed: 0.48,
-      parallelToXZ: true,
-      loopProgress: false,
-      textureWrapS: THREE.RepeatWrapping,
-      textureWrapT: THREE.RepeatWrapping,
-      textureRepeatX: 1,
-      textureRepeatY: 1,
-      textureOffsetX: 0,
-      textureOffsetY: 0
-    }
+    try {
+      const gridConfig = this.gridFloor.getConfig()
+      
+      console.log('[PathPanel] 开始自动地图整理以获取障碍物...')
+      
+      if (this.mapOrganizer) {
+        const dxfObjects: THREE.Object3D[] = []
+        
+        if (this.getDXFObjects) {
+          dxfObjects.push(...this.getDXFObjects())
+          console.log('[PathPanel] 获取到DXF对象数量:', dxfObjects.length)
+        } else {
+          console.warn('[PathPanel] DXF对象提供者未设置，将使用路径面板中的对象')
+          this.objects.forEach((obj) => {
+            dxfObjects.push(obj.object)
+          })
+        }
+        
+        const organizeResult = this.mapOrganizer.organize(dxfObjects)
+        console.log('[PathPanel] 地图整理完成，检测到', organizeResult.intersectedCount, '个障碍物')
+      } else {
+        console.warn('[PathPanel] 地图整理器未初始化，将使用现有障碍物数据')
+      }
+      
+      const waypoints = pathfindingService.convert3DPointsToWaypoints(points, this.gridFloor)
+      const obstacles = pathfindingService.getObstacleCells(this.gridFloor)
 
-    const pathId = pathManager.createPath(config, defaultName, objectIds)
-    
-    console.log('[PathPanel] 创建的路径ID:', pathId)
-    
-    if (pathId) {
-      const pathInfo: PathInfo = {
-        id: pathId,
-        name: defaultName,
-        objectIds,
-        config
+      console.log('[PathPanel] 调用路径规划API...')
+      console.log('[PathPanel] 路径点(网格坐标):', waypoints)
+      console.log('[PathPanel] 障碍物(网格坐标):', obstacles)
+      console.log('[PathPanel] 障碍物数量:', obstacles.length)
+      console.log('[PathPanel] 网格大小:', gridConfig.gridSize)
+
+      const response: PathFindingResponse = await pathfindingService.findPathWithWaypoints({
+        waypoints,
+        obstacles,
+        gridWidth: gridConfig.gridSize,
+        gridHeight: gridConfig.gridSize,
+        allowDiagonal: false
+      })
+
+      if (!response.success || !response.path || response.path.length === 0) {
+        alert(`路径规划失败: ${response.message || '未知错误'}`)
+        return
       }
+
+      console.log('[PathPanel] 路径规划成功，路径点数:', response.path.length)
+      console.log('[PathPanel] 返回的路径点:', response.path)
       
-      this.paths.push(pathInfo)
-      this.updatePathList()
-      this.switchTab('paths')
+      console.log('[PathPanel] 原始选中对象的3D点:', points)
+      console.log('[PathPanel] points[0]:', points[0])
+      console.log('[PathPanel] points[0].y:', points[0].y)
+      console.log('[PathPanel] points[0].y 类型:', typeof points[0].y)
+      console.log('[PathPanel] isNaN(points[0].y):', isNaN(points[0].y))
+
+      const pathPoints3D = pathfindingService.convertWaypointsTo3DPoints(response.path, this.gridFloor, points[0].y)
+
+      console.log('[PathPanel] 转换后的3D路径点:', pathPoints3D)
+      console.log('[PathPanel] 3D路径点数量:', pathPoints3D.length)
+      console.log('[PathPanel] 第一个3D点:', pathPoints3D[0])
+      console.log('[PathPanel] 最后一个3D点:', pathPoints3D[pathPoints3D.length - 1])
       
-      if (this.onPathUpdateCallback) {
-        this.onPathUpdateCallback(pathId)
+      if (pathPoints3D.length < 2) {
+        console.error('[PathPanel] 错误：转换后的3D路径点数量不足，无法创建路径')
+        alert('路径点数量不足，无法创建路径')
+        return
       }
+
+      const config: PathConfig = {
+        points: pathPoints3D,
+        width: 1,
+        cornerRadius: 1,
+        cornerSplit: 10,
+        color: 0x58dede,
+        transparent: true,
+        opacity: 0.9,
+        blending: THREE.NormalBlending,
+        side: THREE.FrontSide,
+        arrow: false,
+        texture: '/images/path_007_18.png',
+        useTexture: true,
+        scrollUV: true,
+        scrollSpeed: 0.8,
+        progress: 1,
+        playSpeed: 0.14,
+        speed: 0.48,
+        parallelToXZ: true,
+        loopProgress: false,
+        textureWrapS: THREE.RepeatWrapping,
+        textureWrapT: THREE.RepeatWrapping,
+        textureRepeatX: 1,
+        textureRepeatY: 1,
+        textureOffsetX: 0,
+        textureOffsetY: 0
+      }
+
+      const pathId = pathManager.createPath(config, defaultName, objectIds)
+      
+      console.log('[PathPanel] 创建的路径ID:', pathId)
+      
+      if (pathId) {
+        const pathInfo: PathInfo = {
+          id: pathId,
+          name: defaultName,
+          objectIds,
+          config
+        }
+        
+        this.paths.push(pathInfo)
+        this.updatePathList()
+        this.switchTab('paths')
+        
+        if (this.onPathUpdateCallback) {
+          this.onPathUpdateCallback(pathId)
+        }
+      }
+    } catch (error: any) {
+      console.error('[PathPanel] 路径生成失败:', error)
+      alert(`路径生成失败: ${error.message}`)
     }
   }
 
