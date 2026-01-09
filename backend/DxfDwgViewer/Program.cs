@@ -33,11 +33,6 @@ builder.Services.AddCors(options =>
     });
 });
 
-builder.Services.AddSingleton<PathFindingService>(sp =>
-{
-    return new PathFindingService(100, 100, true);
-});
-
 var app = builder.Build();
 
 app.UseCors("AllowAll");
@@ -198,20 +193,24 @@ app.MapGet("/api/parse/drawing1", (ILogger<Program> logger) =>
 })
 .WithName("ParseDrawing1");
 
-app.MapPost("/api/pathfinding/find-with-waypoints", (PathFindingWithWaypointsRequest request, PathFindingService pathFindingService, ILogger<Program> logger) =>
+app.MapPost("/api/pathfinding/find-with-waypoints", (PathFindingWithWaypointsRequest request, ILogger<Program> logger) =>
 {
     try
     {
-        logger.LogInformation($"收到多路径点规划请求: 路径点数量={request.Waypoints?.Count ?? 0}, 障碍物数量={request.Obstacles?.Count ?? 0}");
+        logger.LogInformation($"收到多路径点规划请求: 路径点数量={request.Waypoints?.Count ?? 0}, 障碍物数量={request.Obstacles?.Count ?? 0}, 地图大小={request.GridWidth}x{request.GridHeight}, 允许对角线={request.AllowDiagonal}");
         
         if (request.Waypoints == null || request.Waypoints.Count < 2)
         {
             return Results.BadRequest(new { error = "路径点数量必须大于等于2" });
         }
 
+        var pathFindingService = new PathFindingService();
         var result = pathFindingService.FindPathWithWaypoints(
             request.Waypoints,
-            request.Obstacles);
+            request.Obstacles,
+            request.GridWidth,
+            request.GridHeight,
+            request.AllowDiagonal);
         
         logger.LogInformation($"多路径点规划完成: 成功={result.Success}, 路径长度={result.Path?.Count ?? 0}, 节点数={result.NodesExplored}, 耗时={result.ExecutionTimeMs}ms");
         
@@ -223,57 +222,11 @@ app.MapPost("/api/pathfinding/find-with-waypoints", (PathFindingWithWaypointsReq
         return Results.Problem(
             detail: ex.Message,
             statusCode: 500,
-            title: "多路径点规划时发生错误"
+            title = "多路径点规划时发生错误"
         );
     }
 })
 .WithName("FindPathWithWaypoints");
-
-app.MapPost("/api/pathfinding/set-obstacles", (SetObstaclesRequest request, PathFindingService pathFindingService, ILogger<Program> logger) =>
-{
-    try
-    {
-        logger.LogInformation($"设置障碍物: 数量={request.Obstacles?.Count ?? 0}");
-        
-        if (request.ClearExisting)
-        {
-            pathFindingService.ClearObstacles();
-        }
-        
-        if (request.Obstacles != null && request.Obstacles.Count > 0)
-        {
-            pathFindingService.SetObstacles(request.Obstacles);
-        }
-        
-        return Results.Ok(new 
-        { 
-            success = true,
-            message = $"成功设置 {request.Obstacles?.Count ?? 0} 个障碍物",
-            gridSize = new { width = pathFindingService.GridWidth, height = pathFindingService.GridHeight }
-        });
-    }
-    catch (Exception ex)
-    {
-        logger.LogError(ex, "设置障碍物时发生错误");
-        return Results.Problem(
-            detail: ex.Message,
-            statusCode: 500,
-            title: "设置障碍物时发生错误"
-        );
-    }
-})
-.WithName("SetObstacles");
-
-app.MapGet("/api/pathfinding/grid-info", (PathFindingService pathFindingService) =>
-{
-    return Results.Ok(new 
-    { 
-        width = pathFindingService.GridWidth,
-        height = pathFindingService.GridHeight,
-        message = "网格信息获取成功"
-    });
-})
-.WithName("GetGridInfo");
 
 app.Run();
 
@@ -282,16 +235,13 @@ public class ParseRequest
     public string FilePath { get; set; } = string.Empty;
 }
 
-public class SetObstaclesRequest
-{
-    public List<(int X, int Y)>? Obstacles { get; set; }
-    public bool ClearExisting { get; set; } = false;
-}
-
 public class PathFindingWithWaypointsRequest
 {
     public List<(int X, int Y)> Waypoints { get; set; } = new List<(int, int)>();
     public List<(int X, int Y)>? Obstacles { get; set; }
+    public int GridWidth { get; set; } = 100;
+    public int GridHeight { get; set; } = 100;
+    public bool AllowDiagonal { get; set; } = true;
 }
 
 public class FileUploadOperationFilter : IOperationFilter

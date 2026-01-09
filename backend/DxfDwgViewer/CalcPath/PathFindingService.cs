@@ -2,40 +2,15 @@ namespace DxfDwgViewer.CalcPath
 {
     public class PathFindingService
     {
-        private readonly GridMap _gridMap;
-        private readonly AStarPathFinder _pathFinder;
+        private const int DefaultGridWidth = 100;
+        private const int DefaultGridHeight = 100;
+        private const bool DefaultAllowDiagonal = true;
 
-        public PathFindingService(int width, int height, bool allowDiagonal = true)
+        public PathFindingService()
         {
-            _gridMap = new GridMap(width, height);
-            _pathFinder = new AStarPathFinder(_gridMap, allowDiagonal);
         }
 
-        public void SetObstacle(int x, int y, bool isObstacle)
-        {
-            _gridMap.SetWalkable(x, y, !isObstacle);
-        }
-
-        public void SetObstacles(List<(int X, int Y)> obstacles)
-        {
-            foreach (var obstacle in obstacles)
-            {
-                SetObstacle(obstacle.X, obstacle.Y, true);
-            }
-        }
-
-        public void ClearObstacles()
-        {
-            for (int y = 0; y < _gridMap.Height; y++)
-            {
-                for (int x = 0; x < _gridMap.Width; x++)
-                {
-                    _gridMap.SetWalkable(x, y, true);
-                }
-            }
-        }
-
-        public PathFindingResult FindPathWithWaypoints(List<(int X, int Y)> waypoints, List<(int X, int Y)> obstacles = null)
+        public PathFindingResult FindPathWithWaypoints(List<(int X, int Y)> waypoints, List<(int X, int Y)> obstacles = null, int gridWidth = 100, int gridHeight = 100, bool allowDiagonal = true)
         {
             if (waypoints == null || waypoints.Count < 2)
             {
@@ -46,10 +21,42 @@ namespace DxfDwgViewer.CalcPath
                 };
             }
 
+            foreach (var waypoint in waypoints)
+            {
+                if (waypoint.X < 0 || waypoint.X >= gridWidth || waypoint.Y < 0 || waypoint.Y >= gridHeight)
+                {
+                    return new PathFindingResult
+                    {
+                        Success = false,
+                        Message = $"路径点 ({waypoint.X}, {waypoint.Y}) 超出地图范围，地图大小为 {gridWidth}x{gridHeight}"
+                    };
+                }
+            }
+
             if (obstacles != null)
             {
-                ClearObstacles();
-                SetObstacles(obstacles);
+                foreach (var obstacle in obstacles)
+                {
+                    if (obstacle.X < 0 || obstacle.X >= gridWidth || obstacle.Y < 0 || obstacle.Y >= gridHeight)
+                    {
+                        return new PathFindingResult
+                        {
+                            Success = false,
+                            Message = $"障碍物 ({obstacle.X}, {obstacle.Y}) 超出地图范围，地图大小为 {gridWidth}x{gridHeight}"
+                        };
+                    }
+                }
+            }
+
+            var gridMap = new GridMap(gridWidth, gridHeight);
+            var pathFinder = new AStarPathFinder(gridMap, allowDiagonal);
+
+            if (obstacles != null && obstacles.Count > 0)
+            {
+                foreach (var obstacle in obstacles)
+                {
+                    gridMap.SetWalkable(obstacle.X, obstacle.Y, false);
+                }
             }
 
             var fullPath = new List<(int, int)>();
@@ -62,7 +69,7 @@ namespace DxfDwgViewer.CalcPath
                 var start = waypoints[i];
                 var end = waypoints[i + 1];
 
-                var segmentResult = _pathFinder.FindPath(start.X, start.Y, end.X, end.Y);
+                var segmentResult = pathFinder.FindPath(start.X, start.Y, end.X, end.Y);
 
                 if (!segmentResult.Success)
                 {
@@ -99,8 +106,5 @@ namespace DxfDwgViewer.CalcPath
                 ExecutionTimeMs = stopwatch.ElapsedMilliseconds
             };
         }
-
-        public int GridWidth => _gridMap.Width;
-        public int GridHeight => _gridMap.Height;
     }
 }
