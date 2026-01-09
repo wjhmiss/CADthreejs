@@ -58,6 +58,21 @@
       </div>
     </div>
 
+    <!-- DXF偏移控件 -->
+    <div class="dxf-offset-control">
+      <span class="offset-label">DXF偏移:</span>
+      <div class="offset-inputs">
+        <div class="offset-input-group">
+          <span class="axis-label">X:</span>
+          <input type="number" v-model.number="dxfOffsetX" @input="updateDxfOffset" step="0.1" min="-100" max="100" class="offset-input" />
+        </div>
+        <div class="offset-input-group">
+          <span class="axis-label">Z:</span>
+          <input type="number" v-model.number="dxfOffsetZ" @input="updateDxfOffset" step="0.1" min="-100" max="100" class="offset-input" />
+        </div>
+      </div>
+    </div>
+
     <!-- 场景颜色设置 -->
     <div class="scene-color-control">
       <div class="color-control-row">
@@ -493,6 +508,8 @@ const dxfScale = ref(1.0)
 const dxfFlipX = ref(0)
 const dxfFlipY = ref(0)
 const dxfFlipZ = ref(0)
+const dxfOffsetX = ref(0)
+const dxfOffsetZ = ref(0)
 
 const centeringOptions = ref({
   centerX: true,
@@ -3079,6 +3096,14 @@ const handleDxfFlipChange = () => {
     const yRad = (dxfFlipY.value * Math.PI) / 180
     const zRad = (dxfFlipZ.value * Math.PI) / 180
     renderManager.setFlipRotation(xRad, yRad, zRad)
+  }
+}
+
+// 更新DXF偏移
+const updateDxfOffset = () => {
+  if (renderManager) {
+    renderManager.updateDxfOffset(dxfOffsetX.value, dxfOffsetZ.value)
+    debounceRecalculatePaths()
   }
 }
 

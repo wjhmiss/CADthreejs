@@ -95,6 +95,8 @@ export class RenderManager {
     applyTransform: true
   };
   private dxfObjectColor: string = '#111111';
+  private dxfOffsetX: number = 0;
+  private dxfOffsetZ: number = 0;
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
@@ -672,5 +674,57 @@ export class RenderManager {
 
   public getDxfObjectColor(): string {
     return this.dxfObjectColor;
+  }
+
+  public getDxfOffset(): { x: number; z: number } {
+    return { x: this.dxfOffsetX, z: this.dxfOffsetZ };
+  }
+
+  public updateDxfOffset(offsetX: number, offsetZ: number): void {
+    const deltaX = offsetX - this.dxfOffsetX;
+    const deltaZ = offsetZ - this.dxfOffsetZ;
+
+    if (deltaX === 0 && deltaZ === 0) {
+      return;
+    }
+
+    this.renderedObjects.forEach((objects) => {
+      objects.forEach((obj) => {
+        obj.position.x += deltaX;
+        obj.position.z += deltaZ;
+      });
+    });
+
+    this.boundingBox.translate(new THREE.Vector3(deltaX, 0, deltaZ));
+    this.originalBoundingBox.translate(new THREE.Vector3(deltaX, 0, deltaZ));
+
+    this.dxfOffsetX = offsetX;
+    this.dxfOffsetZ = offsetZ;
+
+    console.log(`RenderManager: DXF offset updated to (${this.dxfOffsetX.toFixed(2)}, ${this.dxfOffsetZ.toFixed(2)})`);
+  }
+
+  public resetDxfOffset(): void {
+    if (this.dxfOffsetX === 0 && this.dxfOffsetZ === 0) {
+      return;
+    }
+
+    const deltaX = -this.dxfOffsetX;
+    const deltaZ = -this.dxfOffsetZ;
+
+    this.renderedObjects.forEach((objects) => {
+      objects.forEach((obj) => {
+        obj.position.x += deltaX;
+        obj.position.z += deltaZ;
+      });
+    });
+
+    this.boundingBox.translate(new THREE.Vector3(deltaX, 0, deltaZ));
+    this.originalBoundingBox.translate(new THREE.Vector3(deltaX, 0, deltaZ));
+
+    console.log(`RenderManager: DXF offset reset from (${this.dxfOffsetX.toFixed(2)}, ${this.dxfOffsetZ.toFixed(2)}) to (0, 0)`);
+
+    this.dxfOffsetX = 0;
+    this.dxfOffsetZ = 0;
   }
 }
