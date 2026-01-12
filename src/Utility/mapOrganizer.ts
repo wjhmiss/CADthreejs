@@ -3,6 +3,7 @@ import { GridFloor } from './gridFloor'
 
 export interface MapOrganizerConfig {
   intersectedEdgeColor: string
+  markIntersectedCells: boolean
 }
 
 export class MapOrganizer {
@@ -13,6 +14,7 @@ export class MapOrganizer {
     this.gridFloor = gridFloor
     this.config = {
       intersectedEdgeColor: '#ff0000',
+      markIntersectedCells: false,
       ...config
     }
   }
@@ -68,9 +70,11 @@ export class MapOrganizer {
 
           if (xOverlap && zOverlap) {
             if (this.checkEdgeIntersection(obj, cellMinX, cellMaxX, cellMinZ, cellMaxZ)) {
-              this.gridFloor.setCellEdgeColor(row, col, this.config.intersectedEdgeColor)
-              this.gridFloor.setCellVisible(row, col, true)
-              intersectedCount++
+              if (this.config.markIntersectedCells) {
+                this.gridFloor.setCellEdgeColor(row, col, this.config.intersectedEdgeColor)
+                this.gridFloor.setCellVisible(row, col, true)
+                intersectedCount++
+              }
             }
           }
         }
@@ -126,5 +130,9 @@ export class MapOrganizer {
 
   setIntersectedColor(edgeColor: string): void {
     this.config.intersectedEdgeColor = edgeColor
+  }
+
+  setMarkIntersectedCells(mark: boolean): void {
+    this.config.markIntersectedCells = mark
   }
 }

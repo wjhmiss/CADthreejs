@@ -124,6 +124,10 @@
         <span class="property-label">Z轴偏移:</span>
         <input type="number" v-model.number="gridFloorOffsetZ" @input="updateGridFloorOffset" min="-100" max="100" step="0.1" class="property-input" />
       </div>
+      <div class="property-row">
+        <span class="property-label">标记相交方格:</span>
+        <input type="checkbox" v-model="markIntersectedCells" @change="updateMarkIntersectedCells" class="property-checkbox" />
+      </div>
 
       <!-- 网格方块设置 -->
       <div v-if="selectedGridCell" class="property-group">
@@ -579,6 +583,7 @@ const gridFloorCellSize = ref(1)
 const gridFloorDefaultEdgeColor = ref('#808080')
 const gridFloorOffsetX = ref(0)
 const gridFloorOffsetZ = ref(0)
+const markIntersectedCells = ref(false)
 let gridFloorRecalculateTimer: number | null = null
 const selectedGridCell = ref<{ row: number; col: number } | null>(null)
 const gridCellEdgeColor = ref('#808080')
@@ -3668,7 +3673,7 @@ const initGridFloor = () => {
     cellSize: gridFloorCellSize.value,
     defaultEdgeColor: gridFloorDefaultEdgeColor.value
   })
-  mapOrganizer = new MapOrganizer(gridFloor)
+  mapOrganizer = new MapOrganizer(gridFloor, { markIntersectedCells: markIntersectedCells.value })
   pathPanelManager.setGridFloor(gridFloor)
   pathPanelManager.setMapOrganizer(mapOrganizer)
   pathPanelManager.setDXFObjectsProvider(() => {
@@ -3715,6 +3720,34 @@ const updateGridFloorOffset = () => {
   if (gridFloor) {
     gridFloor.updateOffset(gridFloorOffsetX.value, gridFloorOffsetZ.value)
     debounceRecalculatePaths()
+  }
+}
+
+const organizeMap = () => {
+  if (!mapOrganizer) {
+    console.log('地图整理器未初始化')
+    return
+  }
+
+  const dxfObjects: THREE.Object3D[] = []
+
+  if (renderManager) {
+    const renderedObjects = renderManager.getRenderedObjects()
+    renderedObjects.forEach((objArray) => {
+      objArray.forEach((obj) => {
+        dxfObjects.push(obj)
+      })
+    })
+  }
+
+  console.log('地图整理：只对DXF对象进行相交判断，DXF对象数量:', dxfObjects.length)
+  mapOrganizer.organize(dxfObjects)
+}
+
+const updateMarkIntersectedCells = () => {
+  if (mapOrganizer) {
+    mapOrganizer.setMarkIntersectedCells(markIntersectedCells.value)
+    organizeMap()
   }
 }
 
@@ -3806,27 +3839,6 @@ const handleGroundObjects = () => {
   })
   
   console.log(`落地操作完成，共调整了 ${groundedCount} 个物体的位置`)
-}
-
-const organizeMap = () => {
-  if (!mapOrganizer) {
-    console.log('地图整理器未初始化')
-    return
-  }
-
-  const dxfObjects: THREE.Object3D[] = []
-
-  if (renderManager) {
-    const renderedObjects = renderManager.getRenderedObjects()
-    renderedObjects.forEach((objArray) => {
-      objArray.forEach((obj) => {
-        dxfObjects.push(obj)
-      })
-    })
-  }
-
-  console.log('地图整理：只对DXF对象进行相交判断，DXF对象数量:', dxfObjects.length)
-  mapOrganizer.organize(dxfObjects)
 }
 
 const resetMapColors = () => {
