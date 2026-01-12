@@ -416,7 +416,7 @@
       <div class="property-row">
         <span class="property-label">路径:</span>
         <select v-if="transformControlsRef?.object === selectedObject && !isObjectInPath"
-          @change="handlePathSelect" @click.stop class="property-select">
+          v-model="selectedPathId" @change="handlePathSelect" @click.stop class="property-select">
           <option value="">选择路径</option>
           <option v-for="path in availablePaths" :key="path.id" :value="path.id">{{ path.name }}</option>
         </select>
@@ -1297,14 +1297,17 @@ const selectObject = (object: THREE.Object3D) => {
 
 // 取消选择对象
 const deselectObject = () => {
+  console.log('[deselectObject] 取消选择对象')
   // 如果当前有对象处于编辑模式，不执行取消选择操作
   if (transformControls.object) {
+    console.log('[deselectObject] 对象正在编辑中，跳过取消选择')
     return
   }
 
   selectedObject.value = null
   
   // 重置对象移动状态
+  console.log('[deselectObject] 重置UI状态')
   selectedPathId.value = null
   selectedPathName.value = ''
   movementSpeed.value = 1.0
@@ -2426,6 +2429,7 @@ const handleEnterEditMode = () => {
 
 // 处理退出编辑模式
 const handleExitEditMode = () => {
+  console.log('[handleExitEditMode] 退出编辑模式')
   exitEditMode()
   // 取消选择对象，确保UI完全退出编辑状态
   deselectObject()
@@ -2560,6 +2564,21 @@ const exitEditMode = () => {
     const currentObject = transformControls.object
     groundObject(currentObject)
     
+    console.log('[exitEditMode] 退出编辑模式，当前对象:', currentObject.name)
+    
+    // 保存对象的路径选择状态
+    if (selectedPathId.value) {
+      console.log('[exitEditMode] 保存路径选择状态:', selectedPathId.value)
+      objectMovementManager.setMovementState(currentObject, selectedPathId.value, {
+        speed: movementSpeed.value,
+        loops: movementLoops.value,
+        facingDirection: facingDirection.value
+      }, {
+        isMoving: isMoving.value,
+        currentPosition: currentObject.position.toArray()
+      })
+    }
+    
     // 保存对象的缩放和旋转设置到 localStorage
     if (currentObject.userData.isGLB) {
       // 保存GLB模型的设置
@@ -2653,13 +2672,18 @@ const toggleTransformControls = () => {
 
   // 更新对象移动状态
   isObjectInPath.value = objectMovementManager.isObjectInPath(selectedObject.value.uuid)
+  console.log('[toggleTransformControls] 对象UUID:', selectedObject.value.uuid)
+  console.log('[toggleTransformControls] 对象是否在路径中:', isObjectInPath.value)
   if (isObjectInPath.value) {
     selectedPathId.value = null
     selectedPathName.value = '对象在路径中'
     availablePaths.value = []
   } else {
     availablePaths.value = objectMovementManager.getAvailablePaths(selectedObject.value.uuid)
+    console.log('[toggleTransformControls] 可用路径数量:', availablePaths.value.length)
+    console.log('[toggleTransformControls] 可用路径列表:', availablePaths.value.map(p => ({ id: p.id, name: p.name })))
     const movementState = objectMovementManager.getMovementState(selectedObject.value.uuid)
+    console.log('[toggleTransformControls] 获取到的移动状态:', movementState)
     if (movementState) {
       selectedPathId.value = movementState.pathId
       const path = pathManager.getPathById(movementState.pathId)
@@ -2668,12 +2692,15 @@ const toggleTransformControls = () => {
       movementLoops.value = movementState.loops
       facingDirection.value = movementState.facingDirection || 'none'
       isMoving.value = movementState.isMoving
+      console.log('[toggleTransformControls] 恢复路径选择状态:', selectedPathId.value, selectedPathName.value)
+      console.log('[toggleTransformControls] 找到的路径:', path)
     } else {
       selectedPathId.value = null
       selectedPathName.value = ''
       movementSpeed.value = 1.0
       movementLoops.value = 1
       isMoving.value = false
+      console.log('[toggleTransformControls] 没有找到移动状态，重置UI')
     }
   }
 }
@@ -2721,10 +2748,35 @@ const updateObjectScale = () => {
 const handlePathSelect = (event: Event) => {
   const target = event.target as HTMLSelectElement
   const pathId = target.value
+  console.log('[handlePathSelect] 选择路径:', pathId)
+  console.log('[handlePathSelect] pathId 类型:', typeof pathId)
+  console.log('[handlePathSelect] pathId 长度:', pathId.length)
   if (selectedObject.value) {
     selectedPathId.value = pathId || null
     const path = pathManager.getPathById(pathId)
+    console.log('[handlePathSelect] 找到的路径:', path)
     selectedPathName.value = path?.name || ''
+    
+    if (pathId) {
+      console.log('[handlePathSelect] 保存路径状态到 ObjectMovementManager')
+      const result = objectMovementManager.setMovementState(selectedObject.value, pathId, {
+        speed: movementSpeed.value,
+        loops: movementLoops.value,
+        facingDirection: facingDirection.value
+      }, {
+        isMoving: false,
+        currentPosition: selectedObject.value.position.toArray()
+      })
+      console.log('[handlePathSelect] 保存结果:', result)
+      
+      // 验证状态是否被正确保存
+      const savedState = objectMovementManager.getMovementState(selectedObject.value.uuid)
+      console.log('[handlePathSelect] 验证保存的状态:', savedState)
+    } else {
+      console.log('[handlePathSelect] 清除路径状态')
+      // 清除路径状态
+      objectMovementManager.clearMovementState(selectedObject.value.uuid)
+    }
   }
 }
 

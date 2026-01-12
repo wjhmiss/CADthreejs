@@ -182,6 +182,13 @@ class ObjectMovementManager {
     return this.movements.get(objectId)
   }
 
+  clearMovementState(objectId: string): void {
+    console.log('[ObjectMovementManager] clearMovementState() 被调用')
+    console.log('[ObjectMovementManager] 对象ID:', objectId)
+    this.movements.delete(objectId)
+    console.log('[ObjectMovementManager] 已清除对象移动状态')
+  }
+
   private getPathPoints(pathMesh: PathMesh): THREE.Vector3[] {
     if (this.pathCache.has(pathMesh.id)) {
       return this.pathCache.get(pathMesh.id)!
