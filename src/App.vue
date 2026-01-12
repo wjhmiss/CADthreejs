@@ -478,7 +478,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import DxfUpload from './DxfUpload.vue'
 import { RenderManager } from './Renders/RenderManager'
 import { breathingLightManager, DEFAULT_CONFIG } from './Utility/breathingLight'
-import { outlineGlowManager } from './Utility/outlineGlow'
+import { outlineGlowManager, DEFAULT_CONFIG as OUTLINE_GLOW_DEFAULT_CONFIG } from './Utility/outlineGlow'
 import { pathPanelManager } from './Utility/pathPanel'
 import { pathManager } from './Utility/path'
 import { objectMovementManager } from './Utility/objectMovement'
@@ -686,7 +686,6 @@ const initThreeJS = () => {
   outlineGlowManager.setComposer(composer)
   outlineGlowManager.setScene(scene)
   outlineGlowManager.setCamera(camera)
-  outlineGlowManager.initOutlinePass()
 
   // 创建CSS2D渲染器（用于标签）
   labelRenderer = new CSS2DRenderer()
@@ -1076,6 +1075,44 @@ const onRightClick = (event: MouseEvent) => {
         z: targetObject.scale.z
       }
 
+      // 初始化呼吸灯配置
+      const breathingLightConfig = breathingLightManager.getBreathingLightConfig(targetObject)
+      if (breathingLightConfig) {
+        breathingLightEnabled.value = breathingLightConfig.enabled
+        breathingLightColor.value = breathingLightConfig.color
+        breathingLightFrequency.value = breathingLightConfig.frequency
+        breathingLightIntensity.value = breathingLightConfig.intensity
+      } else {
+        breathingLightEnabled.value = DEFAULT_CONFIG.enabled
+        breathingLightColor.value = DEFAULT_CONFIG.color
+        breathingLightFrequency.value = DEFAULT_CONFIG.frequency
+        breathingLightIntensity.value = DEFAULT_CONFIG.intensity
+      }
+
+      // 初始化边缘发光配置
+      const outlineGlowConfig = outlineGlowManager.getOutlineGlowConfig(targetObject)
+      if (outlineGlowConfig) {
+        outlineGlowEnabled.value = outlineGlowConfig.enabled
+        outlineGlowVisibleColor.value = outlineGlowConfig.visibleEdgeColor
+        outlineGlowHiddenColor.value = outlineGlowConfig.hiddenEdgeColor
+        outlineGlowEdgeStrength.value = outlineGlowConfig.edgeStrength
+        outlineGlowEdgeGlow.value = outlineGlowConfig.edgeGlow
+        outlineGlowEdgeThickness.value = outlineGlowConfig.edgeThickness
+        outlineGlowPulsePeriod.value = outlineGlowConfig.pulsePeriod
+        outlineGlowFrequency.value = outlineGlowConfig.frequency
+        outlineGlowGradient.value = outlineGlowConfig.gradient
+      } else {
+        outlineGlowEnabled.value = OUTLINE_GLOW_DEFAULT_CONFIG.enabled
+        outlineGlowVisibleColor.value = OUTLINE_GLOW_DEFAULT_CONFIG.visibleEdgeColor
+        outlineGlowHiddenColor.value = OUTLINE_GLOW_DEFAULT_CONFIG.hiddenEdgeColor
+        outlineGlowEdgeStrength.value = OUTLINE_GLOW_DEFAULT_CONFIG.edgeStrength
+        outlineGlowEdgeGlow.value = OUTLINE_GLOW_DEFAULT_CONFIG.edgeGlow
+        outlineGlowEdgeThickness.value = OUTLINE_GLOW_DEFAULT_CONFIG.edgeThickness
+        outlineGlowPulsePeriod.value = OUTLINE_GLOW_DEFAULT_CONFIG.pulsePeriod
+        outlineGlowFrequency.value = OUTLINE_GLOW_DEFAULT_CONFIG.frequency
+        outlineGlowGradient.value = OUTLINE_GLOW_DEFAULT_CONFIG.gradient
+      }
+
       // 更新对象移动状态
       isObjectInPath.value = objectMovementManager.isObjectInPath(targetObject.uuid)
       if (isObjectInPath.value) {
@@ -1201,6 +1238,30 @@ const selectObject = (object: THREE.Object3D) => {
     breathingLightColor.value = DEFAULT_CONFIG.color
     breathingLightFrequency.value = DEFAULT_CONFIG.frequency
     breathingLightIntensity.value = DEFAULT_CONFIG.intensity
+  }
+
+  // 初始化边缘发光配置
+  const outlineGlowConfig = outlineGlowManager.getOutlineGlowConfig(object)
+  if (outlineGlowConfig) {
+    outlineGlowEnabled.value = outlineGlowConfig.enabled
+    outlineGlowVisibleColor.value = outlineGlowConfig.visibleEdgeColor
+    outlineGlowHiddenColor.value = outlineGlowConfig.hiddenEdgeColor
+    outlineGlowEdgeStrength.value = outlineGlowConfig.edgeStrength
+    outlineGlowEdgeGlow.value = outlineGlowConfig.edgeGlow
+    outlineGlowEdgeThickness.value = outlineGlowConfig.edgeThickness
+    outlineGlowPulsePeriod.value = outlineGlowConfig.pulsePeriod
+    outlineGlowFrequency.value = outlineGlowConfig.frequency
+    outlineGlowGradient.value = outlineGlowConfig.gradient
+  } else {
+    outlineGlowEnabled.value = OUTLINE_GLOW_DEFAULT_CONFIG.enabled
+    outlineGlowVisibleColor.value = OUTLINE_GLOW_DEFAULT_CONFIG.visibleEdgeColor
+    outlineGlowHiddenColor.value = OUTLINE_GLOW_DEFAULT_CONFIG.hiddenEdgeColor
+    outlineGlowEdgeStrength.value = OUTLINE_GLOW_DEFAULT_CONFIG.edgeStrength
+    outlineGlowEdgeGlow.value = OUTLINE_GLOW_DEFAULT_CONFIG.edgeGlow
+    outlineGlowEdgeThickness.value = OUTLINE_GLOW_DEFAULT_CONFIG.edgeThickness
+    outlineGlowPulsePeriod.value = OUTLINE_GLOW_DEFAULT_CONFIG.pulsePeriod
+    outlineGlowFrequency.value = OUTLINE_GLOW_DEFAULT_CONFIG.frequency
+    outlineGlowGradient.value = OUTLINE_GLOW_DEFAULT_CONFIG.gradient
   }
 
   // 更新对象移动状态
@@ -2864,59 +2925,93 @@ const updateBreathingLightIntensity = () => {
 const updateOutlineGlowEnabled = () => {
   if (selectedObject.value && transformControlsRef.value?.object === selectedObject.value) {
     if (outlineGlowEnabled.value) {
-      outlineGlowManager.addSelectedObject(selectedObject.value)
-      outlineGlowManager.setVisibleEdgeColor(outlineGlowVisibleColor.value)
-      outlineGlowManager.setHiddenEdgeColor(outlineGlowHiddenColor.value)
-      outlineGlowManager.setEdgeStrength(outlineGlowEdgeStrength.value)
-      outlineGlowManager.setEdgeGlow(outlineGlowEdgeGlow.value)
-      outlineGlowManager.setEdgeThickness(outlineGlowEdgeThickness.value)
-      outlineGlowManager.setPulsePeriod(outlineGlowPulsePeriod.value)
-      outlineGlowManager.setFrequency(outlineGlowFrequency.value)
+      outlineGlowManager.startOutlineGlow(selectedObject.value, {
+        enabled: true,
+        visibleEdgeColor: outlineGlowVisibleColor.value,
+        hiddenEdgeColor: outlineGlowHiddenColor.value,
+        edgeStrength: outlineGlowEdgeStrength.value,
+        edgeGlow: outlineGlowEdgeGlow.value,
+        edgeThickness: outlineGlowEdgeThickness.value,
+        pulsePeriod: outlineGlowPulsePeriod.value,
+        frequency: outlineGlowFrequency.value,
+        gradient: outlineGlowGradient.value
+      })
     } else {
-      outlineGlowManager.removeSelectedObject(selectedObject.value)
+      outlineGlowManager.setOutlineGlowEnabled(selectedObject.value, false)
     }
-    outlineGlowManager.setEnabled(outlineGlowEnabled.value)
   }
 }
 
 // 更新边缘发光可见边缘颜色
 const updateOutlineGlowVisibleColor = () => {
-  outlineGlowManager.setVisibleEdgeColor(outlineGlowVisibleColor.value)
+  if (selectedObject.value && transformControlsRef.value?.object === selectedObject.value) {
+    outlineGlowManager.updateOutlineGlowConfig(selectedObject.value, {
+      visibleEdgeColor: outlineGlowVisibleColor.value
+    })
+  }
 }
 
 // 更新边缘发光隐藏边缘颜色
 const updateOutlineGlowHiddenColor = () => {
-  outlineGlowManager.setHiddenEdgeColor(outlineGlowHiddenColor.value)
+  if (selectedObject.value && transformControlsRef.value?.object === selectedObject.value) {
+    outlineGlowManager.updateOutlineGlowConfig(selectedObject.value, {
+      hiddenEdgeColor: outlineGlowHiddenColor.value
+    })
+  }
 }
 
 // 更新边缘发光边缘强度
 const updateOutlineGlowEdgeStrength = () => {
-  outlineGlowManager.setEdgeStrength(outlineGlowEdgeStrength.value)
+  if (selectedObject.value && transformControlsRef.value?.object === selectedObject.value) {
+    outlineGlowManager.updateOutlineGlowConfig(selectedObject.value, {
+      edgeStrength: outlineGlowEdgeStrength.value
+    })
+  }
 }
 
 // 更新边缘发光边缘发光
 const updateOutlineGlowEdgeGlow = () => {
-  outlineGlowManager.setEdgeGlow(outlineGlowEdgeGlow.value)
+  if (selectedObject.value && transformControlsRef.value?.object === selectedObject.value) {
+    outlineGlowManager.updateOutlineGlowConfig(selectedObject.value, {
+      edgeGlow: outlineGlowEdgeGlow.value
+    })
+  }
 }
 
 // 更新边缘发光边缘厚度
 const updateOutlineGlowEdgeThickness = () => {
-  outlineGlowManager.setEdgeThickness(outlineGlowEdgeThickness.value)
+  if (selectedObject.value && transformControlsRef.value?.object === selectedObject.value) {
+    outlineGlowManager.updateOutlineGlowConfig(selectedObject.value, {
+      edgeThickness: outlineGlowEdgeThickness.value
+    })
+  }
 }
 
 // 更新边缘发光脉冲周期
 const updateOutlineGlowPulsePeriod = () => {
-  outlineGlowManager.setPulsePeriod(outlineGlowPulsePeriod.value)
+  if (selectedObject.value && transformControlsRef.value?.object === selectedObject.value) {
+    outlineGlowManager.updateOutlineGlowConfig(selectedObject.value, {
+      pulsePeriod: outlineGlowPulsePeriod.value
+    })
+  }
 }
 
 // 更新边缘发光闪烁频率
 const updateOutlineGlowFrequency = () => {
-  outlineGlowManager.setFrequency(outlineGlowFrequency.value)
+  if (selectedObject.value && transformControlsRef.value?.object === selectedObject.value) {
+    outlineGlowManager.updateOutlineGlowConfig(selectedObject.value, {
+      frequency: outlineGlowFrequency.value
+    })
+  }
 }
 
 // 更新边缘发光渐变纹理
 const updateOutlineGlowGradient = () => {
-  outlineGlowManager.setGradient(outlineGlowGradient.value)
+  if (selectedObject.value && transformControlsRef.value?.object === selectedObject.value) {
+    outlineGlowManager.updateOutlineGlowConfig(selectedObject.value, {
+      gradient: outlineGlowGradient.value
+    })
+  }
 }
 
 // 格式化向量显示
