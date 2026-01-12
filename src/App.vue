@@ -1426,6 +1426,9 @@ const addBasicShape = (shapeType: string) => {
     intensity: DEFAULT_CONFIG.intensity
   })
 
+  // 落地操作
+  groundObject(mesh)
+
   // 添加到路径面板
   pathPanelManager.addObject(mesh)
 }
@@ -1552,6 +1555,9 @@ const saveGLBToPublic = (file: File): Promise<string> => {
 
                 // 将mesh对象添加到objects数组中
                 objects.push(mesh)
+                
+                // 落地操作
+                groundObject(mesh)
               }
             })
             console.log(`客户端成功加载GLB模型: ${file.name}，包含 ${meshObjects.length} 个网格对象`)
@@ -1904,6 +1910,9 @@ const handleImportScene = (event: Event) => {
           // 将mesh对象添加到objects数组中
           objects.push(mesh)
           
+          // 落地操作
+          groundObject(mesh)
+          
           // 将mesh对象添加到路径管理面板
           pathPanelManager.addObject(mesh)
         } else if (objData.type === 'gltf') {
@@ -1932,6 +1941,9 @@ const handleImportScene = (event: Event) => {
                   
                   // 将加载的GLB模型添加到objects数组中
                   objects.push(mesh)
+                  
+                  // 落地操作
+                  groundObject(mesh)
                   
                   // 将mesh对象添加到路径管理面板
                   pathPanelManager.addObject(mesh)
@@ -1997,6 +2009,9 @@ const handleImportScene = (event: Event) => {
             
             // 将占位符mesh对象添加到objects数组中
             objects.push(placeholderMesh)
+            
+            // 落地操作
+            groundObject(placeholderMesh)
             
             // 将占位符mesh对象添加到路径管理面板
             pathPanelManager.addObject(placeholderMesh)
@@ -2178,6 +2193,9 @@ const loadGLBFromPublic = (modelPath: string, fileName: string): Promise<THREE.O
               frequency: DEFAULT_CONFIG.frequency,
               intensity: DEFAULT_CONFIG.intensity
             })
+            
+            // 落地操作
+            groundObject(mesh)
           }
         })
         console.log(`成功加载GLB模型: ${fileName}，包含 ${meshObjects.length} 个网格对象`)
@@ -2260,6 +2278,9 @@ const loadGLBToScene = (file: File) => {
           
           // 将mesh对象添加到objects数组中
           objects.push(mesh)
+          
+          // 落地操作
+          groundObject(mesh)
         }
       })
 

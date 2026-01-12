@@ -698,6 +698,47 @@ class PathPanelManager {
       console.log('[PathPanel] 第一个3D点:', pathPoints3D[0])
       console.log('[PathPanel] 最后一个3D点:', pathPoints3D[pathPoints3D.length - 1])
       
+      console.log('[PathPanel] 原始对象底部中心点:', points)
+      console.log('[PathPanel] 开始将对象底部中心点插入到路径中...')
+
+      const insertedIndices = new Set<number>()
+      
+      for (let i = 0; i < points.length; i++) {
+        const bottomCenter = points[i]
+        const isFirstObject = (i === 0)
+        const isLastObject = (i === points.length - 1)
+        
+        if (isFirstObject) {
+          pathPoints3D[0] = bottomCenter.clone()
+          console.log('[PathPanel] 替换起点为第一个对象的底部中心点:', bottomCenter)
+        } else if (isLastObject) {
+          pathPoints3D[pathPoints3D.length - 1] = bottomCenter.clone()
+          console.log('[PathPanel] 替换终点为最后一个对象的底部中心点:', bottomCenter)
+        } else {
+          let minDistance = Infinity
+          let closestIndex = -1
+          
+          for (let j = 0; j < pathPoints3D.length; j++) {
+            const distance = bottomCenter.distanceTo(pathPoints3D[j])
+            if (distance < minDistance) {
+              minDistance = distance
+              closestIndex = j
+            }
+          }
+          
+          if (closestIndex !== -1 && !insertedIndices.has(closestIndex)) {
+            const insertIndex = closestIndex + 1
+            pathPoints3D.splice(insertIndex, 0, bottomCenter.clone())
+            insertedIndices.add(closestIndex)
+            console.log('[PathPanel] 插入底部中心点到索引', insertIndex, '，距离最近路径点索引', closestIndex, '的距离:', minDistance)
+          }
+        }
+      }
+      
+      console.log('[PathPanel] 插入后的3D路径点数量:', pathPoints3D.length)
+      console.log('[PathPanel] 最终起点:', pathPoints3D[0])
+      console.log('[PathPanel] 最终终点:', pathPoints3D[pathPoints3D.length - 1])
+      
       if (pathPoints3D.length < 2) {
         console.error('[PathPanel] 错误：转换后的3D路径点数量不足，无法创建路径')
         alert('路径点数量不足，无法创建路径')
