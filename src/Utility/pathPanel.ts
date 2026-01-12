@@ -706,7 +706,7 @@ class PathPanelManager {
 
       const config: PathConfig = {
         points: pathPoints3D,
-        width: 1,
+        width: 0.5,
         cornerRadius: 1,
         cornerSplit: 10,
         color: 0x58dede,
@@ -715,7 +715,7 @@ class PathPanelManager {
         blending: THREE.NormalBlending,
         side: THREE.FrontSide,
         arrow: false,
-        texture: '/images/path_007_18.png',
+        texture: 'light',
         useTexture: true,
         scrollUV: true,
         scrollSpeed: 0.8,

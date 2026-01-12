@@ -195,6 +195,10 @@ class PathManager {
     }
 
     if (typeof texture === 'string') {
+      const preset = texture as TexturePreset
+      if (this.texturePresets.has(preset)) {
+        return this.loadTextureFromPreset(preset) || undefined
+      }
       return this.loadTexture(texture) || undefined
     }
 
@@ -239,7 +243,7 @@ class PathManager {
     console.log('[PathManager] PathPointList 创建完成')
 
     const updateParam = {
-      width: config.width || 1,
+      width: config.width || 0.5,
       arrow: config.arrow !== undefined ? config.arrow : false,
       progress: config.progress !== undefined ? config.progress : 1,
       side: config.side || 'both',
@@ -952,7 +956,7 @@ class PathManager {
       )
 
       const updateParam = {
-        width: config.width || 1,
+        width: config.width || 0.5,
         arrow: config.arrow !== undefined ? config.arrow : false,
         progress: config.progress !== undefined ? config.progress : 1,
         side: config.side || 'both',
