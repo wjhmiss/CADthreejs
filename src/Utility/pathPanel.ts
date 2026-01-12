@@ -759,7 +759,7 @@ class PathPanelManager {
 
       const config: PathConfig = {
         points: pathPoints3D,
-        width: 0.5,
+        width: 0.1,
         cornerRadius: 1,
         cornerSplit: 10,
         color: 0x58dede,

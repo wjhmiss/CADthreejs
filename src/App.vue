@@ -1461,20 +1461,27 @@ const addBasicShape = (shapeType: string) => {
   mesh.receiveShadow = true
   // 标记为可变换的对象
   mesh.userData.isTransformable = true
+  // 存储基础形状类型，用于缓存设置
+  mesh.userData.shapeType = shapeType
   
-  // 应用保存的基础形状设置
+  // 应用保存的基础形状设置（使用shapeType作为key，而不是mesh.name）
   const shapeSettings = JSON.parse(localStorage.getItem('shapeSettings') || '{}')
-  if (shapeSettings[mesh.name]) {
+  if (shapeSettings[shapeType]) {
     mesh.scale.set(
-      shapeSettings[mesh.name].scale.x,
-      shapeSettings[mesh.name].scale.y,
-      shapeSettings[mesh.name].scale.z
+      shapeSettings[shapeType].scale.x,
+      shapeSettings[shapeType].scale.y,
+      shapeSettings[shapeType].scale.z
     )
     mesh.rotation.set(
-      shapeSettings[mesh.name].rotation.x,
-      shapeSettings[mesh.name].rotation.y,
-      shapeSettings[mesh.name].rotation.z
+      shapeSettings[shapeType].rotation.x,
+      shapeSettings[shapeType].rotation.y,
+      shapeSettings[shapeType].rotation.z
     )
+    // 应用标签设置
+    if (shapeSettings[shapeType].label) {
+      mesh.userData.labelSize = shapeSettings[shapeType].label.size
+      mesh.userData.labelColor = shapeSettings[shapeType].label.color
+    }
   }
   
   scene.add(mesh)
@@ -1717,6 +1724,35 @@ const exportScene = () => {
           currentPosition: child.position.toArray()
         }
         console.log('Exported movement state for object:', child.name, objectData.movement)
+      }
+
+      // 保存呼吸灯配置
+      const breathingLightConfig = breathingLightManager.getBreathingLightConfig(child)
+      if (breathingLightConfig) {
+        objectData.breathingLight = {
+          enabled: breathingLightConfig.enabled,
+          color: breathingLightConfig.color,
+          frequency: breathingLightConfig.frequency,
+          intensity: breathingLightConfig.intensity
+        }
+        console.log('Exported breathing light config for object:', child.name, objectData.breathingLight)
+      }
+
+      // 保存边缘发光配置
+      const outlineGlowConfig = outlineGlowManager.getOutlineGlowConfig(child)
+      if (outlineGlowConfig) {
+        objectData.outlineGlow = {
+          enabled: outlineGlowConfig.enabled,
+          visibleEdgeColor: outlineGlowConfig.visibleEdgeColor,
+          hiddenEdgeColor: outlineGlowConfig.hiddenEdgeColor,
+          edgeStrength: outlineGlowConfig.edgeStrength,
+          edgeGlow: outlineGlowConfig.edgeGlow,
+          edgeThickness: outlineGlowConfig.edgeThickness,
+          pulsePeriod: outlineGlowConfig.pulsePeriod,
+          frequency: outlineGlowConfig.frequency,
+          gradient: outlineGlowConfig.gradient
+        }
+        console.log('Exported outline glow config for object:', child.name, objectData.outlineGlow)
       }
 
       sceneData.objects.push(objectData)
@@ -1984,6 +2020,18 @@ const handleImportScene = (event: Event) => {
           
           // 将mesh对象添加到路径管理面板
           pathPanelManager.addObject(mesh)
+
+          // 恢复呼吸灯配置
+          if (objData.breathingLight) {
+            breathingLightManager.startBreathingLight(mesh, objData.breathingLight)
+            console.log('Restored breathing light config for object:', mesh.name, objData.breathingLight)
+          }
+
+          // 恢复边缘发光配置
+          if (objData.outlineGlow) {
+            outlineGlowManager.startOutlineGlow(mesh, objData.outlineGlow)
+            console.log('Restored outline glow config for object:', mesh.name, objData.outlineGlow)
+          }
         } else if (objData.type === 'gltf') {
           // 对于GLB模型，首先尝试从public文件夹自动加载
           if (objData.modelPath && objData.originalFileName) {
@@ -2020,6 +2068,19 @@ const handleImportScene = (event: Event) => {
 
                 successfullyLoadedGLBCount++
                 console.log(`成功从public文件夹加载GLB模型: ${objData.originalFileName}，包含 ${meshes.length} 个网格对象`)
+
+                // 恢复呼吸灯和边缘发光配置（只对第一个mesh应用）
+                if (meshes.length > 0) {
+                  const firstMesh = meshes[0]
+                  if (objData.breathingLight) {
+                    breathingLightManager.startBreathingLight(firstMesh, objData.breathingLight)
+                    console.log('Restored breathing light config for GLB model:', objData.name, objData.breathingLight)
+                  }
+                  if (objData.outlineGlow) {
+                    outlineGlowManager.startOutlineGlow(firstMesh, objData.outlineGlow)
+                    console.log('Restored outline glow config for GLB model:', objData.name, objData.outlineGlow)
+                  }
+                }
 
                 // 不在这里恢复移动状态，等所有路径恢复后再统一恢复
                 // 恢复第一个mesh的路径移动状态
@@ -2084,6 +2145,16 @@ const handleImportScene = (event: Event) => {
             
             // 将占位符mesh对象添加到路径管理面板
             pathPanelManager.addObject(placeholderMesh)
+
+            // 恢复呼吸灯和边缘发光配置
+            if (objData.breathingLight) {
+              breathingLightManager.startBreathingLight(placeholderMesh, objData.breathingLight)
+              console.log('Restored breathing light config for placeholder:', placeholderMesh.name, objData.breathingLight)
+            }
+            if (objData.outlineGlow) {
+              outlineGlowManager.startOutlineGlow(placeholderMesh, objData.outlineGlow)
+              console.log('Restored outline glow config for placeholder:', placeholderMesh.name, objData.outlineGlow)
+            }
 
             // 不在这里恢复移动状态，等所有路径恢复后再统一恢复
             // 恢复占位符的路径移动状态
@@ -2241,6 +2312,11 @@ const loadGLBFromPublic = (modelPath: string, fileName: string): Promise<THREE.O
                 glbSettings[fileName].rotation.y,
                 glbSettings[fileName].rotation.z
               )
+              // 应用标签设置
+              if (glbSettings[fileName].label) {
+                mesh.userData.labelSize = glbSettings[fileName].label.size
+                mesh.userData.labelColor = glbSettings[fileName].label.color
+              }
             }
 
             // 直接将mesh对象添加到场景中
@@ -2337,6 +2413,11 @@ const loadGLBToScene = (file: File) => {
               glbSettings[file.name].rotation.y,
               glbSettings[file.name].rotation.z
             )
+            // 应用标签设置
+            if (glbSettings[file.name].label) {
+              mesh.userData.labelSize = glbSettings[file.name].label.size
+              mesh.userData.labelColor = glbSettings[file.name].label.color
+            }
           }
 
           // 直接将mesh对象添加到场景中
@@ -2594,13 +2675,17 @@ const exitEditMode = () => {
           x: currentObject.rotation.x,
           y: currentObject.rotation.y,
           z: currentObject.rotation.z
+        },
+        label: {
+          size: currentObject.userData.labelSize || 16,
+          color: currentObject.userData.labelColor || '#ffffff'
         }
       }
       localStorage.setItem('glbSettings', JSON.stringify(glbSettings))
     } else {
-      // 保存基础形状的设置
+      // 保存基础形状的设置（使用shapeType作为key）
       const shapeSettings = JSON.parse(localStorage.getItem('shapeSettings') || '{}')
-      const shapeType = currentObject.name || 'unknown'
+      const shapeType = currentObject.userData.shapeType || 'unknown'
       shapeSettings[shapeType] = {
         scale: {
           x: currentObject.scale.x,
@@ -2611,6 +2696,10 @@ const exitEditMode = () => {
           x: currentObject.rotation.x,
           y: currentObject.rotation.y,
           z: currentObject.rotation.z
+        },
+        label: {
+          size: currentObject.userData.labelSize || 16,
+          color: currentObject.userData.labelColor || '#ffffff'
         }
       }
       localStorage.setItem('shapeSettings', JSON.stringify(shapeSettings))
