@@ -9,6 +9,7 @@ export interface MapOrganizerConfig {
 export class MapOrganizer {
   private gridFloor: GridFloor
   private config: MapOrganizerConfig
+  private intersectedCells: Set<string>
 
   constructor(gridFloor: GridFloor, config: Partial<MapOrganizerConfig> = {}) {
     this.gridFloor = gridFloor
@@ -17,6 +18,7 @@ export class MapOrganizer {
       markIntersectedCells: false,
       ...config
     }
+    this.intersectedCells = new Set<string>()
   }
 
   organize(objects: THREE.Object3D[]): { intersectedCount: number } {
@@ -70,6 +72,9 @@ export class MapOrganizer {
 
           if (xOverlap && zOverlap) {
             if (this.checkEdgeIntersection(obj, cellMinX, cellMaxX, cellMinZ, cellMaxZ)) {
+              const cellKey = `${row},${col}`
+              this.intersectedCells.add(cellKey)
+              
               if (this.config.markIntersectedCells) {
                 this.gridFloor.setCellEdgeColor(row, col, this.config.intersectedEdgeColor)
                 this.gridFloor.setCellVisible(row, col, true)
@@ -81,7 +86,7 @@ export class MapOrganizer {
       }
     })
 
-    console.log(`地图整理完成，共检测到 ${intersectedCount} 个相交边框`)
+    console.log(`地图整理完成，共检测到 ${this.intersectedCells.size} 个相交边框`)
     return { intersectedCount }
   }
 
@@ -126,6 +131,11 @@ export class MapOrganizer {
     
     this.gridFloor.setAllCellsEdgeColor(config.defaultEdgeColor)
     this.gridFloor.setAllCellsVisible(false)
+    this.intersectedCells.clear()
+  }
+
+  getIntersectedCells(): string[] {
+    return Array.from(this.intersectedCells)
   }
 
   setIntersectedColor(edgeColor: string): void {
